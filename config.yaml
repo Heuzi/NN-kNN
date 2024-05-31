@@ -1,0 +1,100 @@
+# config.yaml
+dataset:
+  zebra:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 2
+  
+  zebra_special:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 2
+
+  bal:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 2
+
+  digits:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 10
+
+  iris:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 2
+
+  wine:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 2
+
+  breast_cancer:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 10
+
+  mnist:
+    ca_weight_sharing: False
+    top_case_enabled: False
+    training_epochs: 30
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 10
+    discount: 100
+
+  cifar10:
+    ca_weight_sharing: False
+    top_case_enabled: False
+    training_epochs: 30
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 10
+    discount: 100
