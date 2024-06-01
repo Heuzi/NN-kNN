@@ -90,7 +90,7 @@ def Body_Fat():
     ys = torch.tensor( y_clean.to_numpy(), dtype=torch.float32)
     return Xs, ys
 
-def Ofaces():
+def Ziweifaces():
     Xs = np.load("part_features.npy")
     ys = np.load("part_targets.npy")
     #These two files are in the nn-Knn folder.
@@ -108,12 +108,13 @@ def standardize_tensor(input_tensor):
     standardized_tensor = (input_tensor - mean) / std
     return standardized_tensor
 
+
 DATATYPES = {
     'califonia_housing':California_Housing,
     'abalone': Abalone,
     'diabets': Diabetes,
     'body_fat': Body_Fat,
-    'ofaces': Ofaces,
+    'ziweifaces': Ziweifaces,
 }
 def Reg_data(dataset):
     

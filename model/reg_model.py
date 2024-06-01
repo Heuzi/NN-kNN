@@ -123,19 +123,22 @@ import torch.nn.functional as F
 ##IMPORTANT, cannot use top case selection layer here like we do in for classification.
 ## it has to be either enabled or disabled the whole time.
 class NN_k_NN_regression(torch.nn.Module):
-  def __init__(self, cases, case_labels,
-               fa_weight_sharing_within_segment,
-               fa_weight_sharing_between_segment,
+  def __init__(self, 
+               cases, 
+               case_labels,
                ca_weight_sharing,
-               top_case_enabled, top_k,
-               class_weight_sharing, hidden_layers= None):
+               top_case_enabled, 
+               top_k,
+               discount,
+               class_weight_sharing, 
+               device=None):
     super().__init__()
     self.cases = cases
     num_cases = cases.shape[0]
     num_features = cases.shape[1]
     
-    self.fa_layer = FeatureActivationLayer(num_features, num_cases, self.cases, hidden_layers = hidden_layers)
-    self.ca_layer = CaseActivationLayer(num_features, num_cases,
+    self.fa_layer = FeatureActivationLayer(num_features, self.cases, hidden_layers=None)
+    self.ca_layer = CaseActivationLayer(num_features, num_cases, discount,
                                         weight_sharing= ca_weight_sharing)
     self.top_case_enabled = top_case_enabled
     self.selection_layer = TopCaseLayer(top_k)
@@ -145,6 +148,8 @@ class NN_k_NN_regression(torch.nn.Module):
     self.softmax = CustomSoftmaxLayer()
 
     self.class_layer = RegressionActivation_3_Layer(num_cases, case_labels,weight_sharing=class_weight_sharing)
+
+    self.to(device)
 
   def forward(self, query):
     feature_activations = self.fa_layer(query, self.cases)
