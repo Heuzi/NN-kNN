@@ -77,6 +77,66 @@ dataset:
     patience: 40
     discount: 10
 
+  califonia_housing:
+    ca_weight_sharing: True
+    top_case_enabled: False
+    training_epochs: 1500
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    nn_cdh_enabled: False
+    patience: 40
+    discount: 2
+
+  abalone:
+    ca_weight_sharing: True
+    top_case_enabled: False
+    training_epochs: 1500
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    nn_cdh_enabled: False
+    patience: 40
+    discount: 2
+  
+  diabets:
+    ca_weight_sharing: True
+    top_case_enabled: False
+    training_epochs: 1500
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    nn_cdh_enabled: False
+    patience: 40
+    discount: 2
+
+  body_fat:
+    ca_weight_sharing: True
+    top_case_enabled: False
+    training_epochs: 1500
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    nn_cdh_enabled: False
+    patience: 40
+    discount: 2
+
+  ziweifaces:
+    ca_weight_sharing: True
+    top_case_enabled: False
+    training_epochs: 1500
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    nn_cdh_enabled: False
+    patience: 40
+    discount: 2
+
   mnist:
     ca_weight_sharing: False
     top_case_enabled: False
