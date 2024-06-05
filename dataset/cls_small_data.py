@@ -2,6 +2,31 @@ import torch
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 
+from google.colab import drive
+import pandas as pd
+
+def psych_depression_physical_symptons():
+    #From Zach Wilkerson, ICCBR challenge.
+    #"dataset/Dataset_MO_ENG.csv"
+    df = pd.read_csv("/content/drive/Othercomputers/My MacBook Pro/GitHub/NN-kNN/dataset/Dataset_MO_ENG.csv")
+    ## eliminating physical-related questions
+    df = df.drop(df.columns[102:-1], axis=1)
+    ## Creating classes 0-> Low risk, 1->Medium Risk, 2->High risk
+    dic = { 1: 0 , 2: 0, 3:1, 4:2, 5:2}
+    df['Target'] = df['Target'].map(dic)
+    train_cols = df.columns[0:-1]
+    label = df.columns[-1]
+    X = df[train_cols]
+    y = df[label]
+    target_names=["Low","Medium","High"]
+    random_state = 13
+    from imblearn.over_sampling import SMOTE
+    oversample = SMOTE(random_state=random_state, k_neighbors=3)
+    X, y = oversample.fit_resample(X, y)
+    Xs = torch.tensor(X.values).float()
+    ys = torch.tensor(y.values).long()
+    return Xs, ys
+
 def Zebra():
     # Set seed for reproducibility
     np.random.seed(42)
@@ -126,6 +151,7 @@ def Breast_Cancer(is_norm=True):
     return Xs, ys
 
 DATATYPES = {
+    'psych_depression_physical_symptons':psych_depression_physical_symptons,
     'zebra':Zebra,
     'zebra_special': Zebra_Special,
     'bal': BAL,

@@ -1,5 +1,16 @@
 # config.yaml
 dataset:
+  psych_depression_physical_symptons:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 4
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 2
+
   zebra:
     ca_weight_sharing: True
     top_case_enabled: True
