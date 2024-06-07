@@ -5,6 +5,9 @@ from sklearn.preprocessing import MinMaxScaler
 from google.colab import drive
 import pandas as pd
 
+def psych_1():
+    return 
+
 def psych_depression_physical_symptons():
     #From Zach Wilkerson, ICCBR challenge.
     #"dataset/Dataset_MO_ENG.csv"
