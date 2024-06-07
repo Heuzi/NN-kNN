@@ -89,7 +89,7 @@ def covid_anxious():
 DATATYPES = {
     'mnist': MNIST,
     'cifar10': CIFAR10,
-    'covid_anxious',covid_anxious,
+    'covid_anxious':covid_anxious
 }
 def Cls_medium_data(dataset):
     X_train, y_train, X_test, y_test = DATATYPES[dataset]()
