@@ -175,7 +175,7 @@ dataset:
     top_case_enabled: True
     training_epochs: 1000
     learning_rate: 0.01
-    batch_size: 4
+    batch_size: 100
     top_k: 5
     class_weight_sharing: True
     patience: 40

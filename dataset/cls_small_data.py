@@ -5,9 +5,6 @@ from sklearn.preprocessing import MinMaxScaler
 from google.colab import drive
 import pandas as pd
 
-def psych_1():
-    return 
-
 def psych_depression_physical_symptons():
     #From Zach Wilkerson, ICCBR challenge.
     #"dataset/Dataset_MO_ENG.csv"
@@ -157,6 +154,19 @@ import re
 
 # Function to convert categorical values to numeric and handle irregular values
 def convert_to_numeric(value):
+    # Check if the value is already a number
+    if isinstance(value, (int, float)):
+        return value
+
+    # Check if the value is a string representation of a number
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            try:
+                return float(value)
+            except ValueError:
+                pass
     # Income range mappings
     # income_mapping = {
     #     "Less than $5,000": 1,
@@ -243,23 +253,28 @@ def covid_anxious():
 
     # Drop rows with any missing values
     # combined_df = combined_df.dropna()
+    combined_df = combined_df.apply(pd.to_numeric, errors='coerce')
     # Fill missing values with 0 (or another number if more appropriate)
     combined_df.fillna(0, inplace=True)
     
     y = combined_df['SOC5A']
     X = combined_df.drop(columns=['SOC5A'])
-
+    
+    # Filter out rows where the y value is not between 1 and 4
+    valid_indices = y.isin([1, 2, 3, 4])
+    X = X[valid_indices]
+    y = y[valid_indices]
     
     # random_state = 13
     # balancing, currently not enabled
     # from imblearn.over_sampling import SMOTE
     # oversample = SMOTE(random_state=random_state, k_neighbors=3)
     # X, y = oversample.fit_resample(X, y)
-    print(X.values[0])
+    # print(X.values[0])
     Xs = torch.tensor(X.values).float()
     ys = torch.tensor(y.values).long()
 
-    print(Xs[0])
+    # print(Xs[0])
     return Xs, ys
     
 DATATYPES = {
