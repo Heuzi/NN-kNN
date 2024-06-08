@@ -153,8 +153,47 @@ def Breast_Cancer(is_norm=True):
     ys = torch.tensor(ys)
     return Xs, ys
 
+import re
+
 # Function to convert categorical values to numeric and handle irregular values
 def convert_to_numeric(value):
+    # Income range mappings
+    # income_mapping = {
+    #     "Less than $5,000": 1,
+    #     "$5,000 to $9,999": 2,
+    #     "$10,000 to $14,999": 3,
+    #     "$15,000 to $19,999": 4,
+    #     "$20,000 to $24,999": 5,
+    #     "$25,000 to $29,999": 6,
+    #     "$30,000 to $34,999": 7,
+    #     "$35,000 to $39,999": 8,
+    #     "$40,000 to $49,999": 9,
+    #     "$50,000 to $59,999": 10,
+    #     "$60,000 to $74,999": 11,
+    #     "$75,000 to $84,999": 12,
+    #     "$85,000 to $99,999": 13,
+    #     "$100,000 to $124,999": 14,
+    #     "$125,000 to $149,999": 15,
+    #     "$150,000 to $174,999": 16,
+    #     "$175,000 to $199,999": 17,
+    #     "$200,000 or more": 18
+    # }
+    income_mapping = {
+        "Under $10,000": 1,
+        "$10,000 to under $20,000": 2,
+        "$20,000 to under $30,000": 3,
+        "$30,000 to under $40,000": 4,
+        "$40,000 to under $50,000": 5,
+        "$50,000 to under $75,000": 6,
+        "$75,000 to under $100,000": 7,
+        "$100,000 to under $150,000": 8,
+        "$150,000 or more": 9
+    }
+    
+    # Convert income ranges
+    if value in income_mapping:
+        return income_mapping[value]
+
     match = re.match(r'\((\d+)\)', str(value))
     if match:
         return int(match.group(1))
@@ -170,42 +209,43 @@ def covid_anxious():
     "/content/drive/Othercomputers/My MacBook Pro/GitHub/NN-kNN/dataset/COVID_W3.csv"]
     
     # Read each CSV file into a DataFrame
-    dfs = [pd.read_csv(file_path) for file_path in three_files]
+    dfs = [pd.read_csv(file_path,dtype=str) for file_path in three_files]
     # Concatenate the DataFrames into one
     combined_df = pd.concat(dfs, ignore_index=True)
 
     # Display columns to identify irrelevant features
-    print("Columns in the dataset:", df.columns)
+    print("Columns in the dataset:", combined_df.columns)
     #https://static1.squarespace.com/static/5e8769b34812765cff8111f7/t/5e99d902ca4a0277b8b5fb51/1587140880354/COVID-19+Tracking+Survey+Questionnaire+041720.pdf
     
-
+    # This is not good, some answers do not show if a pre-req question is answered differently
     # Identify columns with more than 100 missing values
-    missing_values = combined_df.isnull().sum()
-    columns_to_remove = missing_values[missing_values > 100].index.tolist()
-
-    # Drop the identified columns
-    combined_df.drop(columns=columns_to_remove, inplace=True)
-
+    # missing_values = combined_df.isnull().sum()
+    # columns_to_remove = missing_values[missing_values > 100].index.tolist()
 
     # Define irrelevant features based on questionnaire sections
     irrelevant_features = [
-        'CONSENT','SU_ID','P_PANEL','NATIONAL_WEIGHT','REGION_WEIGHT',
-        'NATIONAL_WEIGHT_POP','REGION_WEIGHT_POP','NAT_WGT_COMB_POP','REG_WGT_COMB_POP',
+        'SU_ID','P_PANEL',
+        'NATIONAL_WEIGHT','REGION_WEIGHT','NATIONAL_WEIGHT_POP',
+        'REGION_WEIGHT_POP','NAT_WGT_COMB_POP','REG_WGT_COMB_POP',
         #droping columns with lots of missing (already done above)
-        # 'P_OCCUPY2',
+        'MAIL50','RACE2_BANNER',
         #dropping predictive labels
-        'SOC5A','SOC5B','SOC5C','SOC5D','SOC5E'
+        # 'SOC5A',
+        'SOC5B','SOC5C','SOC5D','SOC5E'
     ]
+    # Drop irrelevant columns   
+    combined_df.drop(columns=irrelevant_features, inplace=True, errors='coerce')
+
     # Identify and convert columns with categorical answers
     for column in combined_df.columns:
         if combined_df[column].dtype == 'object':
             combined_df[column] = combined_df[column].apply(convert_to_numeric)
 
-    # Drop irrelevant columns   
-    combined_df.drop(columns=irrelevant_features, inplace=True, errors='ignore')
     # Drop rows with any missing values
-    combined_df = combined_df.dropna()
-
+    # combined_df = combined_df.dropna()
+    # Fill missing values with 0 (or another number if more appropriate)
+    combined_df.fillna(0, inplace=True)
+    
     y = combined_df['SOC5A']
     X = combined_df.drop(columns=['SOC5A'])
 
@@ -215,8 +255,11 @@ def covid_anxious():
     # from imblearn.over_sampling import SMOTE
     # oversample = SMOTE(random_state=random_state, k_neighbors=3)
     # X, y = oversample.fit_resample(X, y)
+    print(X.values[0])
     Xs = torch.tensor(X.values).float()
     ys = torch.tensor(y.values).long()
+
+    print(Xs[0])
     return Xs, ys
     
 DATATYPES = {
