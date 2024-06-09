@@ -264,7 +264,8 @@ def covid_anxious():
     valid_indices = y.isin([1, 2, 3, 4])
     X = X[valid_indices]
     y = y[valid_indices]
-    
+    #Having labels in the range [1 2 3 4] would cause an "IndexError" because the function anticipates indices in the range [0 1 2 3].
+    y = y - 1
     # random_state = 13
     # balancing, currently not enabled
     # from imblearn.over_sampling import SMOTE
