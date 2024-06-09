@@ -275,6 +275,17 @@ def covid_anxious():
     Xs = torch.tensor(X.values).float()
     ys = torch.tensor(y.values).long()
 
+    # prompt: make Xs and ys shuffle and then 1/10 small
+
+    np.random.seed(0)
+    idx = np.random.permutation(len(Xs))
+    Xs = Xs[idx]
+    ys = ys[idx]
+    num_train = int(len(Xs) * 0.1)
+    Xs = Xs[:num_train]
+    ys = ys[:num_train]
+
+
     # print(Xs[0])
     return Xs, ys
     
