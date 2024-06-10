@@ -224,3 +224,58 @@ dataset:
     class_weight_sharing: True
     patience: 40
     discount: 2
+
+  covid_anxious_reg:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 2
+
+  covid_depressed_reg:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 2
+
+  covid_lonely_reg:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 2
+
+  covid_hopeless_reg:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 2
+
+  covid_physical_reg:
+    ca_weight_sharing: True
+    top_case_enabled: True
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 40
+    discount: 2

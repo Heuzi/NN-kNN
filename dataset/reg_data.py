@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from urllib import request
+import cls_small_data
 
 def California_Housing():
     from sklearn.datasets import fetch_california_housing
@@ -96,9 +97,26 @@ def Ziweifaces():
     #These two files are in the nn-Knn folder.
     Xs = torch.tensor(Xs, dtype=torch.float32)
     ys = torch.tensor(ys, dtype=torch.float32) 
-    
-    #find how many rows are left in the dataframe
-    Xs = torch.tensor(Xs, dtype=torch.float32)
+    return Xs, ys
+
+def covid_anxious_reg():
+    Xs, ys = cls_small_data.covid_anxious()
+    ys = torch.tensor(ys, dtype=torch.float32)
+    return Xs, ys
+def covid_depressed_reg():
+    Xs, ys = cls_small_data.covid_depressed()
+    ys = torch.tensor(ys, dtype=torch.float32)
+    return Xs, ys
+def covid_lonely_reg():
+    Xs, ys = cls_small_data.covid_lonely()
+    ys = torch.tensor(ys, dtype=torch.float32)
+    return Xs, ys
+def covid_hopeless_reg():
+    Xs, ys = cls_small_data.covid_hopeless()
+    ys = torch.tensor(ys, dtype=torch.float32)
+    return Xs, ys
+def covid_physical_reg():
+    Xs, ys = cls_small_data.covid_physical()
     ys = torch.tensor(ys, dtype=torch.float32)
     return Xs, ys
 
@@ -108,13 +126,17 @@ def standardize_tensor(input_tensor):
     standardized_tensor = (input_tensor - mean) / std
     return standardized_tensor
 
-
 DATATYPES = {
     'califonia_housing':California_Housing,
     'abalone': Abalone,
     'diabets': Diabetes,
     'body_fat': Body_Fat,
     'ziweifaces': Ziweifaces,
+    'covid_anxious_reg': covid_anxious_reg,
+    'covid_depressed_reg':covid_depressed_reg,
+    'covid_lonely_reg':covid_lonely_reg,
+    'covid_hopeless_reg':covid_hopeless_reg,
+    'covid_physical_reg':covid_physical_reg
 }
 def Reg_data(dataset):
     
