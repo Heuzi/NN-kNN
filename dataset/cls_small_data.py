@@ -4,6 +4,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from google.colab import drive
 import pandas as pd
+from sklearn.utils import resample
 
 def psych_depression_physical_symptons():
     #From Zach Wilkerson, ICCBR challenge.
@@ -212,8 +213,7 @@ def convert_to_numeric(value):
     return value
 
 # https://www.covid-impact.org/about-the-survey-questionnaire
-# Following three data sets are from the same files, but using different features as predictor.
-def covid_anxious():
+def covid_soc(target):    
     three_files = ["/content/drive/Othercomputers/My MacBook Pro/GitHub/NN-kNN/dataset/COVID_W1.csv",
     "/content/drive/Othercomputers/My MacBook Pro/GitHub/NN-kNN/dataset/COVID_W2.csv",
     "/content/drive/Othercomputers/My MacBook Pro/GitHub/NN-kNN/dataset/COVID_W3.csv"]
@@ -240,9 +240,10 @@ def covid_anxious():
         #droping columns with lots of missing (already done above)
         'MAIL50','RACE2_BANNER',
         #dropping predictive labels
-        # 'SOC5A',
-        'SOC5B','SOC5C','SOC5D','SOC5E'
+        'SOC5A','SOC5B','SOC5C','SOC5D','SOC5E'
     ]
+    irrelevant_features.remove(target)
+
     # Drop irrelevant columns   
     combined_df.drop(columns=irrelevant_features, inplace=True, errors='coerce')
 
@@ -257,8 +258,8 @@ def covid_anxious():
     # Fill missing values with 0 (or another number if more appropriate)
     combined_df.fillna(0, inplace=True)
     
-    y = combined_df['SOC5A']
-    X = combined_df.drop(columns=['SOC5A'])
+    y = combined_df[target]
+    X = combined_df.drop(columns=[target])
     
     # Filter out rows where the y value is not between 1 and 4
     valid_indices = y.isin([1, 2, 3, 4])
@@ -266,28 +267,63 @@ def covid_anxious():
     y = y[valid_indices]
     #Having labels in the range [1 2 3 4] would cause an "IndexError" because the function anticipates indices in the range [0 1 2 3].
     y = y - 1
-    # random_state = 13
-    # balancing, currently not enabled
-    # from imblearn.over_sampling import SMOTE
-    # oversample = SMOTE(random_state=random_state, k_neighbors=3)
-    # X, y = oversample.fit_resample(X, y)
+
     # print(X.values[0])
     Xs = torch.tensor(X.values).float()
     ys = torch.tensor(y.values).long()
 
-    # prompt: make Xs and ys shuffle and then 1/10 small
+    random_state = 13
+    # balancing, currently not enabled
+    # from imblearn.over_sampling import SMOTE
+    # oversample = SMOTE(random_state=random_state, k_neighbors=3)
+    # Xs, ys = oversample.fit_resample(Xs, ys)
 
+    # Downsampling to match the size of the minority class
+    class_counts = np.bincount(ys.numpy())
+    min_class_count = np.min(class_counts)
+    
+    downsampled_indices = []
+    for class_index in np.unique(ys):
+        class_indices = np.where(ys == class_index)[0]
+        downsampled_class_indices = resample(class_indices, 
+                                             replace=False, 
+                                             n_samples=min_class_count, 
+                                             random_state=random_state)
+        downsampled_indices.extend(downsampled_class_indices)
+    
+    downsampled_indices = np.array(downsampled_indices)
+    
+    Xs = Xs[downsampled_indices]
+    ys = ys[downsampled_indices]
+
+    # prompt: make Xs and ys shuffle and then 1/10 small
     np.random.seed(0)
     idx = np.random.permutation(len(Xs))
     Xs = Xs[idx]
     ys = ys[idx]
-    num_train = int(len(Xs) * 0.1)
-    Xs = Xs[:num_train]
-    ys = ys[:num_train]
-
+    # num_train = int(len(Xs) * 0.1)
+    # Xs = Xs[:num_train]
+    # ys = ys[:num_train]
+    # print(Xs)
+    # Xs = torch.tensor(Xs.values).float()
+    # ys = torch.tensor(ys.values).long()
 
     # print(Xs[0])
     return Xs, ys
+def covid_anxious():
+    return covid_soc('SOC5A')
+
+def covid_depressed():
+    return covid_soc('SOC5B')
+
+def covid_lonely():
+    return covid_soc('SOC5C')
+
+def covid_hopeless():
+    return covid_soc('SOC5D')
+
+def covid_physical():
+    return covid_soc('SOC5E')
     
 DATATYPES = {
     'psych_depression_physical_symptons':psych_depression_physical_symptons,
@@ -298,7 +334,11 @@ DATATYPES = {
     'iris': Iris,
     'wine': Wine,
     'breast_cancer': Breast_Cancer,
-    'covid_anxious':covid_anxious
+    'covid_anxious':covid_anxious,
+    'covid_depressed':covid_depressed,
+    'covid_lonely':covid_lonely,
+    'covid_hopeless':covid_hopeless,
+    'covid_physical':covid_physical
 }
 def Cls_small_data(dataset):
     Xs, ys = DATATYPES[dataset]()
