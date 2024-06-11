@@ -212,6 +212,9 @@ def convert_to_numeric(value):
         return np.nan
     return value
 
+def one_hot_encode(df, columns):
+    return pd.get_dummies(df, columns=columns)
+
 # https://www.covid-impact.org/about-the-survey-questionnaire
 def covid_soc(target):    
     three_files = ["/content/drive/Othercomputers/My MacBook Pro/GitHub/NN-kNN/dataset/COVID_W1.csv",
@@ -234,7 +237,7 @@ def covid_soc(target):
 
     # Define irrelevant features based on questionnaire sections
     irrelevant_features = [
-        'SU_ID','P_PANEL',
+        'SU_ID','P_PANEL','P_GEO',
         'NATIONAL_WEIGHT','REGION_WEIGHT','NATIONAL_WEIGHT_POP',
         'REGION_WEIGHT_POP','NAT_WGT_COMB_POP','REG_WGT_COMB_POP',
         #droping columns with lots of missing (already done above)
@@ -268,6 +271,10 @@ def covid_soc(target):
     #Having labels in the range [1 2 3 4] would cause an "IndexError" because the function anticipates indices in the range [0 1 2 3].
     y = y - 1
 
+    # Convert nominal features to one-hot encoding
+    nominal_columns = []  # 'P_GEO', Replace with your nominal feature columns
+    X = one_hot_encode(X, nominal_columns)
+
     # print(X.values[0])
     Xs = torch.tensor(X.values).float()
     ys = torch.tensor(y.values).long()
@@ -296,19 +303,10 @@ def covid_soc(target):
     Xs = Xs[downsampled_indices]
     ys = ys[downsampled_indices]
 
-    # prompt: make Xs and ys shuffle and then 1/10 small
     np.random.seed(0)
     idx = np.random.permutation(len(Xs))
     Xs = Xs[idx]
-    ys = ys[idx]
-    # num_train = int(len(Xs) * 0.1)
-    # Xs = Xs[:num_train]
-    # ys = ys[:num_train]
-    # print(Xs)
-    # Xs = torch.tensor(Xs.values).float()
-    # ys = torch.tensor(ys.values).long()
-
-    # print(Xs[0])
+    ys = ys[idx] 
     return Xs, ys
 def covid_anxious():
     return covid_soc('SOC5A')
