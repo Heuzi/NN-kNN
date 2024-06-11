@@ -6,6 +6,12 @@ from google.colab import drive
 import pandas as pd
 from sklearn.utils import resample
 
+def standardize_tensor(input_tensor):
+    mean = input_tensor.mean()
+    std = input_tensor.std()
+    standardized_tensor = (input_tensor - mean) / std
+    return standardized_tensor
+
 def psych_depression_physical_symptons():
     #From Zach Wilkerson, ICCBR challenge.
     #"dataset/Dataset_MO_ENG.csv"
@@ -307,6 +313,7 @@ def covid_soc(target):
     idx = np.random.permutation(len(Xs))
     Xs = Xs[idx]
     ys = ys[idx] 
+    Xs = standardize_tensor(Xs)
     return Xs, ys
 def covid_anxious():
     return covid_soc('SOC5A')

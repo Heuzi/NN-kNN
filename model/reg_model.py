@@ -77,7 +77,7 @@ class RegressionActivation_2_Layer(torch.nn.Module):
 class RegressionActivation_3_Layer(torch.nn.Module):
   '''
     measures the activation of a class given some case activations
-
+    class_weight_sharing has no effect here
     input:
       m case_activations
     output:

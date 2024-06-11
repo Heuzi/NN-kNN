@@ -179,7 +179,7 @@ dataset:
     top_k: 5
     class_weight_sharing: True
     patience: 40
-    discount: 2
+    discount: 20
 
   covid_depressed:
     ca_weight_sharing: True
