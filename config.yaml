@@ -172,58 +172,58 @@ dataset:
 
   covid_anxious:
     ca_weight_sharing: True
-    top_case_enabled: True
+    top_case_enabled: False
     training_epochs: 1000
     learning_rate: 0.01
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
     patience: 40
-    discount: 20
+    discount: 100
 
   covid_depressed:
     ca_weight_sharing: True
-    top_case_enabled: True
+    top_case_enabled: False
     training_epochs: 1000
     learning_rate: 0.01
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
     patience: 40
-    discount: 2
+    discount: 100
 
   covid_lonely:
     ca_weight_sharing: True
-    top_case_enabled: True
+    top_case_enabled: False
     training_epochs: 1000
     learning_rate: 0.01
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
     patience: 40
-    discount: 2
+    discount: 100
 
   covid_hopeless:
     ca_weight_sharing: True
-    top_case_enabled: True
+    top_case_enabled: False
     training_epochs: 1000
     learning_rate: 0.01
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
     patience: 40
-    discount: 2
+    discount: 100
 
   covid_physical:
     ca_weight_sharing: True
-    top_case_enabled: True
+    top_case_enabled: False
     training_epochs: 1000
     learning_rate: 0.01
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
     patience: 40
-    discount: 2
+    discount: 100
 
   covid_anxious_reg:
     ca_weight_sharing: True
@@ -234,7 +234,7 @@ dataset:
     top_k: 5
     class_weight_sharing: True
     patience: 40
-    discount: 2
+    discount: 100
 
   covid_depressed_reg:
     ca_weight_sharing: True
@@ -245,7 +245,7 @@ dataset:
     top_k: 5
     class_weight_sharing: True
     patience: 40
-    discount: 2
+    discount: 100
 
   covid_lonely_reg:
     ca_weight_sharing: True
@@ -256,7 +256,7 @@ dataset:
     top_k: 5
     class_weight_sharing: True
     patience: 40
-    discount: 2
+    discount: 100
 
   covid_hopeless_reg:
     ca_weight_sharing: True
@@ -267,7 +267,7 @@ dataset:
     top_k: 5
     class_weight_sharing: True
     patience: 40
-    discount: 2
+    discount: 100
 
   covid_physical_reg:
     ca_weight_sharing: True
@@ -278,4 +278,4 @@ dataset:
     top_k: 5
     class_weight_sharing: True
     patience: 40
-    discount: 2
+    discount: 100
