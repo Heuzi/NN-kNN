@@ -2,3 +2,4 @@
 *.gdoc
 *.gsheet
 /checkpoints
+checkpoints/regression_covid_depressed_reg.h5
