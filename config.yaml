@@ -237,7 +237,7 @@ dataset:
     discount: 40
 
   covid_depressed_reg:
-    ca_weight_sharing: True
+    ca_weight_sharing: False
     top_case_enabled: False
     training_epochs: 1000
     learning_rate: 0.01
