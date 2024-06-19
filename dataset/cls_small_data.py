@@ -210,12 +210,12 @@ def convert_to_numeric(value):
     # Convert income ranges
     if value in income_mapping:
         return income_mapping[value]
-
+    # NANify the strange values.
+    if value in ["(77) Not sure", "(98) SKIPPED ON WEB", "(99) REFUSED", "(88) Removed for disclosure risk"]:
+        return np.nan
     match = re.match(r'\((\d+)\)', str(value))
     if match:
         return int(match.group(1))
-    if value in ["(77) Not sure", "(98) SKIPPED ON WEB", "(99) REFUSED", "(88) Removed for disclosure risk"]:
-        return np.nan
     return value
 
 def one_hot_encode(df, columns):
@@ -246,12 +246,13 @@ def covid_soc(target):
         'SU_ID','P_PANEL','P_GEO',
         'NATIONAL_WEIGHT','REGION_WEIGHT','NATIONAL_WEIGHT_POP',
         'REGION_WEIGHT_POP','NAT_WGT_COMB_POP','REG_WGT_COMB_POP',
-        #droping columns with lots of missing (already done above)
-        'MAIL50','RACE2_BANNER',
+        #droping columns with lots of missing (maybe done above)
+        'MAIL50','RACE2_BANNER','P_OCCUPY2','MARITAL','LGBT','PHYS11_TEMP'
         #dropping predictive labels
-        'SOC5A','SOC5B','SOC5C','SOC5D','SOC5E'
+        # ,'SOC5A','SOC5B','SOC5C','SOC5D','SOC5E'
     ]
-    irrelevant_features.remove(target)
+    if target in irrelevant_features:
+        irrelevant_features.remove(target)
 
     # Drop irrelevant columns   
     combined_df.drop(columns=irrelevant_features, inplace=True, errors='coerce')
@@ -261,11 +262,24 @@ def covid_soc(target):
         if combined_df[column].dtype == 'object':
             combined_df[column] = combined_df[column].apply(convert_to_numeric)
 
+    # Fill NaN values for specific columns
+    combined_df['ECON2'].fillna(value=0, inplace=True)
+    combined_df['ECON4'].fillna(value=0, inplace=True)
+
+    # Set display options to print the entire DataFrame
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    print(combined_df.head(10))
+    # Reset to default display options
+    pd.reset_option('display.max_rows')
+    pd.reset_option('display.max_columns')
     # Drop rows with any missing values
-    # combined_df = combined_df.dropna()
+    combined_df = combined_df.dropna()
+
     combined_df = combined_df.apply(pd.to_numeric, errors='coerce')
+
     # Fill missing values with 0 (or another number if more appropriate)
-    combined_df.fillna(0, inplace=True)
+    # combined_df.fillna(0, inplace=True)
     
     y = combined_df[target]
     X = combined_df.drop(columns=[target])
@@ -281,7 +295,7 @@ def covid_soc(target):
     nominal_columns = []  # 'P_GEO', Replace with your nominal feature columns
     X = one_hot_encode(X, nominal_columns)
 
-    # print(X.values[0])
+    print(X.values[0])
     Xs = torch.tensor(X.values).float()
     ys = torch.tensor(y.values).long()
 
@@ -313,7 +327,8 @@ def covid_soc(target):
     idx = np.random.permutation(len(Xs))
     Xs = Xs[idx]
     ys = ys[idx] 
-    Xs = standardize_tensor(Xs)
+    # Experimenting with no standardizing
+    # Xs = standardize_tensor(Xs)
     return Xs, ys
 def covid_anxious():
     return covid_soc('SOC5A')
