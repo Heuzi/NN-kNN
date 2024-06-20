@@ -228,7 +228,7 @@ dataset:
   covid_anxious_reg:
     ca_weight_sharing: True
     top_case_enabled: False
-    training_epochs: 1500
+    training_epochs: 1000
     learning_rate: 0.0001
     batch_size: 32
     top_k: 5
@@ -238,7 +238,7 @@ dataset:
 
   covid_depressed_reg:
     ca_weight_sharing: True
-    top_case_enabled: True
+    top_case_enabled: False
     training_epochs: 1000
     learning_rate: 0.01
     batch_size: 16

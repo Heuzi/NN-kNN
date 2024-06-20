@@ -5,6 +5,7 @@ from sklearn.preprocessing import MinMaxScaler
 from google.colab import drive
 import pandas as pd
 from sklearn.utils import resample
+from imblearn.over_sampling import SMOTE
 
 def standardize_tensor(input_tensor):
     mean = input_tensor.mean()
@@ -26,8 +27,8 @@ def psych_depression_physical_symptons():
     X = df[train_cols]
     y = df[label]
     target_names=["Low","Medium","High"]
+    #balancing the data set
     random_state = 13
-    from imblearn.over_sampling import SMOTE
     oversample = SMOTE(random_state=random_state, k_neighbors=3)
     X, y = oversample.fit_resample(X, y)
     Xs = torch.tensor(X.values).float()
@@ -301,27 +302,26 @@ def covid_soc(target):
 
     random_state = 13
     # balancing, currently not enabled
-    # from imblearn.over_sampling import SMOTE
-    # oversample = SMOTE(random_state=random_state, k_neighbors=3)
-    # Xs, ys = oversample.fit_resample(Xs, ys)
+    oversample = SMOTE(random_state=random_state, k_neighbors=3)
+    Xs, ys = oversample.fit_resample(Xs, ys)
 
     # Downsampling to match the size of the minority class
-    class_counts = np.bincount(ys.numpy())
-    min_class_count = np.min(class_counts)
+    # class_counts = np.bincount(ys.numpy())
+    # min_class_count = np.min(class_counts)
     
-    downsampled_indices = []
-    for class_index in np.unique(ys):
-        class_indices = np.where(ys == class_index)[0]
-        downsampled_class_indices = resample(class_indices, 
-                                             replace=False, 
-                                             n_samples=min_class_count, 
-                                             random_state=random_state)
-        downsampled_indices.extend(downsampled_class_indices)
+    # downsampled_indices = []
+    # for class_index in np.unique(ys):
+    #     class_indices = np.where(ys == class_index)[0]
+    #     downsampled_class_indices = resample(class_indices, 
+    #                                          replace=False, 
+    #                                          n_samples=min_class_count, 
+    #                                          random_state=random_state)
+    #     downsampled_indices.extend(downsampled_class_indices)
     
-    downsampled_indices = np.array(downsampled_indices)
+    # downsampled_indices = np.array(downsampled_indices)
     
-    Xs = Xs[downsampled_indices]
-    ys = ys[downsampled_indices]
+    # Xs = Xs[downsampled_indices]
+    # ys = ys[downsampled_indices]
 
     np.random.seed(0)
     idx = np.random.permutation(len(Xs))

@@ -12,3 +12,6 @@ checkpoints/regression_covid_depressed_reg.h5
 checkpoints/regression_covid_lonely_reg.h5
 checkpoints/regression_covid_physical_reg.h5
 dataset/__pycache__/cls_small_data.cpython-310.pyc
+checkpoints/classifier_psych_depression_physical_symptons.h5
+dataset/__pycache__/reg_data.cpython-310.pyc
+dataset/__pycache__/reg_data.cpython-310.pyc
