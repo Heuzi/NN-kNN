@@ -249,7 +249,7 @@ def covid_soc(target):
         #droping columns with lots of missing (maybe done above)
         'MAIL50','RACE2_BANNER','P_OCCUPY2','MARITAL','LGBT','PHYS11_TEMP'
         #dropping predictive labels
-        # ,'SOC5A','SOC5B','SOC5C','SOC5D','SOC5E'
+        ,'SOC5A','SOC5B','SOC5C','SOC5D','SOC5E'
     ]
     if target in irrelevant_features:
         irrelevant_features.remove(target)

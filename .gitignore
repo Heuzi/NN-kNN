@@ -3,3 +3,12 @@
 *.gsheet
 /checkpoints
 checkpoints/regression_covid_depressed_reg.h5
+checkpoints/classifier_covid_anxious.h5
+checkpoints/classifier_covid_depressed.h5
+checkpoints/classifier_covid_lonely.h5
+checkpoints/classifier_covid_physical.h5
+checkpoints/regression_covid_anxious_reg.h5
+checkpoints/regression_covid_depressed_reg.h5
+checkpoints/regression_covid_lonely_reg.h5
+checkpoints/regression_covid_physical_reg.h5
+dataset/__pycache__/cls_small_data.cpython-310.pyc
