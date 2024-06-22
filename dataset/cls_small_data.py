@@ -5,7 +5,9 @@ from sklearn.preprocessing import MinMaxScaler
 from google.colab import drive
 import pandas as pd
 from sklearn.utils import resample
+from imblearn.combine import SMOTETomek
 from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import TomekLinks
 
 def standardize_tensor(input_tensor):
     mean = input_tensor.mean()
@@ -250,7 +252,7 @@ def covid_soc(target):
         #droping columns with lots of missing (maybe done above)
         'MAIL50','RACE2_BANNER','P_OCCUPY2','MARITAL','LGBT','PHYS11_TEMP'
         #dropping predictive labels
-        # ,'SOC5A','SOC5B','SOC5C','SOC5D','SOC5E'
+        ,'SOC5A','SOC5B','SOC5C','SOC5D','SOC5E'
     ]
     if target in irrelevant_features:
         irrelevant_features.remove(target)
@@ -301,34 +303,37 @@ def covid_soc(target):
     ys = torch.tensor(y.values).long()
 
     random_state = 13
-    # balancing, currently not enabled
-    oversample = SMOTE(random_state=random_state, k_neighbors=3)
-    Xs, ys = oversample.fit_resample(Xs, ys)
+    # # Create the SMOTE+Tomek Links object
+    # smote_tomek = SMOTETomek(smote=SMOTE(), tomek=TomekLinks())
+    # # Fit and transform the dataset
+    # Xs, ys = smote_tomek.fit_resample(Xs, ys)
+
+    # # balancing, currently not enabled
+    # oversample = SMOTE(random_state=random_state, k_neighbors=3)
+    # Xs, ys = oversample.fit_resample(Xs, ys)
 
     # Downsampling to match the size of the minority class
-    # class_counts = np.bincount(ys.numpy())
-    # min_class_count = np.min(class_counts)
+    class_counts = np.bincount(ys.numpy())
+    min_class_count = np.min(class_counts)
+    downsampled_indices = []
+    for class_index in np.unique(ys):
+        class_indices = np.where(ys == class_index)[0]
+        downsampled_class_indices = resample(class_indices, 
+                                             replace=False, 
+                                             n_samples=min_class_count, 
+                                             random_state=random_state)
+        downsampled_indices.extend(downsampled_class_indices)
     
-    # downsampled_indices = []
-    # for class_index in np.unique(ys):
-    #     class_indices = np.where(ys == class_index)[0]
-    #     downsampled_class_indices = resample(class_indices, 
-    #                                          replace=False, 
-    #                                          n_samples=min_class_count, 
-    #                                          random_state=random_state)
-    #     downsampled_indices.extend(downsampled_class_indices)
-    
-    # downsampled_indices = np.array(downsampled_indices)
-    
-    # Xs = Xs[downsampled_indices]
-    # ys = ys[downsampled_indices]
+    downsampled_indices = np.array(downsampled_indices)
+    Xs = Xs[downsampled_indices]
+    ys = ys[downsampled_indices]
 
     np.random.seed(0)
     idx = np.random.permutation(len(Xs))
     Xs = Xs[idx]
     ys = ys[idx] 
-    # Experimenting with no standardizing
-    # Xs = standardize_tensor(Xs)
+
+    Xs = standardize_tensor(Xs)
     return Xs, ys
 def covid_anxious():
     return covid_soc('SOC5A')
