@@ -272,7 +272,7 @@ dataset:
   covid_physical_reg:
     ca_weight_sharing: True
     top_case_enabled: False
-    training_epochs: 1000
+    training_epochs: 2000
     learning_rate: 0.0001
     batch_size: 32
     top_k: 5
