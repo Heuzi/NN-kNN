@@ -27,6 +27,9 @@ def psych_depression_physical_symptons():
     train_cols = df.columns[0:-1]
     label = df.columns[-1]
     X = df[train_cols]
+    
+    print(list(X.columns))
+
     y = df[label]
     target_names=["Low","Medium","High"]
     #balancing the data set

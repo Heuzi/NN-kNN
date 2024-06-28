@@ -2,6 +2,34 @@ import torch
 import numpy as np
 from urllib import request
 import cls_small_data
+from imblearn.over_sampling import SMOTE
+import pandas as pd
+
+def psych_depression_physical_symptons_reg():
+    #From Zach Wilkerson, ICCBR challenge.
+    #"dataset/Dataset_MO_ENG.csv"
+    df = pd.read_csv("/content/drive/Othercomputers/My MacBook Pro/GitHub/NN-kNN/dataset/Dataset_MO_ENG.csv")
+    ## eliminating physical-related questions
+    df = df.drop(df.columns[102:-1], axis=1)
+    ## Creating classes 0-> Low risk, 1->Medium Risk, 2->High risk
+    # dic = { 1: 0 , 2: 0, 3:1, 4:2, 5:2}
+    # df['Target'] = df['Target'].map(dic)
+    train_cols = df.columns[0:-1]
+    label = df.columns[-1]
+    X = df[train_cols]
+    
+    print(list(X.columns))
+
+    y = df[label]
+    target_names=["Low","Medium","High"]
+    #balancing the data set
+    random_state = 13
+    oversample = SMOTE(random_state=random_state, k_neighbors=3)
+    X, y = oversample.fit_resample(X, y)
+    Xs = torch.tensor(X.values).float()
+    ys = torch.tensor(y.values).long()
+    ys = ys.float()
+    return Xs, ys
 
 def California_Housing():
     from sklearn.datasets import fetch_california_housing
@@ -127,6 +155,7 @@ def standardize_tensor(input_tensor):
     return standardized_tensor
 
 DATATYPES = {
+    'psych_depression_physical_symptons_reg':psych_depression_physical_symptons_reg,
     'califonia_housing':California_Housing,
     'abalone': Abalone,
     'diabets': Diabetes,
