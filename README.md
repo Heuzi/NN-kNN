@@ -1,5 +1,10 @@
 # NN-kNN
-The notebook nnknn.ipynb provides an example of how to use our code. Once you run the code once, you should understand the workflow. The code can be run on google colab or your own computer (if you copy everything to your own colab, notice there are dependencies so you need to copy the whole project, not just the ipynb).
+Update: Now we separate the functionality of the original backup_of_nnknn.ipynb into multiple files, some are in .py files. The main entry point is nnknn.ipynb.
+
+This is for better modularity and organization. It is also easier to extend and build upon. You can still refer to old backup_of_nnknn.ipynb files to learn about the model (which is probably easier since everything is in one file).
+
+# old NN-kNN
+The notebook backup_of_nnknn.ipynb provides an example of how to use our code. Once you run the code once, you should understand the workflow. The code can be run on google colab or your own computer (if you copy everything to your own colab, notice there are dependencies so you need to copy the whole project, not just the ipynb).
 
 To run the code, you need to run the file in this order:
 
