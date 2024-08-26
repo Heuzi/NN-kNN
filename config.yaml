@@ -2,7 +2,7 @@
 dataset:
   psych_depression_physical_symptons:
     ca_weight_sharing: True
-    top_case_enabled: True
+    top_case_enabled: False
     training_epochs: 1000
     learning_rate: 0.01
     batch_size: 4

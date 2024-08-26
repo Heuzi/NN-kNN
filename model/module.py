@@ -24,6 +24,9 @@ class FeatureActivationLayer(torch.nn.Module):
       cases = self.hidden_layers(cases)
 
     query = query.unsqueeze(1)
+    # print(query.device)
+    # print(cases.device)
+    # print(self.f1weight.device)
     return (query*self.f1weight - cases*self.f1weight)**2
   
 class CaseActivationLayer(torch.nn.Module):
