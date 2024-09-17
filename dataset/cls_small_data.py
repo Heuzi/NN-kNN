@@ -14,11 +14,12 @@ def standardize_tensor(input_tensor):
     std = input_tensor.std()
     standardized_tensor = (input_tensor - mean) / std
     return standardized_tensor
-
+  
+folder_path = "/content/drive/Othercomputers/My MacBook Pro/GitHub/NN-kNN/"
 def psych_depression_physical_symptons():
     #From Zach Wilkerson, ICCBR challenge.
     #"dataset/Dataset_MO_ENG.csv"
-    df = pd.read_csv("/content/drive/Othercomputers/My MacBook Pro/GitHub/NN-kNN/dataset/Dataset_MO_ENG.csv")
+    df = pd.read_csv(folder_path + "dataset/Dataset_MO_ENG.csv")
     ## eliminating physical-related questions
     df = df.drop(df.columns[102:-1], axis=1)
     ## Creating classes 0-> Low risk, 1->Medium Risk, 2->High risk
@@ -368,6 +369,9 @@ DATATYPES = {
     'covid_hopeless':covid_hopeless,
     'covid_physical':covid_physical
 }
-def Cls_small_data(dataset):
+def Cls_small_data(dataset, path = None):
+    global folder_path
+    if path != None:
+        folder_path = path
     Xs, ys = DATATYPES[dataset]()
     return Xs, ys
