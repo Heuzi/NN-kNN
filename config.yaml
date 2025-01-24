@@ -8,7 +8,7 @@ dataset:
     batch_size: 4
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 2
 
   psych_depression_physical_symptons_reg:
@@ -19,7 +19,7 @@ dataset:
     batch_size: 4
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 2  
 
   zebra:
@@ -30,7 +30,7 @@ dataset:
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 2
   
   zebra_special:
@@ -41,7 +41,7 @@ dataset:
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 2
 
   bal:
@@ -52,7 +52,7 @@ dataset:
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 2
 
   digits:
@@ -63,7 +63,7 @@ dataset:
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 10
 
   iris:
@@ -74,7 +74,7 @@ dataset:
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 2
 
   wine:
@@ -85,7 +85,7 @@ dataset:
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 2
 
   breast_cancer:
@@ -96,7 +96,7 @@ dataset:
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 10
 
   califonia_housing:
@@ -108,7 +108,7 @@ dataset:
     top_k: 5
     class_weight_sharing: True
     nn_cdh_enabled: False
-    patience: 40
+    patience: 100
     discount: 2
 
   abalone:
@@ -120,7 +120,7 @@ dataset:
     top_k: 5
     class_weight_sharing: True
     nn_cdh_enabled: False
-    patience: 40
+    patience: 100
     discount: 2
   
   diabets:
@@ -132,7 +132,7 @@ dataset:
     top_k: 5
     class_weight_sharing: True
     nn_cdh_enabled: False
-    patience: 40
+    patience: 100
     discount: 2
 
   body_fat:
@@ -144,7 +144,7 @@ dataset:
     top_k: 5
     class_weight_sharing: True
     nn_cdh_enabled: False
-    patience: 40
+    patience: 100
     discount: 2
 
   ziweifaces:
@@ -156,29 +156,51 @@ dataset:
     top_k: 5
     class_weight_sharing: True
     nn_cdh_enabled: False
-    patience: 40
+    patience: 100
     discount: 2
 
   mnist:
     ca_weight_sharing: False
     top_case_enabled: False
-    training_epochs: 30
+    training_epochs: 1000
     learning_rate: 0.01
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
-    patience: 10
+    patience: 100
     discount: 100
 
   cifar10:
     ca_weight_sharing: False
     top_case_enabled: False
-    training_epochs: 30
+    training_epochs: 1000
     learning_rate: 0.01
     batch_size: 100
     top_k: 5
     class_weight_sharing: True
-    patience: 10
+    patience: 100
+    discount: 100
+
+  svhn:
+    ca_weight_sharing: False
+    top_case_enabled: False
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 100
+    discount: 100
+
+  cifar100:
+    ca_weight_sharing: False
+    top_case_enabled: False
+    training_epochs: 1000
+    learning_rate: 0.01
+    batch_size: 100
+    top_k: 5
+    class_weight_sharing: True
+    patience: 100
     discount: 100
 
   covid_anxious:
@@ -189,7 +211,7 @@ dataset:
     batch_size: 16
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 40
 
   covid_depressed:
@@ -200,7 +222,7 @@ dataset:
     batch_size: 16
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 40
 
   covid_lonely:
@@ -211,7 +233,7 @@ dataset:
     batch_size: 16
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 40
 
   covid_hopeless:
@@ -222,7 +244,7 @@ dataset:
     batch_size: 16
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 40
 
   covid_physical:
@@ -233,7 +255,7 @@ dataset:
     batch_size: 16
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 40
 
   covid_anxious_reg:
@@ -244,7 +266,7 @@ dataset:
     batch_size: 32
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 40
 
   covid_depressed_reg:
@@ -255,7 +277,7 @@ dataset:
     batch_size: 32
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 40
 
   covid_lonely_reg:
@@ -266,7 +288,7 @@ dataset:
     batch_size: 32
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 40
 
   covid_hopeless_reg:
@@ -277,7 +299,7 @@ dataset:
     batch_size: 16
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 40
 
   covid_physical_reg:
@@ -288,5 +310,5 @@ dataset:
     batch_size: 32
     top_k: 5
     class_weight_sharing: True
-    patience: 40
+    patience: 100
     discount: 40

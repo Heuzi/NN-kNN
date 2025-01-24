@@ -101,7 +101,7 @@ def Zebra_Special():
     return Xs, ys
 
 def BAL():
-    with open("data/balance-scale.data","r") as filef:
+    with open(folder_path+ "dataset/balance-scale.data","r") as filef:
         bal_file = filef.readlines()
         Xs = []
         ys = []
