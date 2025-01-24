@@ -312,3 +312,25 @@ dataset:
     class_weight_sharing: True
     patience: 100
     discount: 40
+
+  sst1:
+    ca_weight_sharing: True
+    top_case_enabled: False
+    training_epochs: 100
+    learning_rate: 0.001
+    batch_size: 32
+    top_k: 5
+    class_weight_sharing: True
+    patience: 7
+    discount: 40
+
+  sst2:
+    ca_weight_sharing: True
+    top_case_enabled: False
+    training_epochs: 100
+    learning_rate: 0.001
+    batch_size: 32
+    top_k: 5
+    class_weight_sharing: True
+    patience: 7
+    discount: 40
