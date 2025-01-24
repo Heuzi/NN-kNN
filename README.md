@@ -1,3 +1,5 @@
+Deleted for anonymity
+<!---
 # NN-kNN
 Update: Now we separate the functionality of the original backup_of_nnknn.ipynb into multiple files, some are in .py files. The main entry point is nnknn.ipynb.
 
@@ -28,5 +30,5 @@ cfg = conf_file['dataset'][dataset_name]
 The current config should be relatively good, feel free to tweak it
 
 nnknn.ipynb provides an example of the workflow. The actual code for nn-knn is in the folder "model". If you intend to build and expand your own nnknn model, you can copy the folder "model" and use the nnknn.ipynb as a guide only.
-
+-->
 
