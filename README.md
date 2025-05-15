@@ -1,5 +1,7 @@
 #Update:: We are currently working on a follow-up project, this involves revamping the NN-kNN code to make it more easily usable and modular. The jupyter notebook should still be fine but expect bugs. Sorry for inconvenience.
 
+#Update:: the paper is now accepted into IJCAI 2025, paper link will be attached here later once officially published.
+
 # NN-kNN
 
 Update: Now we separate the functionality of the original backup_of_nnknn.ipynb into multiple files, some are in .py files. The main entry point is nnknn.ipynb.
