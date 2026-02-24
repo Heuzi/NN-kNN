@@ -17,6 +17,9 @@ dataset/__pycache__/reg_data.cpython-310.pyc
 dataset/__pycache__/reg_data.cpython-310.pyc
 *.h5
 *.pyc
+.venv/
+venv/
+env/
 checkpoints/classifier_covid_anxious.h5
 checkpoints/classifier_covid_depressed.h5
 checkpoints/classifier_covid_lonely.h5
