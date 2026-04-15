@@ -1,13 +1,22 @@
-import torch
-import numpy as np
+from pathlib import Path
 from urllib import request
-import datasets.cls_small_data
-from imblearn.over_sampling import SMOTE
+
+import numpy as np
 import pandas as pd
+import torch
+from imblearn.over_sampling import SMOTE
+
+from . import cls_small_data
+
+
+DATA_DIR = Path(__file__).resolve().parent
+
+
+def _dataset_path(filename: str) -> Path:
+    return DATA_DIR / filename
 
 def airfoil():
-    file_path = "/content/drive/MyDrive/NN-kNN/datasets/airfoil_self_noise.dat"
-    # file_path = 'G:/My Drive/NN-kNN/datasets/airfoil_self_noise.dat'
+    file_path = _dataset_path("airfoil_self_noise.dat")
     df = pd.read_csv(file_path, sep="\t", header=None, engine="python")
 
     # feature columns vs target column
@@ -25,8 +34,7 @@ def airfoil():
     return X,y
 
 def student_performance():
-    # file_path = '/content/drive/MyDrive/Personal Work/datasets/student-por.csv'
-    file_path = '/content/drive/MyDrive/NN-kNN/datasets/student-por.csv'
+    file_path = _dataset_path("student-por.csv")
 
     df = pd.read_csv(file_path, sep=';')
 
@@ -55,8 +63,7 @@ def student_performance():
     return X, y
 
 def yacht():
-    file_path = "/content/drive/MyDrive/NN-kNN/datasets/yacht_hydrodynamics.data"
-    # file_path = 'G:/My Drive/NN-kNN/datasets/yacht_hydrodynamics.data'
+    file_path = _dataset_path("yacht_hydrodynamics.data")
     df = pd.read_csv(file_path, sep=r'\s+', header=None)
     X = df.drop(columns=[6])
     y = df[6]
@@ -69,8 +76,7 @@ def yacht():
     return X, y
 
 def energy_efficiency():
-
-    file_path = "/content/drive/MyDrive/NN-kNN/datasets/ENB2012_data.csv"
+    file_path = _dataset_path("ENB2012_data.csv")
 
     df = pd.read_csv(file_path)
 
@@ -86,9 +92,7 @@ def energy_efficiency():
     return X, y
 
 def car():
-    # file_path = "/content/drive/MyDrive/Personal Work/cars_cleaned_Above600kDeleted_NoDuplicate.csv"
-    file_path = "/content/drive/MyDrive/NN-kNN/datasets/cars_cleaned_Above600kDeleted_NoDuplicate.csv"
-    # file_path = 'G:/My Drive/NN-kNN/datasets/cars_cleaned_Above600kDeleted_NoDuplicate.csv'
+    file_path = _dataset_path("cars_cleaned_Above600kDeleted_NoDuplicate.csv")
     df = pd.read_csv(file_path)# the features
     feature_cols = ['Year', 'Engine HP', 'Engine Cylinders', 'Number of Doors', 'highway MPG', 'city mpg', 'Popularity']
     target_col = 'MSRP' # predicting the retail price
@@ -101,8 +105,7 @@ def car():
 def psych_depression_physical_symptons_reg():
     #From Zach Wilkerson, ICCBR challenge.
     #"dataset/Dataset_MO_ENG.csv"
-    # df = pd.read_csv("/content/drive/Othercomputers/My MacBook Pro/GitHub/NN-kNN/dataset/Dataset_MO_ENG.csv")
-    df = pd.read_csv("G:/My Drive/NN-kNN/datasets/Dataset_MO_ENG.csv")
+    df = pd.read_csv(_dataset_path("Dataset_MO_ENG.csv"))
     ## eliminating physical-related questions
     df = df.drop(df.columns[102:-1], axis=1)
     ## Creating classes 0-> Low risk, 1->Medium Risk, 2->High risk
@@ -195,7 +198,7 @@ def Body_Fat():
     import pandas as pd
     import scipy.stats as stats
 
-    df = pd.read_csv("datasets/bodyfat.csv")
+    df = pd.read_csv(_dataset_path("bodyfat.csv"))
 
     X = df.drop(['BodyFat','Density'],axis=1)
     y = df['Density']
@@ -214,8 +217,8 @@ def Body_Fat():
     return Xs, ys
 
 def Ziweifaces():
-    Xs = np.load("part_features.npy")
-    ys = np.load("part_targets.npy")
+    Xs = np.load(_dataset_path("part_features.npy"))
+    ys = np.load(_dataset_path("part_targets.npy"))
     #These two files are in the nn-Knn folder.
     Xs = torch.tensor(Xs, dtype=torch.float32)
     ys = torch.tensor(ys, dtype=torch.float32) 
