@@ -23,6 +23,20 @@ _TRUE_W_LINEAR = torch.tensor([2.5, -1.7, 0.0, 0.9, 3.2], dtype=torch.float32).v
 _REAL_DATASET_LOOKUP = {
     re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_"): name for name in DATATYPES
 }
+_BASELINE_METHOD_ALIASES = {
+    "nnknn": "nnknn",
+    "nn_knn": "nnknn",
+    "baseline_knn": "knn_x",
+    "knn": "knn_x",
+    "knn_x": "knn_x",
+    "oracle_knn": "oracle_knn_y",
+    "oracle_knn_y": "oracle_knn_y",
+    "oracle_y_knn": "oracle_knn_y",
+    "oracle": "oracle_knn_y",
+    "mlkr": "mlkr_knn",
+    "mlkr_knn": "mlkr_knn",
+    "mlp": "mlp",
+}
 
 
 def seed_everything(seed: int = 42, deterministic: bool = True) -> None:
@@ -62,6 +76,11 @@ def list_supported_regression_datasets() -> dict[str, list[str]]:
         ],
         "real": sorted(DATATYPES.keys()),
     }
+
+
+def list_supported_regression_benchmark_methods() -> list[str]:
+    """Purpose: list every repeated-run benchmark method supported by this module."""
+    return ["nnknn", "knn_x", "oracle_knn_y", "mlkr_knn", "mlp"]
 
 
 def make_regression_cfg(
@@ -674,6 +693,15 @@ def _resolve_standardize_flag(
     return bool(standardize)
 
 
+def _normalize_benchmark_method(method: str) -> str:
+    """Purpose: map user-facing method labels onto one canonical benchmark name."""
+    method_normalized = _normalize_name(method)
+    if method_normalized not in _BASELINE_METHOD_ALIASES:
+        supported = ", ".join(list_supported_regression_benchmark_methods())
+        raise ValueError(f"Unsupported benchmark method '{method}'. Supported methods: {supported}.")
+    return _BASELINE_METHOD_ALIASES[method_normalized]
+
+
 def _checkpoint_path_for_run(
     checkpoint_path: str,
     *,
@@ -734,29 +762,17 @@ def _plot_observed_vs_predicted(
     plt.show()
 
 
-def evaluate_regression_model(
-    model: torch.nn.Module,
-    X_val: torch.Tensor,
-    y_val: torch.Tensor,
+def _finalize_prediction_metrics(
+    y_pred_model_space: torch.Tensor,
+    y_true_model_space: torch.Tensor,
     *,
     y_mean_raw: float | None = None,
     y_std_raw: float | None = None,
     standardized_targets: bool = True,
-    batch_size: int = 512,
-    device: torch.device | None = None,
 ) -> dict[str, Any]:
-    """Purpose: compute post-adaptation predictions and RMSEs for one validation split."""
-    model.eval()
-    run_device = device or _model_device(model)
-
-    preds = []
-    with torch.no_grad():
-        for i in range(0, X_val.size(0), batch_size):
-            _, yhat, *_ = model(X_val[i : i + batch_size].to(run_device))
-            preds.append(yhat.detach().cpu().view(-1))
-
-    y_pred_model_space = torch.cat(preds, dim=0).to(torch.float32)
-    y_true_model_space = _flatten_targets(y_val.detach().cpu()).to(torch.float32)
+    """Purpose: convert model-space predictions into raw-space RMSE summaries."""
+    y_pred_model_space = _flatten_targets(y_pred_model_space.detach().cpu()).to(torch.float32)
+    y_true_model_space = _flatten_targets(y_true_model_space.detach().cpu()).to(torch.float32)
     rmse_model_space = torch.sqrt(F.mse_loss(y_pred_model_space, y_true_model_space)).item()
 
     y_mean_t, y_std_t = _raw_scale_tensors(
@@ -782,7 +798,109 @@ def evaluate_regression_model(
     }
 
 
-def train_regression_state(
+def evaluate_regression_model(
+    model: torch.nn.Module,
+    X_val: torch.Tensor,
+    y_val: torch.Tensor,
+    *,
+    y_mean_raw: float | None = None,
+    y_std_raw: float | None = None,
+    standardized_targets: bool = True,
+    batch_size: int = 512,
+    device: torch.device | None = None,
+) -> dict[str, Any]:
+    """Purpose: compute post-adaptation predictions and RMSEs for one validation split."""
+    model.eval()
+    run_device = device or _model_device(model)
+
+    preds = []
+    with torch.no_grad():
+        for i in range(0, X_val.size(0), batch_size):
+            _, yhat, *_ = model(X_val[i : i + batch_size].to(run_device))
+            preds.append(yhat.detach().cpu().view(-1))
+
+    return _finalize_prediction_metrics(
+        torch.cat(preds, dim=0).to(torch.float32),
+        _flatten_targets(y_val.detach().cpu()).to(torch.float32),
+        y_mean_raw=y_mean_raw,
+        y_std_raw=y_std_raw,
+        standardized_targets=standardized_targets,
+    )
+
+
+@torch.no_grad()
+def predict_knn_by_x(
+    X_train: torch.Tensor,
+    y_train: torch.Tensor,
+    X_query: torch.Tensor,
+    *,
+    k: int = 5,
+    batch_size: int = 512,
+    device: torch.device | None = None,
+) -> torch.Tensor:
+    """Purpose: predict regression targets with a distance-weighted k-NN baseline in feature space."""
+    run_device = device or resolve_runtime_device()
+    Xtr = X_train.to(run_device)
+    ytr = _flatten_targets(y_train).to(run_device)
+    preds = []
+
+    for i in range(0, X_query.size(0), batch_size):
+        xq = X_query[i : i + batch_size].to(run_device)
+        dists = torch.cdist(xq, Xtr, p=2)
+        vals, idx = torch.topk(dists, k=k, largest=False)
+        nbr_y = ytr[idx]
+        weights = 1.0 / (vals + 1e-12)
+        weights = weights / weights.sum(dim=1, keepdim=True).clamp_min(1e-12)
+        preds.append((weights * nbr_y).sum(dim=1).detach().cpu())
+
+    return torch.cat(preds, dim=0).to(torch.float32)
+
+
+@torch.no_grad()
+def predict_oracle_knn_by_y(
+    y_train: torch.Tensor,
+    y_true_query: torch.Tensor,
+    *,
+    k: int = 5,
+    batch_size: int = 512,
+    device: torch.device | None = None,
+) -> torch.Tensor:
+    """Purpose: predict regression targets with an oracle k-NN upper bound based on true target distance."""
+    run_device = device or resolve_runtime_device()
+    ytr = _flatten_targets(y_train).to(run_device).view(1, -1)
+    preds = []
+
+    for i in range(0, y_true_query.numel(), batch_size):
+        yq = _flatten_targets(y_true_query[i : i + batch_size]).to(run_device).view(-1, 1)
+        dists = torch.abs(ytr - yq)
+        vals, idx = torch.topk(dists, k=k, largest=False)
+        nbr_y = ytr.squeeze(0)[idx]
+        weights = 1.0 / (vals + 1e-12)
+        weights = weights / weights.sum(dim=1, keepdim=True).clamp_min(1e-12)
+        preds.append((weights * nbr_y).sum(dim=1).detach().cpu())
+
+    return torch.cat(preds, dim=0).to(torch.float32)
+
+
+def evaluate_regression_predictions(
+    y_pred_model_space: torch.Tensor,
+    y_true_model_space: torch.Tensor,
+    *,
+    y_mean_raw: float | None = None,
+    y_std_raw: float | None = None,
+    standardized_targets: bool = True,
+) -> dict[str, Any]:
+    """Purpose: expose prediction-tensor evaluation for notebook baselines and batch benchmarks."""
+    return _finalize_prediction_metrics(
+        y_pred_model_space,
+        y_true_model_space,
+        y_mean_raw=y_mean_raw,
+        y_std_raw=y_std_raw,
+        standardized_targets=standardized_targets,
+    )
+
+
+def train_nnknn_regression_state(
     state: Mapping[str, Any],
     cfg: Mapping[str, Any],
     *,
@@ -837,7 +955,7 @@ def train_regression_state(
     return new_state
 
 
-def evaluate_regression_state(
+def evaluate_nnknn_regression_state(
     state: Mapping[str, Any],
     *,
     batch_size: int = 512,
@@ -845,7 +963,7 @@ def evaluate_regression_state(
     print_metrics: bool = True,
     plot_title: str = "Observed vs Predicted (Validation)",
 ) -> dict[str, Any]:
-    """Purpose: evaluate a trained workflow state and expose notebook-friendly metrics.
+    """Purpose: evaluate a trained NN-kNN workflow state and expose notebook-friendly metrics.
 
     Input:
         state: Workflow state containing a trained model and validation tensors.
@@ -887,6 +1005,417 @@ def evaluate_regression_state(
     return new_state
 
 
+def _patch_metric_learn_for_sklearn_18() -> None:
+    """Purpose: keep metric-learn compatible with newer sklearn releases."""
+    try:
+        import inspect
+        import metric_learn._util as ml_util
+        from sklearn.utils.validation import check_X_y as sk_check_X_y
+        from sklearn.utils.validation import check_array as sk_check_array
+    except Exception:
+        return
+
+    if "force_all_finite" in inspect.signature(sk_check_X_y).parameters:
+        return
+
+    def _compat_check_X_y(*args: Any, **kwargs: Any) -> Any:
+        if "force_all_finite" in kwargs and "ensure_all_finite" not in kwargs:
+            kwargs["ensure_all_finite"] = kwargs.pop("force_all_finite")
+        return sk_check_X_y(*args, **kwargs)
+
+    def _compat_check_array(*args: Any, **kwargs: Any) -> Any:
+        if "force_all_finite" in kwargs and "ensure_all_finite" not in kwargs:
+            kwargs["ensure_all_finite"] = kwargs.pop("force_all_finite")
+        return sk_check_array(*args, **kwargs)
+
+    ml_util.check_X_y = _compat_check_X_y
+    ml_util.check_array = _compat_check_array
+
+
+def predict_mlkr_knn(
+    X_train: torch.Tensor,
+    y_train: torch.Tensor,
+    X_query: torch.Tensor,
+    *,
+    k: int = 25,
+    n_components: int | None = None,
+    max_iter: int = 1000,
+    tol: float = 1e-4,
+    random_state: int = 42,
+) -> torch.Tensor:
+    """Purpose: predict regression targets with MLKR followed by distance-weighted k-NN."""
+    _patch_metric_learn_for_sklearn_18()
+
+    from metric_learn import MLKR
+    from sklearn.neighbors import KNeighborsRegressor
+
+    Xtr_np = X_train.detach().cpu().numpy()
+    ytr_np = _flatten_targets(y_train).detach().cpu().numpy().ravel()
+    Xq_np = X_query.detach().cpu().numpy()
+
+    mlkr = MLKR(
+        n_components=n_components,
+        max_iter=max_iter,
+        tol=tol,
+        random_state=random_state,
+    )
+    mlkr.fit(Xtr_np, ytr_np)
+
+    knn = KNeighborsRegressor(
+        n_neighbors=k,
+        weights="distance",
+        metric=mlkr.get_metric(),
+        algorithm="brute",
+    )
+    knn.fit(Xtr_np, ytr_np)
+    return torch.from_numpy(knn.predict(Xq_np)).to(torch.float32)
+
+
+class MLPReg(torch.nn.Module):
+    """Purpose: simple MLP regression baseline used in the notebook and repeated benchmarks."""
+
+    def __init__(self, in_dim: int, hidden: tuple[int, ...] = (64, 32), dropout: float = 0.10) -> None:
+        super().__init__()
+        layers: list[torch.nn.Module] = []
+        width = in_dim
+        for hidden_dim in hidden:
+            layers.extend([torch.nn.Linear(width, hidden_dim), torch.nn.ReLU()])
+            if dropout and dropout > 0:
+                layers.append(torch.nn.Dropout(dropout))
+            width = hidden_dim
+        layers.append(torch.nn.Linear(width, 1))
+        self.net = torch.nn.Sequential(*layers)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x).squeeze(1)
+
+
+def train_mlp_regression_baseline(
+    X_train: torch.Tensor,
+    y_train: torch.Tensor,
+    X_val: torch.Tensor,
+    y_val: torch.Tensor,
+    *,
+    hidden: tuple[int, ...] = (64, 32),
+    dropout: float = 0.10,
+    lr: float = 1e-3,
+    weight_decay: float = 1e-4,
+    batch_size: int = 256,
+    val_batch_size: int = 512,
+    epochs: int = 200,
+    patience: int = 20,
+    grad_clip_norm: float = 1.0,
+    device: torch.device | None = None,
+) -> tuple[MLPReg, dict[str, Any]]:
+    """Purpose: train the notebook's MLP baseline on one train/validation split.
+
+    Input:
+        X_train, y_train: Training tensors in model space.
+        X_val, y_val: Validation tensors in model space.
+        hidden: Hidden-layer widths for the baseline MLP.
+        dropout: Dropout probability applied after each hidden layer.
+        lr: Adam learning rate.
+        weight_decay: Adam weight decay.
+        batch_size: Training mini-batch size.
+        val_batch_size: Validation batch size.
+        epochs: Maximum training epochs.
+        patience: Early-stopping patience in epochs.
+        grad_clip_norm: Max norm used for gradient clipping.
+        device: Optional runtime device.
+
+    Output:
+        A `(model, info)` tuple with the trained model and best validation RMSE metadata.
+    """
+    run_device = device or resolve_runtime_device()
+    X_train_device = X_train.to(run_device)
+    X_val_device = X_val.to(run_device)
+    y_train_device = _flatten_targets(y_train).to(run_device)
+    y_val_device = _flatten_targets(y_val).to(run_device)
+
+    train_ds = torch.utils.data.TensorDataset(X_train_device, y_train_device)
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+
+    model = MLPReg(in_dim=X_train.shape[1], hidden=hidden, dropout=dropout).to(run_device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    @torch.no_grad()
+    def _val_rmse(model_ref: torch.nn.Module) -> float:
+        model_ref.eval()
+        preds: list[torch.Tensor] = []
+        for i in range(0, X_val_device.size(0), val_batch_size):
+            preds.append(model_ref(X_val_device[i : i + val_batch_size]).detach().cpu())
+        y_pred = torch.cat(preds).view(-1)
+        y_true = y_val_device.detach().cpu().view(-1)
+        return torch.sqrt(F.mse_loss(y_pred, y_true)).item()
+
+    best_rmse = float("inf")
+    best_state: dict[str, torch.Tensor] | None = None
+    wait = 0
+    epochs_run = 0
+
+    for epoch in range(1, epochs + 1):
+        model.train()
+        for xb, yb in train_loader:
+            optimizer.zero_grad()
+            pred = model(xb)
+            loss = F.mse_loss(pred, yb)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip_norm)
+            optimizer.step()
+
+        rmse_val = _val_rmse(model)
+        epochs_run = epoch
+        if rmse_val + 1e-6 < best_rmse:
+            best_rmse = rmse_val
+            best_state = {key: value.detach().clone() for key, value in model.state_dict().items()}
+            wait = 0
+        else:
+            wait += 1
+            if wait > patience:
+                break
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+
+    return model, {
+        "best_metric": best_rmse,
+        "epochs_ran": epochs_run,
+        "best_state_dict": best_state,
+    }
+
+
+def evaluate_knn_x_regression_baseline_state(
+    state: Mapping[str, Any],
+    *,
+    k: int = 5,
+    batch_size: int = 512,
+    device: torch.device | None = None,
+) -> dict[str, Any]:
+    """Purpose: evaluate the plain feature-space k-NN regression baseline on a workflow state.
+
+    Input:
+        state: Split workflow state containing training and validation tensors.
+        k: Number of neighbors.
+        batch_size: Query batch size used for pairwise-distance evaluation.
+        device: Optional runtime device for `torch.cdist`.
+
+    Output:
+        A new workflow state containing the baseline predictions and RMSE summaries.
+    """
+    y_pred = predict_knn_by_x(
+        state["X_train"],
+        state["y_train"],
+        state["X_val"],
+        k=k,
+        batch_size=batch_size,
+        device=device,
+    )
+    metrics = evaluate_regression_predictions(
+        y_pred,
+        state["y_val"],
+        y_mean_raw=state.get("y_mean_raw"),
+        y_std_raw=state.get("y_std_raw"),
+        standardized_targets=bool(state.get("standardized_targets", False)),
+    )
+    new_state = dict(state)
+    new_state.update(metrics)
+    new_state.update(
+        {
+            "method": "knn_x",
+            "baseline_name": "kNN(X)",
+            "best_metric": metrics["rmse_model_space"],
+            "y_pred_z": metrics["y_pred_model_space"],
+            "y_true_z": metrics["y_true_model_space"],
+            "k": k,
+        }
+    )
+    return new_state
+
+
+def evaluate_oracle_knn_y_regression_baseline_state(
+    state: Mapping[str, Any],
+    *,
+    k: int = 5,
+    batch_size: int = 512,
+    device: torch.device | None = None,
+) -> dict[str, Any]:
+    """Purpose: evaluate the oracle target-distance k-NN upper bound on a workflow state.
+
+    Input:
+        state: Split workflow state containing training and validation tensors.
+        k: Number of neighbors.
+        batch_size: Query batch size used for pairwise-distance evaluation.
+        device: Optional runtime device for distance computation.
+
+    Output:
+        A new workflow state containing the oracle predictions and RMSE summaries.
+    """
+    y_pred = predict_oracle_knn_by_y(
+        state["y_train"],
+        state["y_val"],
+        k=k,
+        batch_size=batch_size,
+        device=device,
+    )
+    metrics = evaluate_regression_predictions(
+        y_pred,
+        state["y_val"],
+        y_mean_raw=state.get("y_mean_raw"),
+        y_std_raw=state.get("y_std_raw"),
+        standardized_targets=bool(state.get("standardized_targets", False)),
+    )
+    new_state = dict(state)
+    new_state.update(metrics)
+    new_state.update(
+        {
+            "method": "oracle_knn_y",
+            "baseline_name": "Oracle kNN(y_true)",
+            "best_metric": metrics["rmse_model_space"],
+            "y_pred_z": metrics["y_pred_model_space"],
+            "y_true_z": metrics["y_true_model_space"],
+            "k": k,
+        }
+    )
+    return new_state
+
+
+def evaluate_mlkr_knn_regression_baseline_state(
+    state: Mapping[str, Any],
+    *,
+    k: int = 25,
+    n_components: int | None = None,
+    max_iter: int = 1000,
+    tol: float = 1e-4,
+    random_state: int = 42,
+) -> dict[str, Any]:
+    """Purpose: evaluate the MLKR-plus-kNN baseline on a workflow state.
+
+    Input:
+        state: Split workflow state containing training and validation tensors.
+        k: Number of neighbors used after the metric learner is fitted.
+        n_components: Optional low-rank dimensionality for MLKR.
+        max_iter: Maximum MLKR iterations.
+        tol: MLKR convergence tolerance.
+        random_state: Random seed passed into MLKR.
+
+    Output:
+        A new workflow state containing MLKR predictions and RMSE summaries.
+    """
+    y_pred = predict_mlkr_knn(
+        state["X_train"],
+        state["y_train"],
+        state["X_val"],
+        k=k,
+        n_components=n_components,
+        max_iter=max_iter,
+        tol=tol,
+        random_state=random_state,
+    )
+    metrics = evaluate_regression_predictions(
+        y_pred,
+        state["y_val"],
+        y_mean_raw=state.get("y_mean_raw"),
+        y_std_raw=state.get("y_std_raw"),
+        standardized_targets=bool(state.get("standardized_targets", False)),
+    )
+    new_state = dict(state)
+    new_state.update(metrics)
+    new_state.update(
+        {
+            "method": "mlkr_knn",
+            "baseline_name": "MLKR+kNN",
+            "best_metric": metrics["rmse_model_space"],
+            "y_pred_z": metrics["y_pred_model_space"],
+            "y_true_z": metrics["y_true_model_space"],
+            "k": k,
+            "n_components": n_components,
+            "max_iter": max_iter,
+        }
+    )
+    return new_state
+
+
+def evaluate_mlp_regression_baseline_state(
+    state: Mapping[str, Any],
+    *,
+    hidden: tuple[int, ...] = (64, 32),
+    dropout: float = 0.10,
+    lr: float = 1e-3,
+    weight_decay: float = 1e-4,
+    batch_size: int = 256,
+    val_batch_size: int = 512,
+    epochs: int = 200,
+    patience: int = 20,
+    grad_clip_norm: float = 1.0,
+    device: torch.device | None = None,
+) -> dict[str, Any]:
+    """Purpose: evaluate the MLP regression baseline on a workflow state.
+
+    Input:
+        state: Split workflow state containing training and validation tensors.
+        hidden: Hidden-layer widths for the baseline MLP.
+        dropout: Dropout probability applied after each hidden layer.
+        lr: Adam learning rate.
+        weight_decay: Adam weight decay.
+        batch_size: Training mini-batch size.
+        val_batch_size: Validation batch size.
+        epochs: Maximum training epochs.
+        patience: Early-stopping patience.
+        grad_clip_norm: Max norm used for gradient clipping.
+        device: Optional runtime device.
+
+    Output:
+        A new workflow state containing the trained MLP baseline, predictions, and RMSE summaries.
+    """
+    model, train_info = train_mlp_regression_baseline(
+        state["X_train"],
+        state["y_train"],
+        state["X_val"],
+        state["y_val"],
+        hidden=hidden,
+        dropout=dropout,
+        lr=lr,
+        weight_decay=weight_decay,
+        batch_size=batch_size,
+        val_batch_size=val_batch_size,
+        epochs=epochs,
+        patience=patience,
+        grad_clip_norm=grad_clip_norm,
+        device=device,
+    )
+
+    run_device = device or resolve_runtime_device()
+    preds = []
+    model.eval()
+    with torch.no_grad():
+        X_val_device = state["X_val"].to(run_device)
+        for i in range(0, X_val_device.size(0), val_batch_size):
+            preds.append(model(X_val_device[i : i + val_batch_size]).detach().cpu())
+
+    metrics = evaluate_regression_predictions(
+        torch.cat(preds, dim=0).view(-1).to(torch.float32),
+        state["y_val"],
+        y_mean_raw=state.get("y_mean_raw"),
+        y_std_raw=state.get("y_std_raw"),
+        standardized_targets=bool(state.get("standardized_targets", False)),
+    )
+    new_state = dict(state)
+    new_state.update(metrics)
+    new_state.update(train_info)
+    new_state.update(
+        {
+            "method": "mlp",
+            "baseline_name": "MLP",
+            "model": model,
+            "y_pred_z": metrics["y_pred_model_space"],
+            "y_true_z": metrics["y_true_model_space"],
+            "hidden": hidden,
+            "dropout": dropout,
+        }
+    )
+    return new_state
+
+
 def _predict_pre_post_adaptation(
     state: Mapping[str, Any],
     *,
@@ -920,14 +1449,14 @@ def _predict_pre_post_adaptation(
     }
 
 
-def evaluate_pre_post_adaptation_state(
+def evaluate_nnknn_pre_post_adaptation_state(
     state: Mapping[str, Any],
     *,
     batch_size: int = 512,
     show_plots: bool = True,
     print_metrics: bool = True,
 ) -> dict[str, Any]:
-    """Purpose: evaluate pre- vs post-adaptation predictions for one trained workflow state.
+    """Purpose: evaluate pre- vs post-adaptation predictions for one trained NN-kNN workflow state.
 
     Input:
         state: Workflow state containing a trained model and validation tensors.
@@ -996,7 +1525,7 @@ def evaluate_pre_post_adaptation_state(
     return new_state
 
 
-def run_regression_workflow(
+def run_nnknn_regression_workflow(
     dataset_name: str,
     cfg: Mapping[str, Any],
     *,
@@ -1015,7 +1544,7 @@ def run_regression_workflow(
     show_plots: bool = False,
     print_metrics: bool = True,
 ) -> dict[str, Any]:
-    """Purpose: execute the same dataset -> split -> train -> eval flow used by the notebook.
+    """Purpose: execute the NN-kNN dataset -> split -> train -> eval flow used by the notebook.
 
     Input:
         dataset_name: Synthetic or real dataset name.
@@ -1062,7 +1591,7 @@ def run_regression_workflow(
         glocal_init_from_true=glocal_init_from_true,
         glocal_init_alpha=glocal_init_alpha,
     )
-    state = train_regression_state(
+    state = train_nnknn_regression_state(
         state,
         cfg_run,
         feature_extractor=feature_extractor,
@@ -1078,14 +1607,14 @@ def run_regression_workflow(
     )
 
     if include_eval:
-        state = evaluate_regression_state(
+        state = evaluate_nnknn_regression_state(
             state,
             show_plot=show_plots,
             print_metrics=print_metrics,
         )
 
     if include_pre_post:
-        state = evaluate_pre_post_adaptation_state(
+        state = evaluate_nnknn_pre_post_adaptation_state(
             state,
             show_plots=show_plots,
             print_metrics=print_metrics,
@@ -1094,7 +1623,7 @@ def run_regression_workflow(
     return state
 
 
-def run_single_regression_experiment(
+def run_single_nnknn_regression_experiment(
     dataset_name: str,
     cfg: Mapping[str, Any],
     *,
@@ -1109,8 +1638,8 @@ def run_single_regression_experiment(
     glocal_init_alpha: float = 1.0,
     checkpoint_label: str | None = None,
 ) -> dict[str, Any]:
-    """Purpose: backward-compatible single-run entry point built on the shared workflow helpers."""
-    return run_regression_workflow(
+    """Purpose: single-run NN-kNN entry point built on the shared workflow helpers."""
+    return run_nnknn_regression_workflow(
         dataset_name,
         cfg,
         feature_extractor=feature_extractor,
@@ -1169,11 +1698,61 @@ def summarize_regression_runs(runs_df: pd.DataFrame, digits: int = 4) -> pd.Data
     return pd.DataFrame(records)
 
 
-def _build_run_record(state: Mapping[str, Any], *, mode: str, run_index: int, fold: int | None) -> dict[str, Any]:
+def summarize_regression_benchmark_runs(runs_df: pd.DataFrame, digits: int = 4) -> pd.DataFrame:
+    """Purpose: aggregate repeated benchmark runs into method-aware table summaries."""
+    records: list[dict[str, Any]] = []
+    grouped = runs_df.groupby(["dataset", "mode", "method"], dropna=False, sort=False)
+
+    for (dataset, mode, method), group in grouped:
+        record: dict[str, Any] = {
+            "dataset": dataset,
+            "mode": mode,
+            "method": method,
+            "num_runs": int(len(group)),
+        }
+
+        method_labels = group.get("method_label")
+        if method_labels is not None:
+            non_null_labels = method_labels.dropna()
+            if not non_null_labels.empty:
+                record["method_label"] = str(non_null_labels.iloc[0])
+
+        for metric_name in ("rmse_raw", "rmse_model_space", "rmse_z", "best_metric"):
+            if metric_name not in group.columns:
+                continue
+
+            values = group[metric_name].dropna()
+            if values.empty:
+                continue
+
+            mean_value = float(values.mean())
+            std_value = float(values.std(ddof=1)) if len(values) > 1 else 0.0
+            record[f"{metric_name}_mean"] = mean_value
+            record[f"{metric_name}_std"] = std_value
+            record[f"{metric_name}_table"] = format_mean_std(mean_value, std_value, digits=digits)
+
+        records.append(record)
+
+    if not records:
+        return pd.DataFrame()
+
+    return pd.DataFrame(records)
+
+
+def _build_run_record(
+    state: Mapping[str, Any],
+    *,
+    mode: str,
+    run_index: int,
+    fold: int | None,
+    method: str | None = None,
+) -> dict[str, Any]:
     """Purpose: normalize one workflow state into a compact summary row."""
     return {
         "dataset": state["display_name"],
         "mode": mode,
+        "method": method,
+        "method_label": state.get("baseline_name"),
         "run_index": run_index,
         "run_seed": state["run_seed"],
         "dataset_seed": state["dataset_seed"],
@@ -1187,7 +1766,274 @@ def _build_run_record(state: Mapping[str, Any], *, mode: str, run_index: int, fo
     }
 
 
-def run_repeated_regression_experiments(
+def run_regression_benchmark_methods_on_state(
+    state: Mapping[str, Any],
+    nnknn_cfg: Mapping[str, Any] | None = None,
+    *,
+    feature_extractor: Any = None,
+    methods: list[str] | None = None,
+    method_cfgs: Mapping[str, Mapping[str, Any]] | None = None,
+    run_seed: int = 42,
+    checkpoint_label_prefix: str | None = None,
+    glocal_init_from_true: bool = False,
+    glocal_init_alpha: float = 1.0,
+) -> dict[str, dict[str, Any]]:
+    """Purpose: evaluate one split with NN-kNN and/or baseline methods using shared preprocessing.
+
+    Input:
+        state: Split workflow state containing `X_train`, `X_val`, `y_train`, and `y_val`.
+        nnknn_cfg: NN-kNN config used when the `nnknn` method is requested.
+        feature_extractor: Optional feature extractor passed into NN-kNN training.
+        methods: Benchmark methods to run. Defaults to every supported method.
+        method_cfgs: Optional per-method kwargs, keyed by method name.
+        run_seed: Seed used to make each method deterministic on this split.
+        checkpoint_label_prefix: Optional prefix for per-run NN-kNN checkpoint files.
+        glocal_init_from_true: Whether to initialize glocal weights from true regime weights.
+        glocal_init_alpha: Strength of that glocal-weight initialization blend.
+
+    Output:
+        A dictionary mapping canonical method names to method-specific workflow artifacts.
+    """
+    requested_methods = methods or list_supported_regression_benchmark_methods()
+    canonical_methods: list[str] = []
+    for method in requested_methods:
+        canonical = _normalize_benchmark_method(method)
+        if canonical not in canonical_methods:
+            canonical_methods.append(canonical)
+
+    normalized_method_cfgs = {
+        _normalize_benchmark_method(method_name): dict(method_cfg)
+        for method_name, method_cfg in (method_cfgs or {}).items()
+    }
+
+    results: dict[str, dict[str, Any]] = {}
+    for method in canonical_methods:
+        seed_everything(run_seed)
+        method_cfg = dict(normalized_method_cfgs.get(method, {}))
+        base_state = copy.deepcopy(dict(state))
+
+        if method == "nnknn":
+            if nnknn_cfg is None:
+                raise ValueError("`nnknn_cfg` is required when benchmarking the `nnknn` method.")
+
+            cfg_run = configure_regression_cfg_for_state(
+                nnknn_cfg,
+                base_state,
+                glocal_init_from_true=glocal_init_from_true,
+                glocal_init_alpha=glocal_init_alpha,
+            )
+            checkpoint_label = None
+            if checkpoint_label_prefix is not None:
+                checkpoint_label = f"{checkpoint_label_prefix}_{method}"
+            artifact = train_nnknn_regression_state(
+                base_state,
+                cfg_run,
+                feature_extractor=feature_extractor,
+                checkpoint_label=checkpoint_label,
+            )
+            artifact = evaluate_nnknn_regression_state(
+                artifact,
+                batch_size=int(method_cfg.pop("batch_size", 512)),
+                show_plot=False,
+                print_metrics=False,
+            )
+            artifact["method"] = "nnknn"
+            artifact["baseline_name"] = "NN-kNN"
+            results[method] = artifact
+            continue
+
+        if method == "knn_x":
+            artifact = evaluate_knn_x_regression_baseline_state(base_state, **method_cfg)
+        elif method == "oracle_knn_y":
+            artifact = evaluate_oracle_knn_y_regression_baseline_state(base_state, **method_cfg)
+        elif method == "mlkr_knn":
+            method_cfg.setdefault("random_state", run_seed)
+            artifact = evaluate_mlkr_knn_regression_baseline_state(base_state, **method_cfg)
+        elif method == "mlp":
+            artifact = evaluate_mlp_regression_baseline_state(base_state, **method_cfg)
+        else:
+            raise ValueError(f"Unsupported benchmark method '{method}'.")
+
+        results[method] = artifact
+
+    return results
+
+
+def run_repeated_regression_model_benchmarks(
+    dataset_names: str | list[str],
+    nnknn_cfg: Mapping[str, Any] | None = None,
+    *,
+    feature_extractor: Any = None,
+    methods: list[str] | None = None,
+    method_cfgs: Mapping[str, Mapping[str, Any]] | None = None,
+    num_runs: int = 5,
+    mode: str = "holdout",
+    base_seed: int = 42,
+    train_ratio: float = 0.8,
+    standardize: bool | str = "auto",
+    dataset_kwargs_map: Mapping[str, Mapping[str, Any]] | None = None,
+    glocal_init_from_true: bool = False,
+    glocal_init_alpha: float = 1.0,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, dict[str, list[dict[str, Any]]]]]:
+    """Purpose: rerun shared-split model benchmarks for NN-kNN and baselines, then summarize mean/std.
+
+    Input:
+        dataset_names: One dataset name or a list of datasets to evaluate.
+        nnknn_cfg: NN-kNN config used when `nnknn` is among the requested methods.
+        feature_extractor: Optional feature extractor passed into NN-kNN training.
+        methods: Benchmark methods to run. Defaults to every supported method.
+        method_cfgs: Optional per-method kwargs, keyed by method name.
+        num_runs: Number of repeated holdout runs or CV folds.
+        mode: Either `holdout`/`repeated_holdout` or `kfold`.
+        base_seed: Base seed used to derive per-run randomness.
+        train_ratio: Training split ratio used in holdout mode.
+        standardize: `True`, `False`, or `"auto"` to standardize only real datasets.
+        dataset_kwargs_map: Optional per-dataset loader/builder arguments.
+        glocal_init_from_true: Whether to initialize glocal weights from true synthetic weights.
+        glocal_init_alpha: Strength of that glocal-weight initialization blend.
+
+    Output:
+        A tuple of `(summary_df, run_df, artifacts)` where artifacts are nested as
+        `artifacts[dataset_name][method][run_index]`.
+    """
+    if isinstance(dataset_names, str):
+        dataset_names = [dataset_names]
+
+    dataset_kwargs_map = dataset_kwargs_map or {}
+    mode_normalized = _normalize_name(mode)
+    if mode_normalized not in {"holdout", "repeated_holdout", "kfold"}:
+        raise ValueError("mode must be one of: 'holdout', 'repeated_holdout', 'kfold'.")
+
+    requested_methods = methods or list_supported_regression_benchmark_methods()
+    canonical_methods: list[str] = []
+    for method in requested_methods:
+        canonical = _normalize_benchmark_method(method)
+        if canonical not in canonical_methods:
+            canonical_methods.append(canonical)
+
+    run_records: list[dict[str, Any]] = []
+    artifacts: dict[str, dict[str, list[dict[str, Any]]]] = {}
+
+    for dataset_name in dataset_names:
+        artifacts[dataset_name] = {method: [] for method in canonical_methods}
+        dataset_kwargs = dict(dataset_kwargs_map.get(dataset_name, {}))
+        bundle_seed = dataset_kwargs.pop("seed", base_seed)
+
+        if mode_normalized == "kfold":
+            dataset_state = load_regression_dataset_state(
+                dataset_name,
+                dataset_kwargs={**dataset_kwargs, "seed": bundle_seed},
+            )
+            standardize_flag = _resolve_standardize_flag(standardize, dataset_state)
+            kfold = KFold(n_splits=num_runs, shuffle=True, random_state=base_seed)
+
+            for fold_idx, (train_idx, val_idx) in enumerate(kfold.split(dataset_state["X"])):
+                run_seed = base_seed + fold_idx
+                run_state = split_regression_state(
+                    dataset_state,
+                    seed=base_seed,
+                    train_idx=train_idx,
+                    val_idx=val_idx,
+                )
+                if standardize_flag:
+                    run_state = standardize_regression_state(run_state, enabled=True)
+
+                run_state.update(
+                    {
+                        "dataset": run_state["display_name"],
+                        "run_seed": run_seed,
+                        "dataset_seed": bundle_seed,
+                        "split_seed": base_seed,
+                        "mode": "kfold",
+                        "run_index": fold_idx + 1,
+                        "fold": fold_idx + 1,
+                    }
+                )
+
+                method_results = run_regression_benchmark_methods_on_state(
+                    run_state,
+                    nnknn_cfg,
+                    feature_extractor=feature_extractor,
+                    methods=canonical_methods,
+                    method_cfgs=method_cfgs,
+                    run_seed=run_seed,
+                    checkpoint_label_prefix=f"fold_{fold_idx + 1}",
+                    glocal_init_from_true=glocal_init_from_true,
+                    glocal_init_alpha=glocal_init_alpha,
+                )
+
+                for method, artifact in method_results.items():
+                    artifact.update(run_state)
+                    artifact["method"] = method
+                    artifacts[dataset_name][method].append(artifact)
+                    run_records.append(
+                        _build_run_record(
+                            artifact,
+                            mode="kfold",
+                            run_index=fold_idx + 1,
+                            fold=fold_idx + 1,
+                            method=method,
+                        )
+                    )
+        else:
+            for run_idx in range(num_runs):
+                run_seed = base_seed + run_idx
+                dataset_state = load_regression_dataset_state(
+                    dataset_name,
+                    dataset_kwargs={**dataset_kwargs, "seed": bundle_seed},
+                )
+                run_state = split_regression_state(
+                    dataset_state,
+                    train_ratio=train_ratio,
+                    seed=run_seed,
+                )
+                if _resolve_standardize_flag(standardize, run_state):
+                    run_state = standardize_regression_state(run_state, enabled=True)
+
+                run_state.update(
+                    {
+                        "dataset": run_state["display_name"],
+                        "run_seed": run_seed,
+                        "dataset_seed": bundle_seed,
+                        "split_seed": run_seed,
+                        "mode": "holdout",
+                        "run_index": run_idx + 1,
+                        "fold": None,
+                    }
+                )
+
+                method_results = run_regression_benchmark_methods_on_state(
+                    run_state,
+                    nnknn_cfg,
+                    feature_extractor=feature_extractor,
+                    methods=canonical_methods,
+                    method_cfgs=method_cfgs,
+                    run_seed=run_seed,
+                    checkpoint_label_prefix=f"run_{run_idx + 1}",
+                    glocal_init_from_true=glocal_init_from_true,
+                    glocal_init_alpha=glocal_init_alpha,
+                )
+
+                for method, artifact in method_results.items():
+                    artifact.update(run_state)
+                    artifact["method"] = method
+                    artifacts[dataset_name][method].append(artifact)
+                    run_records.append(
+                        _build_run_record(
+                            artifact,
+                            mode="holdout",
+                            run_index=run_idx + 1,
+                            fold=None,
+                            method=method,
+                        )
+                    )
+
+    runs_df = pd.DataFrame(run_records)
+    summary_df = summarize_regression_benchmark_runs(runs_df)
+    return summary_df, runs_df, artifacts
+
+
+def run_repeated_nnknn_regression_experiments(
     dataset_names: str | list[str],
     cfg: Mapping[str, Any],
     *,
@@ -1220,117 +2066,40 @@ def run_repeated_regression_experiments(
         A tuple of `(summary_df, run_df, artifacts)` containing paper-ready aggregates,
         per-run records, and the full workflow states for each run.
     """
-    if isinstance(dataset_names, str):
-        dataset_names = [dataset_names]
+    summary_df, runs_df, benchmark_artifacts = run_repeated_regression_model_benchmarks(
+        dataset_names,
+        cfg,
+        feature_extractor=feature_extractor,
+        methods=["nnknn"],
+        num_runs=num_runs,
+        mode=mode,
+        base_seed=base_seed,
+        train_ratio=train_ratio,
+        standardize=standardize,
+        dataset_kwargs_map=dataset_kwargs_map,
+        glocal_init_from_true=glocal_init_from_true,
+        glocal_init_alpha=glocal_init_alpha,
+    )
 
-    dataset_kwargs_map = dataset_kwargs_map or {}
-    mode_normalized = _normalize_name(mode)
-    if mode_normalized not in {"holdout", "repeated_holdout", "kfold"}:
-        raise ValueError("mode must be one of: 'holdout', 'repeated_holdout', 'kfold'.")
+    nnknn_summary = summary_df.drop(columns=["method"], errors="ignore")
+    nnknn_runs = runs_df.drop(columns=["method", "method_label"], errors="ignore")
+    artifacts = {
+        dataset_name: per_method_artifacts.get("nnknn", [])
+        for dataset_name, per_method_artifacts in benchmark_artifacts.items()
+    }
+    return nnknn_summary, nnknn_runs, artifacts
 
-    run_records: list[dict[str, Any]] = []
-    artifacts: dict[str, list[dict[str, Any]]] = {}
 
-    for dataset_name in dataset_names:
-        per_dataset_artifacts: list[dict[str, Any]] = []
-        dataset_kwargs = dict(dataset_kwargs_map.get(dataset_name, {}))
-        bundle_seed = dataset_kwargs.pop("seed", base_seed)
-
-        if mode_normalized == "kfold":
-            dataset_state = load_regression_dataset_state(
-                dataset_name,
-                dataset_kwargs={**dataset_kwargs, "seed": bundle_seed},
-            )
-            standardize_flag = _resolve_standardize_flag(standardize, dataset_state)
-            kfold = KFold(n_splits=num_runs, shuffle=True, random_state=base_seed)
-
-            for fold_idx, (train_idx, val_idx) in enumerate(kfold.split(dataset_state["X"])):
-                run_seed = base_seed + fold_idx
-                seed_everything(run_seed)
-
-                run_state = split_regression_state(
-                    dataset_state,
-                    seed=base_seed,
-                    train_idx=train_idx,
-                    val_idx=val_idx,
-                )
-                if standardize_flag:
-                    run_state = standardize_regression_state(run_state, enabled=True)
-
-                cfg_run = configure_regression_cfg_for_state(
-                    cfg,
-                    run_state,
-                    glocal_init_from_true=glocal_init_from_true,
-                    glocal_init_alpha=glocal_init_alpha,
-                )
-                run_state = train_regression_state(
-                    run_state,
-                    cfg_run,
-                    feature_extractor=feature_extractor,
-                    checkpoint_label=f"fold_{fold_idx + 1}",
-                )
-                run_state.update(
-                    {
-                        "dataset": run_state["display_name"],
-                        "run_seed": run_seed,
-                        "dataset_seed": bundle_seed,
-                        "split_seed": base_seed,
-                        "mode": "kfold",
-                        "run_index": fold_idx + 1,
-                        "fold": fold_idx + 1,
-                    }
-                )
-                run_state = evaluate_regression_state(
-                    run_state,
-                    show_plot=False,
-                    print_metrics=False,
-                )
-
-                per_dataset_artifacts.append(run_state)
-                run_records.append(
-                    _build_run_record(
-                        run_state,
-                        mode="kfold",
-                        run_index=fold_idx + 1,
-                        fold=fold_idx + 1,
-                    )
-                )
-        else:
-            for run_idx in range(num_runs):
-                run_seed = base_seed + run_idx
-                artifact = run_regression_workflow(
-                    dataset_name,
-                    cfg,
-                    feature_extractor=feature_extractor,
-                    dataset_kwargs={**dataset_kwargs, "seed": bundle_seed},
-                    run_seed=run_seed,
-                    dataset_seed=bundle_seed,
-                    split_seed=run_seed,
-                    train_ratio=train_ratio,
-                    standardize=standardize,
-                    glocal_init_from_true=glocal_init_from_true,
-                    glocal_init_alpha=glocal_init_alpha,
-                    checkpoint_label=f"run_{run_idx + 1}",
-                    include_eval=True,
-                    include_pre_post=False,
-                    show_plots=False,
-                    print_metrics=False,
-                )
-                artifact["mode"] = "holdout"
-                artifact["run_index"] = run_idx + 1
-                artifact["fold"] = None
-                per_dataset_artifacts.append(artifact)
-                run_records.append(
-                    _build_run_record(
-                        artifact,
-                        mode="holdout",
-                        run_index=run_idx + 1,
-                        fold=None,
-                    )
-                )
-
-        artifacts[dataset_name] = per_dataset_artifacts
-
-    runs_df = pd.DataFrame(run_records)
-    summary_df = summarize_regression_runs(runs_df)
-    return summary_df, runs_df, artifacts
+# Backward-compatible aliases for older notebook code and external callers.
+train_regression_state = train_nnknn_regression_state
+evaluate_regression_state = evaluate_nnknn_regression_state
+evaluate_pre_post_adaptation_state = evaluate_nnknn_pre_post_adaptation_state
+run_regression_workflow = run_nnknn_regression_workflow
+run_single_regression_experiment = run_single_nnknn_regression_experiment
+evaluate_knn_x_baseline_state = evaluate_knn_x_regression_baseline_state
+evaluate_oracle_knn_y_baseline_state = evaluate_oracle_knn_y_regression_baseline_state
+evaluate_mlkr_knn_baseline_state = evaluate_mlkr_knn_regression_baseline_state
+evaluate_mlp_baseline_state = evaluate_mlp_regression_baseline_state
+run_regression_benchmarks_on_state = run_regression_benchmark_methods_on_state
+run_repeated_regression_benchmarks = run_repeated_regression_model_benchmarks
+run_repeated_regression_experiments = run_repeated_nnknn_regression_experiments
