@@ -11,13 +11,14 @@ import os
 import numpy as np
 
 from model.nn_cdh import NNCDHAdapter, add_to_pair_list
+from model.device_utils import resolve_runtime_device
 
 debug_print_flag = False
 def debug_print(*args, **kwargs):
     if debug_print_flag:
         print(*args, **kwargs)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = resolve_runtime_device()
 
 default_args = {
     # Replace the following with actual values or pass them in at runtime

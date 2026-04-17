@@ -15,6 +15,7 @@ import torch.nn.functional as F
 from sklearn.model_selection import KFold
 
 from datasets.reg_data import DATATYPES, Reg_data, standardize_tensor
+from model.device_utils import resolve_runtime_device
 from model.nnknn_model import default_args, train_model
 
 
@@ -26,22 +27,24 @@ _REAL_DATASET_LOOKUP = {
 
 def seed_everything(seed: int = 42, deterministic: bool = True) -> None:
     """Purpose: make notebook and batch runs reproducible."""
+    runtime_device = resolve_runtime_device()
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
 
     torch.manual_seed(seed)
-    if torch.cuda.is_available():
+    if runtime_device.type == "cuda":
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 
     if deterministic:
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
         torch.use_deterministic_algorithms(True)
-        torch.backends.cuda.matmul.allow_tf32 = False
-        torch.backends.cudnn.allow_tf32 = False
+        if runtime_device.type == "cuda":
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+            torch.backends.cuda.matmul.allow_tf32 = False
+            torch.backends.cudnn.allow_tf32 = False
 
 
 def _normalize_name(name: str) -> str:
