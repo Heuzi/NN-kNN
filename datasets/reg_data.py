@@ -216,6 +216,40 @@ def Body_Fat():
     ys = torch.tensor( y_clean.to_numpy(), dtype=torch.float32)
     return Xs, ys
 
+def Bike_Sharing():
+    from ucimlrepo import fetch_ucirepo
+
+    bike_sharing = fetch_ucirepo(id=275)
+    X = bike_sharing.data.features
+    y = bike_sharing.data.targets
+
+    if "dteday" in X.columns:
+        X = X.drop(columns=["dteday"])
+
+    if "cnt" in y.columns:
+        y = y["cnt"]
+
+    Xs = torch.tensor(X.values, dtype=torch.float32)
+    ys = torch.tensor(y.values, dtype=torch.float32)
+    return Xs, ys
+
+def Wine():
+    from ucimlrepo import fetch_ucirepo
+
+    wine_quality = fetch_ucirepo(id=186)
+    X = wine_quality.data.features
+    y = wine_quality.data.targets
+
+    if "color" in X.columns:
+        X = X.drop(columns=["color"])
+
+    if "quality" in y.columns:
+        y = y["quality"]
+
+    Xs = torch.tensor(X.values, dtype=torch.float32)
+    ys = torch.tensor(y.values, dtype=torch.float32)
+    return Xs, ys
+
 def Ziweifaces():
     Xs = np.load(_dataset_path("part_features.npy"))
     ys = np.load(_dataset_path("part_targets.npy"))
@@ -277,6 +311,8 @@ DATATYPES = {
     'abalone': Abalone,
     'diabets': Diabetes,
     'body_fat': Body_Fat,
+    'bike_sharing': Bike_Sharing,
+    'wine': Wine,
     'ziweifaces': Ziweifaces,
     'covid_anxious_reg': covid_anxious_reg,
     'covid_depressed_reg':covid_depressed_reg,

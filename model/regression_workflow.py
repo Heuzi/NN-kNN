@@ -1808,6 +1808,19 @@ def run_regression_benchmark_methods_on_state(
 
     results: dict[str, dict[str, Any]] = {}
     for method in canonical_methods:
+        dataset_label = str(state.get("display_name", state.get("dataset", "<unknown>")))
+        fold_label = state.get("fold")
+        run_label = state.get("run_index")
+        if fold_label is not None:
+            progress_label = f"fold {fold_label}"
+        elif run_label is not None:
+            progress_label = f"run {run_label}"
+        else:
+            progress_label = "single split"
+        print(
+            f"[benchmark] {dataset_label} {progress_label} method={method}",
+            flush=True,
+        )
         seed_everything(run_seed)
         method_cfg = dict(normalized_method_cfgs.get(method, {}))
         base_state = copy.deepcopy(dict(state))
@@ -1913,8 +1926,13 @@ def run_repeated_regression_model_benchmarks(
 
     run_records: list[dict[str, Any]] = []
     artifacts: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    total_datasets = len(dataset_names)
 
-    for dataset_name in dataset_names:
+    for dataset_idx, dataset_name in enumerate(dataset_names, start=1):
+        print(
+            f"[benchmark] Dataset {dataset_idx}/{total_datasets}: {dataset_name}",
+            flush=True,
+        )
         artifacts[dataset_name] = {method: [] for method in canonical_methods}
         dataset_kwargs = dict(dataset_kwargs_map.get(dataset_name, {}))
         bundle_seed = dataset_kwargs.pop("seed", base_seed)
@@ -1928,6 +1946,10 @@ def run_repeated_regression_model_benchmarks(
             kfold = KFold(n_splits=num_runs, shuffle=True, random_state=base_seed)
 
             for fold_idx, (train_idx, val_idx) in enumerate(kfold.split(dataset_state["X"])):
+                print(
+                    f"[benchmark] {dataset_state['display_name']} fold {fold_idx + 1}/{num_runs}",
+                    flush=True,
+                )
                 run_seed = base_seed + fold_idx
                 run_state = split_regression_state(
                     dataset_state,
@@ -1977,6 +1999,10 @@ def run_repeated_regression_model_benchmarks(
                     )
         else:
             for run_idx in range(num_runs):
+                print(
+                    f"[benchmark] {dataset_name} run {run_idx + 1}/{num_runs}",
+                    flush=True,
+                )
                 run_seed = base_seed + run_idx
                 dataset_state = load_regression_dataset_state(
                     dataset_name,

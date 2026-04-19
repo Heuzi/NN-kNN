@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, TensorDataset, random_split
-from reg_data_yu import Reg_data
+from datasets.reg_data import Reg_data
 # from model.nnknn_model import NN_KNN_Model, default_args, GlocalFeatureWeight, reg_locality_reg_loss
 from model.nnknn_model import train_model, default_args
 
