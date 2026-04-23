@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import copy
+from datetime import datetime
+import json
+from pathlib import Path
 from typing import Any, Mapping
 
 import pandas as pd
 import torch
 from sklearn.model_selection import KFold
 
+from model.nn_cdh import NNCDHAdapter
+from model.nnknn_model import GlocalFeatureWeight, NN_KNN_Model, device
 from model.regression_workflow import (
+    _checkpoint_path_for_run,
     configure_regression_cfg_for_state,
     evaluate_nnknn_pre_post_adaptation_state,
     load_regression_dataset_state,
@@ -17,6 +23,20 @@ from model.regression_workflow import (
     standardize_regression_state,
     train_nnknn_regression_state,
 )
+
+TABLE1_DEFAULT_DATASET_NAMES: list[str] = [
+    "califonia_housing",
+    "diabets",
+    "abalone",
+    "body_fat",
+    "airfoil",
+    "car",
+    "student_performance",
+    "yacht",
+    "energy_efficiency",
+    "bike_sharing",
+    "wine",
+]
 
 
 def build_table1_paper_base_cfg(
@@ -273,6 +293,147 @@ def summarize_table1_nnknn_runs(
     return pd.DataFrame(records)
 
 
+def _make_table1_split_state(
+    dataset_state: Mapping[str, Any],
+    *,
+    train_idx: Any,
+    val_idx: Any,
+    fold_idx: int,
+    base_seed: int,
+) -> dict[str, Any]:
+    split_state = split_regression_state(
+        _clone_state_bundle(dataset_state),
+        seed=base_seed,
+        train_idx=train_idx,
+        val_idx=val_idx,
+    )
+    split_state = standardize_regression_state(split_state, enabled=True)
+    split_state.update(
+        {
+            "dataset": split_state["display_name"],
+            "mode": "kfold",
+            "run_seed": base_seed + fold_idx - 1,
+            "dataset_seed": base_seed,
+            "split_seed": base_seed,
+            "run_index": fold_idx,
+            "fold": fold_idx,
+        }
+    )
+    return split_state
+
+
+def table1_nnknn_checkpoint_path(
+    split_state: Mapping[str, Any],
+    cfg_run: Mapping[str, Any],
+    *,
+    family_id: str,
+    fold_idx: int,
+) -> Path:
+    """Return the checkpoint path used for one Table 1 NN-kNN family/fold."""
+    return Path(
+        _checkpoint_path_for_run(
+            str(cfg_run.get("checkpoint_path", "nnknn_regression_best.pth")),
+            dataset_name=str(split_state.get("display_name", "dataset")),
+            run_label=f"{family_id}_fold_{fold_idx}",
+        )
+    )
+
+
+def _checkpoint_matches_resume_policy(
+    checkpoint_path: Path,
+    *,
+    checkpoint_mtime_after: datetime | None,
+) -> bool:
+    if not checkpoint_path.exists():
+        return False
+    if checkpoint_mtime_after is None:
+        return True
+    return datetime.fromtimestamp(checkpoint_path.stat().st_mtime) >= checkpoint_mtime_after
+
+
+def _load_table1_nnknn_checkpoint_state(
+    split_state: Mapping[str, Any],
+    cfg_run: Mapping[str, Any],
+    checkpoint_path: Path,
+    *,
+    feature_extractor: Any = None,
+) -> dict[str, Any]:
+    """Rebuild a Table 1 NN-kNN workflow state from a saved model checkpoint."""
+    run_feature_extractor = copy.deepcopy(feature_extractor) if feature_extractor is not None else None
+    feature_dim = (
+        split_state["X_train"].shape[-1]
+        if run_feature_extractor is None
+        else run_feature_extractor.feature_dim
+    )
+    glocal_weightor = GlocalFeatureWeight(feature_dim, cfg_run["glocal_fw_set_num"]).to(device)
+    adapter = NNCDHAdapter(feature_dim, label_dim=1).to(device) if cfg_run.get("use_nn_cdh", False) else None
+    labels = split_state["y_train_norm"].float().unsqueeze(1)
+
+    model = NN_KNN_Model(
+        split_state["X_train"],
+        labels,
+        feature_extractor=run_feature_extractor,
+        glocal_weightor=glocal_weightor,
+        nn_cdh=adapter,
+        **dict(cfg_run),
+    ).to(device)
+    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+
+    workflow_state = dict(split_state)
+    workflow_state.update(
+        {
+            "cfg": copy.deepcopy(dict(cfg_run)),
+            "cfg_run": copy.deepcopy(dict(cfg_run)),
+            "feature_extractor": feature_extractor,
+            "glocal_weightor": glocal_weightor,
+            "model": model,
+            "resume_checkpoint_path": str(checkpoint_path),
+        }
+    )
+    return workflow_state
+
+
+def _append_table1_nnknn_run_records(
+    runs: list[dict[str, Any]],
+    *,
+    dataset_name: str,
+    fold_idx: int,
+    family: Mapping[str, Any],
+    workflow_state: Mapping[str, Any],
+    resume_source: str | None = None,
+) -> None:
+    base_record = {
+        "dataset": dataset_name,
+        "mode": "kfold",
+        "fold": fold_idx,
+        "run_index": fold_idx,
+        "family_id": family["family_id"],
+        "family_label": family["family_label"],
+        "standardized_targets": workflow_state["standardized_targets"],
+    }
+    if resume_source is not None:
+        base_record["resume_source"] = resume_source
+
+    for adapted in (False, True):
+        result_name = _paper_result_name(
+            use_locality=bool(family["use_locality"]),
+            adapted=adapted,
+        )
+        runs.append(
+            {
+                **base_record,
+                "result_type": result_name,
+                "result_label": result_name,
+                "rmse_raw": workflow_state["rmse_post_raw"] if adapted else workflow_state["rmse_pre_raw"],
+                "rmse_model_space": (
+                    workflow_state["rmse_post_model_space"]
+                    if adapted
+                    else workflow_state["rmse_pre_model_space"]
+                ),
+            }
+        )
+
+
 def run_table1_nnknn_kfold(
     dataset_names: str | list[str],
     *,
@@ -311,23 +472,12 @@ def run_table1_nnknn_kfold(
                 f"[table1][nnknn] {dataset_state['display_name']} fold {fold_idx}/{num_folds}",
                 flush=True,
             )
-            split_state = split_regression_state(
-                _clone_state_bundle(dataset_state),
-                seed=base_seed,
+            split_state = _make_table1_split_state(
+                dataset_state,
                 train_idx=train_idx,
                 val_idx=val_idx,
-            )
-            split_state = standardize_regression_state(split_state, enabled=True)
-            split_state.update(
-                {
-                    "dataset": split_state["display_name"],
-                    "mode": "kfold",
-                    "run_seed": base_seed + fold_idx - 1,
-                    "dataset_seed": base_seed,
-                    "split_seed": base_seed,
-                    "run_index": fold_idx,
-                    "fold": fold_idx,
-                }
+                fold_idx=fold_idx,
+                base_seed=base_seed,
             )
 
             for family in TABLE1_NNKNN_FAMILIES:
@@ -360,53 +510,162 @@ def run_table1_nnknn_kfold(
                     }
                 )
                 artifacts[dataset_state["display_name"]][family["family_id"]].append(workflow_state)
-
-                runs.append(
-                    {
-                        "dataset": dataset_state["display_name"],
-                        "mode": "kfold",
-                        "fold": fold_idx,
-                        "run_index": fold_idx,
-                        "family_id": family["family_id"],
-                        "family_label": family["family_label"],
-                        "result_type": _paper_result_name(
-                            use_locality=family["use_locality"],
-                            adapted=False,
-                        ),
-                        "result_label": _paper_result_name(
-                            use_locality=family["use_locality"],
-                            adapted=False,
-                        ),
-                        "rmse_raw": workflow_state["rmse_pre_raw"],
-                        "rmse_model_space": workflow_state["rmse_pre_model_space"],
-                        "standardized_targets": workflow_state["standardized_targets"],
-                    }
-                )
-                runs.append(
-                    {
-                        "dataset": dataset_state["display_name"],
-                        "mode": "kfold",
-                        "fold": fold_idx,
-                        "run_index": fold_idx,
-                        "family_id": family["family_id"],
-                        "family_label": family["family_label"],
-                        "result_type": _paper_result_name(
-                            use_locality=family["use_locality"],
-                            adapted=True,
-                        ),
-                        "result_label": _paper_result_name(
-                            use_locality=family["use_locality"],
-                            adapted=True,
-                        ),
-                        "rmse_raw": workflow_state["rmse_post_raw"],
-                        "rmse_model_space": workflow_state["rmse_post_model_space"],
-                        "standardized_targets": workflow_state["standardized_targets"],
-                    }
+                _append_table1_nnknn_run_records(
+                    runs,
+                    dataset_name=dataset_state["display_name"],
+                    fold_idx=fold_idx,
+                    family=family,
+                    workflow_state=workflow_state,
                 )
 
     runs_df = pd.DataFrame(runs)
     summary_df = summarize_table1_nnknn_runs(runs_df)
     return summary_df, runs_df, artifacts
+
+
+def run_table1_nnknn_kfold_resumable(
+    dataset_names: str | list[str],
+    *,
+    num_folds: int = 5,
+    base_seed: int = 42,
+    base_cfg: Mapping[str, Any] | None = None,
+    feature_extractor: Any = None,
+    reuse_checkpoints: bool = True,
+    checkpoint_mtime_after: datetime | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, dict[str, list[dict[str, Any]]]], dict[str, Any]]:
+    """Run Table 1 NN-kNN families, reusing completed checkpoints when possible.
+
+    Resume behavior is per dataset/fold/family. If the expected final checkpoint
+    exists and passes `checkpoint_mtime_after`, the model is reconstructed and
+    evaluated instead of retrained. Missing entries are trained normally.
+    """
+    if isinstance(dataset_names, str):
+        dataset_names = [dataset_names]
+
+    runs: list[dict[str, Any]] = []
+    artifacts: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    reused: list[dict[str, Any]] = []
+    trained: list[dict[str, Any]] = []
+    total_datasets = len(dataset_names)
+
+    for dataset_idx, dataset_name in enumerate(dataset_names, start=1):
+        print(
+            f"[resume][nnknn] Dataset {dataset_idx}/{total_datasets}: {dataset_name}",
+            flush=True,
+        )
+        dataset_state = load_regression_dataset_state(dataset_name)
+        artifacts[dataset_state["display_name"]] = {
+            family["family_id"]: [] for family in TABLE1_NNKNN_FAMILIES
+        }
+
+        splitter = KFold(n_splits=num_folds, shuffle=True, random_state=base_seed)
+        for fold_idx, (train_idx, val_idx) in enumerate(splitter.split(dataset_state["X"]), start=1):
+            print(
+                f"[resume][nnknn] {dataset_state['display_name']} fold {fold_idx}/{num_folds}",
+                flush=True,
+            )
+            split_state = _make_table1_split_state(
+                dataset_state,
+                train_idx=train_idx,
+                val_idx=val_idx,
+                fold_idx=fold_idx,
+                base_seed=base_seed,
+            )
+
+            for family in TABLE1_NNKNN_FAMILIES:
+                family_cfg = make_table1_family_cfg(
+                    case_normalizer=family["case_normalizer"],
+                    use_locality=family["use_locality"],
+                    base_cfg=base_cfg,
+                )
+                cfg_run = configure_regression_cfg_for_state(family_cfg, split_state)
+                checkpoint_path = table1_nnknn_checkpoint_path(
+                    split_state,
+                    cfg_run,
+                    family_id=family["family_id"],
+                    fold_idx=fold_idx,
+                )
+                checkpoint_ok = reuse_checkpoints and _checkpoint_matches_resume_policy(
+                    checkpoint_path,
+                    checkpoint_mtime_after=checkpoint_mtime_after,
+                )
+
+                if checkpoint_ok:
+                    print(
+                        f"[resume][nnknn] {dataset_state['display_name']} fold {fold_idx}/{num_folds} "
+                        f"family={family['family_id']} checkpoint",
+                        flush=True,
+                    )
+                    workflow_state = _load_table1_nnknn_checkpoint_state(
+                        split_state,
+                        cfg_run,
+                        checkpoint_path,
+                        feature_extractor=feature_extractor,
+                    )
+                    resume_source = "checkpoint"
+                    reused.append(
+                        {
+                            "dataset": dataset_state["display_name"],
+                            "fold": fold_idx,
+                            "family_id": family["family_id"],
+                            "checkpoint_path": str(checkpoint_path),
+                        }
+                    )
+                else:
+                    print(
+                        f"[resume][nnknn] {dataset_state['display_name']} fold {fold_idx}/{num_folds} "
+                        f"family={family['family_id']} train",
+                        flush=True,
+                    )
+                    workflow_state = train_nnknn_regression_state(
+                        split_state,
+                        cfg_run,
+                        feature_extractor=feature_extractor,
+                        checkpoint_label=f"{family['family_id']}_fold_{fold_idx}",
+                    )
+                    resume_source = "trained"
+                    trained.append(
+                        {
+                            "dataset": dataset_state["display_name"],
+                            "fold": fold_idx,
+                            "family_id": family["family_id"],
+                            "checkpoint_path": str(checkpoint_path),
+                        }
+                    )
+
+                workflow_state = evaluate_nnknn_pre_post_adaptation_state(
+                    workflow_state,
+                    batch_size=512,
+                    show_plots=False,
+                    print_metrics=False,
+                )
+                workflow_state.update(
+                    {
+                        "family_id": family["family_id"],
+                        "family_label": family["family_label"],
+                        "resume_source": resume_source,
+                    }
+                )
+                artifacts[dataset_state["display_name"]][family["family_id"]].append(workflow_state)
+                _append_table1_nnknn_run_records(
+                    runs,
+                    dataset_name=dataset_state["display_name"],
+                    fold_idx=fold_idx,
+                    family=family,
+                    workflow_state=workflow_state,
+                    resume_source=resume_source,
+                )
+
+    runs_df = pd.DataFrame(runs)
+    summary_df = summarize_table1_nnknn_runs(runs_df)
+    resume_info = {
+        "reused_checkpoints": reused,
+        "trained_entries": trained,
+        "num_reused_checkpoints": len(reused),
+        "num_trained_entries": len(trained),
+        "checkpoint_mtime_after": checkpoint_mtime_after.isoformat() if checkpoint_mtime_after else None,
+    }
+    return summary_df, runs_df, artifacts, resume_info
 
 
 def run_table1_kfold(
@@ -466,3 +725,119 @@ def run_table1_kfold(
 
     print("[table1] Finished full Table 1 sweep", flush=True)
     return summary_df, runs_df, {"baselines": baseline_artifacts, "nnknn": nnknn_artifacts}
+
+
+def run_table1_kfold_resumable(
+    dataset_names: str | list[str],
+    *,
+    num_folds: int = 5,
+    base_seed: int = 42,
+    nnknn_base_cfg: Mapping[str, Any] | None = None,
+    baseline_method_cfgs: Mapping[str, Mapping[str, Any]] | None = None,
+    feature_extractor: Any = None,
+    reuse_checkpoints: bool = True,
+    checkpoint_mtime_after: datetime | None = None,
+    run_baselines: bool = True,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any], dict[str, Any]]:
+    """Run the full Table 1 suite with resumable NN-kNN checkpoint reuse.
+
+    The NN-kNN sweep resumes per dataset/fold/family from final checkpoints.
+    Baselines are rerun from scratch unless `run_baselines=False`, since the
+    baseline workflow does not currently write per-fold resumable artifacts.
+    """
+    print("[resume] Starting resumable NN-kNN family sweep", flush=True)
+    nnknn_summary_df, nnknn_runs_df, nnknn_artifacts, nnknn_resume_info = (
+        run_table1_nnknn_kfold_resumable(
+            dataset_names,
+            num_folds=num_folds,
+            base_seed=base_seed,
+            base_cfg=nnknn_base_cfg,
+            feature_extractor=feature_extractor,
+            reuse_checkpoints=reuse_checkpoints,
+            checkpoint_mtime_after=checkpoint_mtime_after,
+        )
+    )
+
+    baseline_summary_df = pd.DataFrame()
+    baseline_runs_df = pd.DataFrame()
+    baseline_artifacts: dict[str, Any] = {}
+    if run_baselines:
+        print("[resume] Starting baseline sweep", flush=True)
+        baseline_summary_df, baseline_runs_df, baseline_artifacts = run_repeated_regression_model_benchmarks(
+            dataset_names=dataset_names,
+            nnknn_cfg=None,
+            feature_extractor=feature_extractor,
+            methods=TABLE1_BASELINE_METHODS,
+            method_cfgs=build_table1_baseline_method_cfgs(baseline_method_cfgs),
+            num_runs=num_folds,
+            mode="kfold",
+            base_seed=base_seed,
+            standardize="auto",
+        )
+    else:
+        print("[resume] Skipping baseline sweep", flush=True)
+
+    summary_df = pd.concat(
+        [
+            _normalize_table1_baseline_summary(baseline_summary_df),
+            _normalize_table1_nnknn_summary(nnknn_summary_df),
+        ],
+        ignore_index=True,
+        sort=False,
+    )
+    runs_df = pd.concat(
+        [
+            _normalize_table1_baseline_runs(baseline_runs_df),
+            _normalize_table1_nnknn_runs(nnknn_runs_df),
+        ],
+        ignore_index=True,
+        sort=False,
+    )
+    artifacts = {"baselines": baseline_artifacts, "nnknn": nnknn_artifacts}
+    resume_info = {
+        "base_seed": base_seed,
+        "num_folds": num_folds,
+        "run_baselines": run_baselines,
+        "nnknn": nnknn_resume_info,
+    }
+
+    print("[resume] Finished resumable Table 1 sweep", flush=True)
+    return summary_df, runs_df, artifacts, resume_info
+
+
+def export_table1_outputs(
+    summary_df: pd.DataFrame,
+    runs_df: pd.DataFrame,
+    outdir: str | Path,
+    *,
+    metadata: Mapping[str, Any] | None = None,
+    done_name: str = "done.json",
+) -> dict[str, Path]:
+    """Write the standard Table 1 CSV/JSON outputs into `outdir`."""
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    summary_path = outdir / "summary_long.csv"
+    runs_path = outdir / "runs_long.csv"
+    table_path = outdir / "table1_like.csv"
+    done_path = outdir / done_name
+
+    summary_df.to_csv(summary_path, index=False)
+    runs_df.to_csv(runs_path, index=False)
+    pivot_df = summary_df.pivot(index="dataset", columns="entry_label", values="rmse_raw_table").reset_index()
+    pivot_df.to_csv(table_path, index=False)
+
+    done_payload = {
+        "outdir": str(outdir),
+        "summary_rows": int(len(summary_df)),
+        "run_rows": int(len(runs_df)),
+    }
+    if metadata:
+        done_payload.update(copy.deepcopy(dict(metadata)))
+    done_path.write_text(json.dumps(done_payload, indent=2), encoding="utf-8")
+    return {
+        "summary": summary_path,
+        "runs": runs_path,
+        "table": table_path,
+        "done": done_path,
+    }
