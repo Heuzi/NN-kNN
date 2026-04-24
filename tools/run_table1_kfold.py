@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import argparse
-import json
 from datetime import datetime
 from pathlib import Path
 
-from tools.table1_nnknn_kfold import run_table1_kfold
+from tools.table1_nnknn_kfold import export_table1_outputs, run_table1_kfold
 
 
 DEFAULT_TABLE1_DATASETS = [
@@ -79,36 +78,28 @@ def main() -> None:
         base_seed=args.base_seed,
     )
 
-    summary_path = outdir / "summary_long.csv"
-    runs_path = outdir / "runs_long.csv"
-    table_like_path = outdir / "table1_like.csv"
     done_path = outdir / "done.json"
-
-    summary_df.to_csv(summary_path, index=False)
-    runs_df.to_csv(runs_path, index=False)
-    pivot_df = summary_df.pivot(index="dataset", columns="entry_label", values="rmse_raw_table").reset_index()
-    pivot_df.to_csv(table_like_path, index=False)
-
-    done_path.write_text(
-        json.dumps(
-            {
-                "output_dir": str(outdir),
-                "datasets": list(args.datasets),
-                "num_folds": int(args.num_folds),
-                "base_seed": int(args.base_seed),
-                "summary_rows": int(len(summary_df)),
-                "run_rows": int(len(runs_df)),
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
+    written_paths = export_table1_outputs(
+        summary_df,
+        runs_df,
+        outdir,
+        metadata={
+            "output_dir": str(outdir),
+            "datasets": list(args.datasets),
+            "num_folds": int(args.num_folds),
+            "base_seed": int(args.base_seed),
+        },
     )
 
+    if written_paths["done"] != done_path:
+        raise RuntimeError(f"Expected done path {done_path}, got {written_paths['done']}")
+
     print("Finished Table 1 k-fold sweep", flush=True)
-    print(f"Wrote: {summary_path}", flush=True)
-    print(f"Wrote: {runs_path}", flush=True)
-    print(f"Wrote: {table_like_path}", flush=True)
-    print(f"Wrote: {done_path}", flush=True)
+    print(f"Wrote: {written_paths['summary']}", flush=True)
+    print(f"Wrote: {written_paths['runs']}", flush=True)
+    print(f"Wrote: {written_paths['table']}", flush=True)
+    print(f"Wrote: {written_paths['transposed']}", flush=True)
+    print(f"Wrote: {written_paths['done']}", flush=True)
 
 
 if __name__ == "__main__":

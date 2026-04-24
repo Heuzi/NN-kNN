@@ -41,7 +41,7 @@ def parse_args() -> argparse.Namespace:
         "--outdir",
         type=Path,
         default=_default_outdir(),
-        help="Output folder for summary_long.csv, runs_long.csv, table1_like.csv, and done.json.",
+        help="Output folder for summary_long.csv, runs_long.csv, table1_like.csv, transposed.csv, and done.json.",
     )
     parser.add_argument(
         "--base-seed",

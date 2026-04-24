@@ -134,6 +134,48 @@ TABLE1_NNKNN_FAMILIES: list[dict[str, Any]] = [
 
 TABLE1_BASELINE_METHODS: list[str] = ["knn_x", "mlkr_knn", "mlp"]
 
+TABLE1_TRANSPOSED_DATASET_LABELS: dict[str, str] = {
+    "abalone": "Abalone",
+    "airfoil": "Airfoil",
+    "bike_sharing": "Bike Sharing",
+    "body_fat": "Body Fat",
+    "califonia_housing": "California Housing",
+    "car": "Cars",
+    "diabets": "Diabetes",
+    "energy_efficiency": "Energy Efficiency",
+    "student_performance": "Student Performance",
+    "wine": "Wine Quality",
+    "yacht": "Yacht",
+}
+
+TABLE1_TRANSPOSED_MODEL_LABELS: dict[str, str] = {
+    "kNN(X)": "Weighted k-NN",
+    "MLP": "MLP",
+    "MLKR+kNN": "MLKR",
+    "NN-kNN (softmax) - pure": "NN-kNN (softmax), pure",
+    "NN-kNN (softmax) - adaptation": "NN-kNN (softmax), adaptation",
+    "NN-kNN (softmax) + locality - locality": "NN-kNN (softmax) + locality, locality",
+    "NN-kNN (softmax) + locality - locality + adaptation": "NN-kNN (softmax) + locality, locality + adaptation",
+    "NN-kNN (sparsemax) - pure": "NN-kNN (sparsemax), pure",
+    "NN-kNN (sparsemax) - adaptation": "NN-kNN (sparsemax), adaptation",
+    "NN-kNN (sparsemax) + locality - locality": "NN-kNN (sparsemax) + locality, locality",
+    "NN-kNN (sparsemax) + locality - locality + adaptation": "NN-kNN (sparsemax) + locality, locality + adaptation",
+}
+
+TABLE1_TRANSPOSED_MODEL_ORDER: list[str] = [
+    "Weighted k-NN",
+    "MLP",
+    "MLKR",
+    "NN-kNN (softmax), pure",
+    "NN-kNN (softmax), adaptation",
+    "NN-kNN (softmax) + locality, locality",
+    "NN-kNN (softmax) + locality, locality + adaptation",
+    "NN-kNN (sparsemax), pure",
+    "NN-kNN (sparsemax), adaptation",
+    "NN-kNN (sparsemax) + locality, locality",
+    "NN-kNN (sparsemax) + locality, locality + adaptation",
+]
+
 
 def _clone_state_bundle(bundle: Mapping[str, Any]) -> dict[str, Any]:
     return {
@@ -805,6 +847,44 @@ def run_table1_kfold_resumable(
     return summary_df, runs_df, artifacts, resume_info
 
 
+def build_table1_like_df(summary_df: pd.DataFrame) -> pd.DataFrame:
+    """Build the wide dataset-by-entry Table 1 layout."""
+    if summary_df.empty:
+        return pd.DataFrame(columns=["dataset"])
+    return summary_df.pivot(index="dataset", columns="entry_label", values="rmse_raw_table").reset_index()
+
+
+def build_table1_transposed_df(summary_df: pd.DataFrame) -> pd.DataFrame:
+    """Build the transposed Table 1 layout used for spreadsheet-friendly comparison."""
+    if summary_df.empty:
+        return pd.DataFrame(columns=["Model"])
+
+    transposed = summary_df.loc[:, ["dataset", "entry_label", "rmse_raw_table"]].copy()
+    transposed["dataset_label"] = transposed["dataset"].map(TABLE1_TRANSPOSED_DATASET_LABELS).fillna(transposed["dataset"])
+    transposed["model_label"] = transposed["entry_label"].map(TABLE1_TRANSPOSED_MODEL_LABELS).fillna(transposed["entry_label"])
+
+    transposed_df = transposed.pivot(
+        index="model_label",
+        columns="dataset_label",
+        values="rmse_raw_table",
+    )
+
+    ordered_models = [label for label in TABLE1_TRANSPOSED_MODEL_ORDER if label in transposed_df.index]
+    ordered_models.extend(label for label in transposed_df.index if label not in ordered_models)
+
+    ordered_dataset_labels = [
+        TABLE1_TRANSPOSED_DATASET_LABELS[dataset_name]
+        for dataset_name in TABLE1_DEFAULT_DATASET_NAMES
+        if TABLE1_TRANSPOSED_DATASET_LABELS[dataset_name] in transposed_df.columns
+    ]
+    ordered_dataset_labels = sorted(ordered_dataset_labels)
+    ordered_dataset_labels.extend(label for label in transposed_df.columns if label not in ordered_dataset_labels)
+
+    transposed_df = transposed_df.reindex(index=ordered_models, columns=ordered_dataset_labels)
+    transposed_df.index.name = "Model"
+    return transposed_df.reset_index()
+
+
 def export_table1_outputs(
     summary_df: pd.DataFrame,
     runs_df: pd.DataFrame,
@@ -820,12 +900,14 @@ def export_table1_outputs(
     summary_path = outdir / "summary_long.csv"
     runs_path = outdir / "runs_long.csv"
     table_path = outdir / "table1_like.csv"
+    transposed_path = outdir / "transposed.csv"
     done_path = outdir / done_name
 
     summary_df.to_csv(summary_path, index=False)
     runs_df.to_csv(runs_path, index=False)
-    pivot_df = summary_df.pivot(index="dataset", columns="entry_label", values="rmse_raw_table").reset_index()
+    pivot_df = build_table1_like_df(summary_df)
     pivot_df.to_csv(table_path, index=False)
+    build_table1_transposed_df(summary_df).to_csv(transposed_path, index=False)
 
     done_payload = {
         "outdir": str(outdir),
@@ -839,5 +921,6 @@ def export_table1_outputs(
         "summary": summary_path,
         "runs": runs_path,
         "table": table_path,
+        "transposed": transposed_path,
         "done": done_path,
     }
