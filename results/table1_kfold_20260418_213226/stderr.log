@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "C:\Users\yexia\Documents\GitHub\NN-kNN\results\table1_kfold_20260418_213226\run_table1_kfold.py", line 3, in <module>
-    from tools.table1_nnknn_kfold import run_table1_kfold
-ModuleNotFoundError: No module named 'tools'
