@@ -11,13 +11,14 @@ import os
 import numpy as np
 
 from model.nn_cdh import NNCDHAdapter, add_to_pair_list
+from model.device_utils import resolve_runtime_device
 
 debug_print_flag = False
 def debug_print(*args, **kwargs):
     if debug_print_flag:
         print(*args, **kwargs)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = resolve_runtime_device()
 
 default_args = {
     # Replace the following with actual values or pass them in at runtime
@@ -1577,11 +1578,12 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
             optimizer.step()
 
         # validate + early stop
-        val_loss, _ = _validate_one_epoch(epoch, "Stage1")
+        val_loss, val_metric = _validate_one_epoch(epoch, "Stage1")
 
         if epoch == 0 or val_loss < best_val_loss:
             best_val_loss = val_loss
             best_epoch = epoch
+            metric_for_model_select = val_metric
             torch.save(model.state_dict(), retr_ckpt)
             print(f"[Stage1] New best (epoch {epoch+1}) Val Loss: {val_loss:.4f} — saved: {retr_ckpt}")
             patience_counter = 0
@@ -1663,11 +1665,12 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
                 optimizer.step()
 
             # validate + early stop
-            val_loss, _ = _validate_one_epoch(epoch, "Stage2")
+            val_loss, val_metric = _validate_one_epoch(epoch, "Stage2")
 
             if epoch == 0 or val_loss < best_val_loss:
                 best_val_loss = val_loss
                 best_epoch = epoch
+                metric_for_model_select = val_metric
                 torch.save(model.state_dict(), cdh_ckpt)
                 print(f"[Stage2] New best (epoch {epoch+1}) Val Loss: {val_loss:.4f} — saved: {cdh_ckpt}")
                 patience_counter = 0

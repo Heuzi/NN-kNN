@@ -17,6 +17,8 @@ dataset/__pycache__/reg_data.cpython-310.pyc
 dataset/__pycache__/reg_data.cpython-310.pyc
 *.h5
 *.pyc
+*.pyc.*
+__pycache__/
 .venv/
 venv/
 env/
@@ -29,3 +31,4 @@ checkpoints/regression_covid_anxious_reg.h5
 checkpoints/regression_covid_depressed_reg.h5
 checkpoints/regression_covid_lonely_reg.h5
 checkpoints/regression_covid_physical_reg.h5
+results/table1_kfold_20260418_213251/stdout.log

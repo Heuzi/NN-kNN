@@ -1,4 +1,4 @@
-#Update:: We are currently working on a follow-up project, this involves revamping the NN-kNN code to make it more easily usable and modular. The jupyter notebook should still be fine but expect bugs. Sorry for inconvenience.
+#Update:: Our second paper is now accepted into IJCAI 2026, link will be posted after conference. Now NN-kNN can do both classification and regression.
 
 #Update:: the paper is now accepted into IJCAI 2025, [paper link](https://www.ijcai.org/proceedings/2025/763)
 
