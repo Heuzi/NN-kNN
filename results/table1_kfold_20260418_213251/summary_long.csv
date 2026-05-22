@@ -1,0 +1,122 @@
+dataset,family_id,family_label,result_type,result_label,num_folds,rmse_raw_mean,rmse_raw_std,rmse_raw_table,mode,source,entry_id,entry_label
+califonia_housing,knn_x,kNN(X),baseline,kNN(X),5,0.6344773292541503,0.024006779352033887,0.6345 +/- 0.0240,kfold,baseline,knn_x,kNN(X)
+califonia_housing,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,5,0.4638073265552521,0.00951590261902137,0.4638 +/- 0.0095,kfold,baseline,mlkr_knn,MLKR+kNN
+califonia_housing,mlp,MLP,baseline,MLP,5,0.5074536144733429,0.0097077374064366,0.5075 +/- 0.0097,kfold,baseline,mlp,MLP
+diabets,knn_x,kNN(X),baseline,kNN(X),5,59.20099105834961,3.28745111778299,59.2010 +/- 3.2875,kfold,baseline,knn_x,kNN(X)
+diabets,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,5,58.598785400390625,3.2137004444002075,58.5988 +/- 3.2137,kfold,baseline,mlkr_knn,MLKR+kNN
+diabets,mlp,MLP,baseline,MLP,5,53.849762725830075,2.826487193458755,53.8498 +/- 2.8265,kfold,baseline,mlp,MLP
+abalone,knn_x,kNN(X),baseline,kNN(X),5,2.2982470989227295,0.14830195471598437,2.2982 +/- 0.1483,kfold,baseline,knn_x,kNN(X)
+abalone,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,5,2.11485071182251,0.1277827446153238,2.1149 +/- 0.1278,kfold,baseline,mlkr_knn,MLKR+kNN
+abalone,mlp,MLP,baseline,MLP,5,2.0625351667404175,0.13187723728678172,2.0625 +/- 0.1319,kfold,baseline,mlp,MLP
+body_fat,knn_x,kNN(X),baseline,kNN(X),5,0.013026826828718186,0.0015555021509964296,0.0130 +/- 0.0016,kfold,baseline,knn_x,kNN(X)
+body_fat,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,5,0.012086888961493968,0.0015284631811413698,0.0121 +/- 0.0015,kfold,baseline,mlkr_knn,MLKR+kNN
+body_fat,mlp,MLP,baseline,MLP,5,0.011007115617394448,0.0006465993644376753,0.0110 +/- 0.0006,kfold,baseline,mlp,MLP
+airfoil,knn_x,kNN(X),baseline,kNN(X),5,2.6450284481048585,0.3324390066851321,2.6450 +/- 0.3324,kfold,baseline,knn_x,kNN(X)
+airfoil,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,5,2.737097692489624,0.24183913677386787,2.7371 +/- 0.2418,kfold,baseline,mlkr_knn,MLKR+kNN
+airfoil,mlp,MLP,baseline,MLP,5,2.363498497009277,0.21609335642094618,2.3635 +/- 0.2161,kfold,baseline,mlp,MLP
+car,knn_x,kNN(X),baseline,kNN(X),5,12365.606640625,1753.7516119774054,12365.6066 +/- 1753.7516,kfold,baseline,knn_x,kNN(X)
+car,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,5,15034.9416015625,1960.6137563348877,15034.9416 +/- 1960.6138,kfold,baseline,mlkr_knn,MLKR+kNN
+car,mlp,MLP,baseline,MLP,5,18037.69453125,2748.313067945357,18037.6945 +/- 2748.3131,kfold,baseline,mlp,MLP
+student_performance,knn_x,kNN(X),baseline,kNN(X),5,2.21851909160614,0.42095857673460957,2.2185 +/- 0.4210,kfold,baseline,knn_x,kNN(X)
+student_performance,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,5,1.5060470581054688,0.3942832539532277,1.5060 +/- 0.3943,kfold,baseline,mlkr_knn,MLKR+kNN
+student_performance,mlp,MLP,baseline,MLP,5,1.3575644731521606,0.30785123980053586,1.3576 +/- 0.3079,kfold,baseline,mlp,MLP
+yacht,knn_x,kNN(X),baseline,kNN(X),5,8.550477218627929,2.0717165968622147,8.5505 +/- 2.0717,kfold,baseline,knn_x,kNN(X)
+yacht,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,5,2.958978462219238,0.868409996464679,2.9590 +/- 0.8684,kfold,baseline,mlkr_knn,MLKR+kNN
+yacht,mlp,MLP,baseline,MLP,5,2.8607382774353027,0.9752485942243655,2.8607 +/- 0.9752,kfold,baseline,mlp,MLP
+energy_efficiency,knn_x,kNN(X),baseline,kNN(X),5,2.260525941848755,0.1120376121143596,2.2605 +/- 0.1120,kfold,baseline,knn_x,kNN(X)
+energy_efficiency,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,5,1.0267800211906433,0.18359375812202164,1.0268 +/- 0.1836,kfold,baseline,mlkr_knn,MLKR+kNN
+energy_efficiency,mlp,MLP,baseline,MLP,5,2.07584810256958,0.2877026539594867,2.0758 +/- 0.2877,kfold,baseline,mlp,MLP
+bike_sharing,knn_x,kNN(X),baseline,kNN(X),5,103.14755706787109,2.825979021281568,103.1476 +/- 2.8260,kfold,baseline,knn_x,kNN(X)
+bike_sharing,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,5,49.98551712036133,2.023157313194593,49.9855 +/- 2.0232,kfold,baseline,mlkr_knn,MLKR+kNN
+bike_sharing,mlp,MLP,baseline,MLP,5,43.7447265625,1.276883570764595,43.7447 +/- 1.2769,kfold,baseline,mlp,MLP
+wine,knn_x,kNN(X),baseline,kNN(X),5,0.6346752643585205,0.0056991933619765355,0.6347 +/- 0.0057,kfold,baseline,knn_x,kNN(X)
+wine,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,5,0.6100491762161255,0.008926188515151147,0.6100 +/- 0.0089,kfold,baseline,mlkr_knn,MLKR+kNN
+wine,mlp,MLP,baseline,MLP,5,0.6627445578575134,0.0069327805502152244,0.6627 +/- 0.0069,kfold,baseline,mlp,MLP
+califonia_housing,softmax,NN-kNN (softmax),pure,pure,5,0.5944914937019348,0.019694708169611407,0.5945 +/- 0.0197,,nnknn,softmax:pure,NN-kNN (softmax) - pure
+califonia_housing,softmax,NN-kNN (softmax),adaptation,adaptation,5,0.5803782105445862,0.042223208592059955,0.5804 +/- 0.0422,,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+califonia_housing,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5,0.6520620226860047,0.048516957080033306,0.6521 +/- 0.0485,,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+califonia_housing,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,5,0.6701945424079895,0.15901785625953216,0.6702 +/- 0.1590,,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+califonia_housing,sparsemax,NN-kNN (sparsemax),pure,pure,5,0.4484623968601227,0.010403413030138314,0.4485 +/- 0.0104,,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+califonia_housing,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,5,0.45006129145622253,0.016160336682703506,0.4501 +/- 0.0162,,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+califonia_housing,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,5,0.4501155138015747,0.012413956363065779,0.4501 +/- 0.0124,,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+califonia_housing,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,5,0.44780073761940004,0.012682074323059138,0.4478 +/- 0.0127,,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+diabets,softmax,NN-kNN (softmax),pure,pure,5,54.45653457641602,4.036596210779395,54.4565 +/- 4.0366,,nnknn,softmax:pure,NN-kNN (softmax) - pure
+diabets,softmax,NN-kNN (softmax),adaptation,adaptation,5,54.223330688476565,2.410544577655179,54.2233 +/- 2.4105,,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+diabets,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5,54.54402847290039,4.052208018525341,54.5440 +/- 4.0522,,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+diabets,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,5,54.60472412109375,3.2087518846190792,54.6047 +/- 3.2088,,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+diabets,sparsemax,NN-kNN (sparsemax),pure,pure,5,59.10231323242188,2.8653902414411783,59.1023 +/- 2.8654,,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+diabets,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,5,56.649933624267575,1.3380952249778644,56.6499 +/- 1.3381,,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+diabets,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,5,58.84625473022461,3.0250063483732474,58.8463 +/- 3.0250,,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+diabets,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,5,56.86633453369141,1.6979657830276138,56.8663 +/- 1.6980,,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+abalone,softmax,NN-kNN (softmax),pure,pure,5,2.1537917137145994,0.14926283643606186,2.1538 +/- 0.1493,,nnknn,softmax:pure,NN-kNN (softmax) - pure
+abalone,softmax,NN-kNN (softmax),adaptation,adaptation,5,2.0977104187011717,0.14983190055577986,2.0977 +/- 0.1498,,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+abalone,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5,2.161270833015442,0.15695326562517944,2.1613 +/- 0.1570,,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+abalone,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,5,2.0944663763046263,0.13701215894763474,2.0945 +/- 0.1370,,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+abalone,sparsemax,NN-kNN (sparsemax),pure,pure,5,2.2326639175415037,0.159890732114373,2.2327 +/- 0.1599,,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+abalone,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,5,2.1528542041778564,0.14919059268722626,2.1529 +/- 0.1492,,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+abalone,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,5,2.231181335449219,0.16809313998341174,2.2312 +/- 0.1681,,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+abalone,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,5,2.161973261833191,0.16085751843968898,2.1620 +/- 0.1609,,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+body_fat,softmax,NN-kNN (softmax),pure,pure,5,0.011224704049527644,0.0013970752977127197,0.0112 +/- 0.0014,,nnknn,softmax:pure,NN-kNN (softmax) - pure
+body_fat,softmax,NN-kNN (softmax),adaptation,adaptation,5,0.010616675205528735,0.0008567545691934342,0.0106 +/- 0.0009,,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+body_fat,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5,0.011306405439972878,0.001428724892402242,0.0113 +/- 0.0014,,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+body_fat,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,5,0.010477286018431186,0.000650750689353266,0.0105 +/- 0.0007,,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+body_fat,sparsemax,NN-kNN (sparsemax),pure,pure,5,0.013197003863751888,0.0012885933496658386,0.0132 +/- 0.0013,,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+body_fat,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,5,0.0116727901622653,0.001114483354770623,0.0117 +/- 0.0011,,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+body_fat,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,5,0.013206051848828792,0.0012750255642214664,0.0132 +/- 0.0013,,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+body_fat,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,5,0.011664322763681411,0.0011498944353446688,0.0117 +/- 0.0011,,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+airfoil,softmax,NN-kNN (softmax),pure,pure,5,2.165706157684326,0.2505235329907868,2.1657 +/- 0.2505,,nnknn,softmax:pure,NN-kNN (softmax) - pure
+airfoil,softmax,NN-kNN (softmax),adaptation,adaptation,5,2.0844597101211546,0.28068795318850076,2.0845 +/- 0.2807,,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+airfoil,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5,2.2311564683914185,0.2782576011279021,2.2312 +/- 0.2783,,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+airfoil,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,5,2.1654789447784424,0.2956210034609016,2.1655 +/- 0.2956,,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+airfoil,sparsemax,NN-kNN (sparsemax),pure,pure,5,1.9947712898254395,0.21543227631189582,1.9948 +/- 0.2154,,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+airfoil,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,5,1.881049919128418,0.25556222303335036,1.8810 +/- 0.2556,,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+airfoil,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,5,1.999082827568054,0.23711166449185722,1.9991 +/- 0.2371,,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+airfoil,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,5,1.8837512016296387,0.22878787764741568,1.8838 +/- 0.2288,,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+car,softmax,NN-kNN (softmax),pure,pure,5,13373.5955078125,1467.571324136742,13373.5955 +/- 1467.5713,,nnknn,softmax:pure,NN-kNN (softmax) - pure
+car,softmax,NN-kNN (softmax),adaptation,adaptation,5,12606.3095703125,1291.206822650373,12606.3096 +/- 1291.2068,,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+car,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5,12821.657421875,2145.024265332943,12821.6574 +/- 2145.0243,,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+car,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,5,11604.1849609375,1444.2962433904218,11604.1850 +/- 1444.2962,,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+car,sparsemax,NN-kNN (sparsemax),pure,pure,5,9994.8505859375,1554.838447357664,9994.8506 +/- 1554.8384,,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+car,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,5,9730.2263671875,1287.176953937053,9730.2264 +/- 1287.1770,,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+car,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,5,9912.4076171875,1691.9814339069767,9912.4076 +/- 1691.9814,,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+car,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,5,9909.8251953125,1375.722475916694,9909.8252 +/- 1375.7225,,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+student_performance,softmax,NN-kNN (softmax),pure,pure,5,1.2694498538970946,0.31135054591958594,1.2694 +/- 0.3114,,nnknn,softmax:pure,NN-kNN (softmax) - pure
+student_performance,softmax,NN-kNN (softmax),adaptation,adaptation,5,1.297523307800293,0.3209129202661299,1.2975 +/- 0.3209,,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+student_performance,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5,1.2979590058326722,0.31328230835800297,1.2980 +/- 0.3133,,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+student_performance,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,5,1.3407839179039,0.3175948756776128,1.3408 +/- 0.3176,,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+student_performance,sparsemax,NN-kNN (sparsemax),pure,pure,5,1.7377230405807496,0.21875513641362884,1.7377 +/- 0.2188,,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+student_performance,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,5,1.4451057672500611,0.2949706017359583,1.4451 +/- 0.2950,,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+student_performance,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,5,1.5974865913391114,0.22488954472582773,1.5975 +/- 0.2249,,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+student_performance,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,5,1.4337948322296143,0.3439220563592217,1.4338 +/- 0.3439,,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+yacht,softmax,NN-kNN (softmax),pure,pure,5,2.508179712295532,0.6678216244141104,2.5082 +/- 0.6678,,nnknn,softmax:pure,NN-kNN (softmax) - pure
+yacht,softmax,NN-kNN (softmax),adaptation,adaptation,5,1.6094879865646363,0.4468351564388426,1.6095 +/- 0.4468,,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+yacht,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5,5.955016136169434,1.9212012692781262,5.9550 +/- 1.9212,,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+yacht,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,5,3.528667187690735,1.3464765430871173,3.5287 +/- 1.3465,,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+yacht,sparsemax,NN-kNN (sparsemax),pure,pure,5,1.4043492794036865,0.40088639853090374,1.4043 +/- 0.4009,,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+yacht,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,5,1.1824682831764222,0.3237568196049793,1.1825 +/- 0.3238,,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+yacht,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,5,1.5752920627593994,0.4901481767754979,1.5753 +/- 0.4901,,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+yacht,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,5,1.4210820198059082,0.5501351710240315,1.4211 +/- 0.5501,,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+energy_efficiency,softmax,NN-kNN (softmax),pure,pure,5,1.0515297532081604,0.2486017325927899,1.0515 +/- 0.2486,,nnknn,softmax:pure,NN-kNN (softmax) - pure
+energy_efficiency,softmax,NN-kNN (softmax),adaptation,adaptation,5,1.016828989982605,0.14634942053642536,1.0168 +/- 0.1463,,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+energy_efficiency,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5,0.9246355414390564,0.07924191749232563,0.9246 +/- 0.0792,,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+energy_efficiency,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,5,1.0724691152572632,0.1539262282210604,1.0725 +/- 0.1539,,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+energy_efficiency,sparsemax,NN-kNN (sparsemax),pure,pure,5,0.5681721150875092,0.12496824871681007,0.5682 +/- 0.1250,,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+energy_efficiency,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,5,0.5654586136341095,0.10819369954258852,0.5655 +/- 0.1082,,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+energy_efficiency,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,5,0.5120535552501678,0.027946667217905386,0.5121 +/- 0.0279,,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+energy_efficiency,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,5,0.5041407287120819,0.033768100269677664,0.5041 +/- 0.0338,,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+bike_sharing,softmax,NN-kNN (softmax),pure,pure,5,56.93932189941406,0.5026988950233664,56.9393 +/- 0.5027,,nnknn,softmax:pure,NN-kNN (softmax) - pure
+bike_sharing,softmax,NN-kNN (softmax),adaptation,adaptation,5,52.30718154907227,0.8663138908013079,52.3072 +/- 0.8663,,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+bike_sharing,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5,58.95777282714844,5.303103330182766,58.9578 +/- 5.3031,,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+bike_sharing,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,5,53.04340286254883,2.603627152011403,53.0434 +/- 2.6036,,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+bike_sharing,sparsemax,NN-kNN (sparsemax),pure,pure,5,44.781394958496094,1.9350871932493483,44.7814 +/- 1.9351,,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+bike_sharing,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,5,44.50161285400391,1.7199464627993408,44.5016 +/- 1.7199,,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+bike_sharing,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,5,46.658590698242186,0.7883105877540696,46.6586 +/- 0.7883,,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+bike_sharing,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,5,45.4635986328125,0.6577042461213987,45.4636 +/- 0.6577,,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+wine,softmax,NN-kNN (softmax),pure,pure,5,0.614016079902649,0.004276248497676059,0.6140 +/- 0.0043,,nnknn,softmax:pure,NN-kNN (softmax) - pure
+wine,softmax,NN-kNN (softmax),adaptation,adaptation,5,0.611996877193451,0.004112874454790073,0.6120 +/- 0.0041,,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+wine,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5,0.6103373646736145,0.003509975333162656,0.6103 +/- 0.0035,,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+wine,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,5,0.6092286348342896,0.0048630514705306745,0.6092 +/- 0.0049,,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+wine,sparsemax,NN-kNN (sparsemax),pure,pure,5,0.6303824543952942,0.005417357180374326,0.6304 +/- 0.0054,,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+wine,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,5,0.6215121746063232,0.00547226512244737,0.6215 +/- 0.0055,,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+wine,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,5,0.6294361114501953,0.005424118903211694,0.6294 +/- 0.0054,,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+wine,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,5,0.6228606700897217,0.00645926694129344,0.6229 +/- 0.0065,,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation

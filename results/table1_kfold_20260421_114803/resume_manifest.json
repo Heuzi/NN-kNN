@@ -1,0 +1,21 @@
+{
+  "outdir": "D:\\NN-kNN\\results\\table1_kfold_20260421_114803",
+  "base_seed": 43,
+  "checkpointed_nnknn_datasets": [
+    "califonia_housing",
+    "diabets",
+    "abalone",
+    "body_fat",
+    "airfoil",
+    "car",
+    "student_performance",
+    "yacht",
+    "energy_efficiency"
+  ],
+  "trained_nnknn_datasets": [
+    "bike_sharing",
+    "wine"
+  ],
+  "summary_rows": 121,
+  "run_rows": 605
+}

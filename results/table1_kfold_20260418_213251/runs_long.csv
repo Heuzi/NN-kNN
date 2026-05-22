@@ -1,0 +1,606 @@
+dataset,mode,fold,run_index,family_id,family_label,result_type,result_label,rmse_raw,rmse_model_space,standardized_targets,source,entry_id,entry_label
+califonia_housing,kfold,1,1,knn_x,kNN(X),baseline,kNN(X),0.6557391285896301,0.5671373605728149,True,baseline,knn_x,kNN(X)
+califonia_housing,kfold,1,1,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.461203396320343,0.3988867700099945,True,baseline,mlkr_knn,MLKR+kNN
+califonia_housing,kfold,1,1,mlp,MLP,baseline,MLP,0.5125808715820312,0.4433222711086273,True,baseline,mlp,MLP
+califonia_housing,kfold,2,2,knn_x,kNN(X),baseline,kNN(X),0.6421741247177124,0.5583635568618774,True,baseline,knn_x,kNN(X)
+califonia_housing,kfold,2,2,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.46074485778808594,0.4006127417087555,True,baseline,mlkr_knn,MLKR+kNN
+califonia_housing,kfold,2,2,mlp,MLP,baseline,MLP,0.5104357004165649,0.4438183903694153,True,baseline,mlp,MLP
+califonia_housing,kfold,3,3,knn_x,kNN(X),baseline,kNN(X),0.6284525394439697,0.5430553555488586,True,baseline,knn_x,kNN(X)
+califonia_housing,kfold,3,3,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.4620995819568634,0.3993071913719177,True,baseline,mlkr_knn,MLKR+kNN
+califonia_housing,kfold,3,3,mlp,MLP,baseline,MLP,0.501541256904602,0.4333893656730652,True,baseline,mlp,MLP
+califonia_housing,kfold,4,4,knn_x,kNN(X),baseline,kNN(X),0.5956725478172302,0.5162737965583801,True,baseline,knn_x,kNN(X)
+califonia_housing,kfold,4,4,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.45492568612098694,0.3942875266075134,True,baseline,mlkr_knn,MLKR+kNN
+califonia_housing,kfold,4,4,mlp,MLP,baseline,MLP,0.49401798844337463,0.4281691312789917,True,baseline,mlp,MLP
+califonia_housing,kfold,5,5,knn_x,kNN(X),baseline,kNN(X),0.6503483057022095,0.5643441081047058,True,baseline,knn_x,kNN(X)
+califonia_housing,kfold,5,5,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.4800631105899811,0.4165780246257782,True,baseline,mlkr_knn,MLKR+kNN
+califonia_housing,kfold,5,5,mlp,MLP,baseline,MLP,0.5186922550201416,0.4500987231731415,True,baseline,mlp,MLP
+diabets,kfold,1,1,knn_x,kNN(X),baseline,kNN(X),54.76021194458008,0.7014971971511841,True,baseline,knn_x,kNN(X)
+diabets,kfold,1,1,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,55.52487564086914,0.7112928628921509,True,baseline,mlkr_knn,MLKR+kNN
+diabets,kfold,1,1,mlp,MLP,baseline,MLP,50.11599349975586,0.6420032382011414,True,baseline,mlp,MLP
+diabets,kfold,2,2,knn_x,kNN(X),baseline,kNN(X),62.79499053955078,0.8220840692520142,True,baseline,knn_x,kNN(X)
+diabets,kfold,2,2,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,55.144134521484375,0.7219223976135254,True,baseline,mlkr_knn,MLKR+kNN
+diabets,kfold,2,2,mlp,MLP,baseline,MLP,53.274452209472656,0.6974453926086426,True,baseline,mlp,MLP
+diabets,kfold,3,3,knn_x,kNN(X),baseline,kNN(X),60.37593078613281,0.7761296033859253,True,baseline,knn_x,kNN(X)
+diabets,kfold,3,3,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,62.569766998291016,0.8043311834335327,True,baseline,mlkr_knn,MLKR+kNN
+diabets,kfold,3,3,mlp,MLP,baseline,MLP,57.295867919921875,0.7365354895591736,True,baseline,mlp,MLP
+diabets,kfold,4,4,knn_x,kNN(X),baseline,kNN(X),61.17673110961914,0.8069961667060852,True,baseline,knn_x,kNN(X)
+diabets,kfold,4,4,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,60.544151306152344,0.7986516952514648,True,baseline,mlkr_knn,MLKR+kNN
+diabets,kfold,4,4,mlp,MLP,baseline,MLP,52.632598876953125,0.6942885518074036,True,baseline,mlp,MLP
+diabets,kfold,5,5,knn_x,kNN(X),baseline,kNN(X),56.897090911865234,0.7354698777198792,True,baseline,knn_x,kNN(X)
+diabets,kfold,5,5,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,59.21099853515625,0.7653802633285522,True,baseline,mlkr_knn,MLKR+kNN
+diabets,kfold,5,5,mlp,MLP,baseline,MLP,55.929901123046875,0.7229676842689514,True,baseline,mlp,MLP
+abalone,kfold,1,1,knn_x,kNN(X),baseline,kNN(X),2.3001513481140137,0.7171515822410583,True,baseline,knn_x,kNN(X)
+abalone,kfold,1,1,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.114466428756714,0.6592578887939453,True,baseline,mlkr_knn,MLKR+kNN
+abalone,kfold,1,1,mlp,MLP,baseline,MLP,2.0963666439056396,0.6536146402359009,True,baseline,mlp,MLP
+abalone,kfold,2,2,knn_x,kNN(X),baseline,kNN(X),2.1819512844085693,0.6658480167388916,True,baseline,knn_x,kNN(X)
+abalone,kfold,2,2,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.0680620670318604,0.6310933232307434,True,baseline,mlkr_knn,MLKR+kNN
+abalone,kfold,2,2,mlp,MLP,baseline,MLP,2.0086841583251953,0.6129735112190247,True,baseline,mlp,MLP
+abalone,kfold,3,3,knn_x,kNN(X),baseline,kNN(X),2.4122631549835205,0.759612500667572,True,baseline,knn_x,kNN(X)
+abalone,kfold,3,3,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.231724262237549,0.7027615308761597,True,baseline,mlkr_knn,MLKR+kNN
+abalone,kfold,3,3,mlp,MLP,baseline,MLP,2.1863555908203125,0.6884751319885254,True,baseline,mlp,MLP
+abalone,kfold,4,4,knn_x,kNN(X),baseline,kNN(X),2.4737143516540527,0.781943678855896,True,baseline,knn_x,kNN(X)
+abalone,kfold,4,4,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.23335599899292,0.7059661746025085,True,baseline,mlkr_knn,MLKR+kNN
+abalone,kfold,4,4,mlp,MLP,baseline,MLP,2.160306215286255,0.6828750371932983,True,baseline,mlp,MLP
+abalone,kfold,5,5,knn_x,kNN(X),baseline,kNN(X),2.123155355453491,0.6443847417831421,True,baseline,knn_x,kNN(X)
+abalone,kfold,5,5,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,1.9266448020935059,0.5847430229187012,True,baseline,mlkr_knn,MLKR+kNN
+abalone,kfold,5,5,mlp,MLP,baseline,MLP,1.860963225364685,0.5648084878921509,True,baseline,mlp,MLP
+body_fat,kfold,1,1,knn_x,kNN(X),baseline,kNN(X),0.014741739258170128,0.8103492259979248,True,baseline,knn_x,kNN(X)
+body_fat,kfold,1,1,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.013269107788801193,0.7293993830680847,True,baseline,mlkr_knn,MLKR+kNN
+body_fat,kfold,1,1,mlp,MLP,baseline,MLP,0.011111914180219173,0.6108192801475525,True,baseline,mlp,MLP
+body_fat,kfold,2,2,knn_x,kNN(X),baseline,kNN(X),0.011243720538914204,0.570518970489502,True,baseline,knn_x,kNN(X)
+body_fat,kfold,2,2,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.01012151874601841,0.5135767459869385,True,baseline,mlkr_knn,MLKR+kNN
+body_fat,kfold,2,2,mlp,MLP,baseline,MLP,0.010319329798221588,0.523613691329956,True,baseline,mlp,MLP
+body_fat,kfold,3,3,knn_x,kNN(X),baseline,kNN(X),0.01244825217872858,0.6665337681770325,True,baseline,knn_x,kNN(X)
+body_fat,kfold,3,3,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.012022197246551514,0.6437203288078308,True,baseline,mlkr_knn,MLKR+kNN
+body_fat,kfold,3,3,mlp,MLP,baseline,MLP,0.011162213049829006,0.5976728200912476,True,baseline,mlp,MLP
+body_fat,kfold,4,4,knn_x,kNN(X),baseline,kNN(X),0.014577820897102356,0.7963566780090332,True,baseline,knn_x,kNN(X)
+body_fat,kfold,4,4,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.013874788768589497,0.7579514384269714,True,baseline,mlkr_knn,MLKR+kNN
+body_fat,kfold,4,4,mlp,MLP,baseline,MLP,0.011953430250287056,0.6529920697212219,True,baseline,mlp,MLP
+body_fat,kfold,5,5,knn_x,kNN(X),baseline,kNN(X),0.01212260127067566,0.6309561133384705,True,baseline,knn_x,kNN(X)
+body_fat,kfold,5,5,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.011146832257509232,0.5801689624786377,True,baseline,mlkr_knn,MLKR+kNN
+body_fat,kfold,5,5,mlp,MLP,baseline,MLP,0.010488690808415413,0.545914351940155,True,baseline,mlp,MLP
+airfoil,kfold,1,1,knn_x,kNN(X),baseline,kNN(X),2.5672967433929443,0.3746592700481415,True,baseline,knn_x,kNN(X)
+airfoil,kfold,1,1,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.828321933746338,0.41275203227996826,True,baseline,mlkr_knn,MLKR+kNN
+airfoil,kfold,1,1,mlp,MLP,baseline,MLP,2.2425730228424072,0.32727062702178955,True,baseline,mlp,MLP
+airfoil,kfold,2,2,knn_x,kNN(X),baseline,kNN(X),2.4713964462280273,0.3539036214351654,True,baseline,knn_x,kNN(X)
+airfoil,kfold,2,2,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.513838529586792,0.35998132824897766,True,baseline,mlkr_knn,MLKR+kNN
+airfoil,kfold,2,2,mlp,MLP,baseline,MLP,2.3738670349121094,0.3399374485015869,True,baseline,mlp,MLP
+airfoil,kfold,3,3,knn_x,kNN(X),baseline,kNN(X),2.366001844406128,0.34557804465293884,True,baseline,knn_x,kNN(X)
+airfoil,kfold,3,3,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.4470129013061523,0.3574104607105255,True,baseline,mlkr_knn,MLKR+kNN
+airfoil,kfold,3,3,mlp,MLP,baseline,MLP,2.075892448425293,0.3032047152519226,True,baseline,mlp,MLP
+airfoil,kfold,4,4,knn_x,kNN(X),baseline,kNN(X),2.604151964187622,0.37941789627075195,True,baseline,knn_x,kNN(X)
+airfoil,kfold,4,4,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.983769655227661,0.43472713232040405,True,baseline,mlkr_knn,MLKR+kNN
+airfoil,kfold,4,4,mlp,MLP,baseline,MLP,2.49161958694458,0.36302220821380615,True,baseline,mlp,MLP
+airfoil,kfold,5,5,knn_x,kNN(X),baseline,kNN(X),3.2162952423095703,0.4629361927509308,True,baseline,knn_x,kNN(X)
+airfoil,kfold,5,5,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.9125454425811768,0.419216126203537,True,baseline,mlkr_knn,MLKR+kNN
+airfoil,kfold,5,5,mlp,MLP,baseline,MLP,2.633540391921997,0.3790576159954071,True,baseline,mlp,MLP
+car,kfold,1,1,knn_x,kNN(X),baseline,kNN(X),10646.2392578125,0.1783638447523117,True,baseline,knn_x,kNN(X)
+car,kfold,1,1,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,15210.9736328125,0.25484001636505127,True,baseline,mlkr_knn,MLKR+kNN
+car,kfold,1,1,mlp,MLP,baseline,MLP,21935.15234375,0.3674948811531067,True,baseline,mlp,MLP
+car,kfold,2,2,knn_x,kNN(X),baseline,kNN(X),10561.611328125,0.1741327941417694,True,baseline,knn_x,kNN(X)
+car,kfold,2,2,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,12577.2841796875,0.20736588537693024,True,baseline,mlkr_knn,MLKR+kNN
+car,kfold,2,2,mlp,MLP,baseline,MLP,14887.8720703125,0.24546131491661072,True,baseline,mlp,MLP
+car,kfold,3,3,knn_x,kNN(X),baseline,kNN(X),14200.4228515625,0.23802867531776428,True,baseline,knn_x,kNN(X)
+car,kfold,3,3,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,16664.48046875,0.27933141589164734,True,baseline,mlkr_knn,MLKR+kNN
+car,kfold,3,3,mlp,MLP,baseline,MLP,17991.947265625,0.30158254504203796,True,baseline,mlp,MLP
+car,kfold,4,4,knn_x,kNN(X),baseline,kNN(X),14016.046875,0.2422783225774765,True,baseline,knn_x,kNN(X)
+car,kfold,4,4,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,17154.99609375,0.29653751850128174,True,baseline,mlkr_knn,MLKR+kNN
+car,kfold,4,4,mlp,MLP,baseline,MLP,19244.4609375,0.33265551924705505,True,baseline,mlp,MLP
+car,kfold,5,5,knn_x,kNN(X),baseline,kNN(X),12403.712890625,0.20305800437927246,True,baseline,knn_x,kNN(X)
+car,kfold,5,5,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,13566.9736328125,0.22210146486759186,True,baseline,mlkr_knn,MLKR+kNN
+car,kfold,5,5,mlp,MLP,baseline,MLP,16129.0400390625,0.2640444040298462,True,baseline,mlp,MLP
+student_performance,kfold,1,1,knn_x,kNN(X),baseline,kNN(X),2.1452817916870117,0.6605961322784424,True,baseline,knn_x,kNN(X)
+student_performance,kfold,1,1,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,1.365053415298462,0.4203405976295471,True,baseline,mlkr_knn,MLKR+kNN
+student_performance,kfold,1,1,mlp,MLP,baseline,MLP,1.2381826639175415,0.3812732696533203,True,baseline,mlp,MLP
+student_performance,kfold,2,2,knn_x,kNN(X),baseline,kNN(X),2.195399045944214,0.6840726733207703,True,baseline,knn_x,kNN(X)
+student_performance,kfold,2,2,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,1.6539990901947021,0.5153758525848389,True,baseline,mlkr_knn,MLKR+kNN
+student_performance,kfold,2,2,mlp,MLP,baseline,MLP,1.408075213432312,0.4387475252151489,True,baseline,mlp,MLP
+student_performance,kfold,3,3,knn_x,kNN(X),baseline,kNN(X),2.89959979057312,0.9450111389160156,True,baseline,knn_x,kNN(X)
+student_performance,kfold,3,3,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.1079978942871094,0.6870194673538208,True,baseline,mlkr_knn,MLKR+kNN
+student_performance,kfold,3,3,mlp,MLP,baseline,MLP,1.8700741529464722,0.6094775199890137,True,baseline,mlp,MLP
+student_performance,kfold,4,4,knn_x,kNN(X),baseline,kNN(X),2.110690116882324,0.650148868560791,True,baseline,knn_x,kNN(X)
+student_performance,kfold,4,4,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,1.3287500143051147,0.4092904031276703,True,baseline,mlkr_knn,MLKR+kNN
+student_performance,kfold,4,4,mlp,MLP,baseline,MLP,1.160366415977478,0.3574238121509552,True,baseline,mlp,MLP
+student_performance,kfold,5,5,knn_x,kNN(X),baseline,kNN(X),1.7416247129440308,0.5163980722427368,True,baseline,knn_x,kNN(X)
+student_performance,kfold,5,5,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,1.0744348764419556,0.31857380270957947,True,baseline,mlkr_knn,MLKR+kNN
+student_performance,kfold,5,5,mlp,MLP,baseline,MLP,1.1111239194869995,0.3294523060321808,True,baseline,mlp,MLP
+yacht,kfold,1,1,knn_x,kNN(X),baseline,kNN(X),6.837212085723877,0.43535804748535156,True,baseline,knn_x,kNN(X)
+yacht,kfold,1,1,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.2677009105682373,0.1443953961133957,True,baseline,mlkr_knn,MLKR+kNN
+yacht,kfold,1,1,mlp,MLP,baseline,MLP,2.435014009475708,0.15504899621009827,True,baseline,mlp,MLP
+yacht,kfold,2,2,knn_x,kNN(X),baseline,kNN(X),11.291141510009766,0.7978522181510925,True,baseline,knn_x,kNN(X)
+yacht,kfold,2,2,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,4.12679386138916,0.291606605052948,True,baseline,mlkr_knn,MLKR+kNN
+yacht,kfold,2,2,mlp,MLP,baseline,MLP,3.8074231147766113,0.2690393328666687,True,baseline,mlp,MLP
+yacht,kfold,3,3,knn_x,kNN(X),baseline,kNN(X),9.84422492980957,0.66748046875,True,baseline,knn_x,kNN(X)
+yacht,kfold,3,3,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,3.5535054206848145,0.2409428358078003,True,baseline,mlkr_knn,MLKR+kNN
+yacht,kfold,3,3,mlp,MLP,baseline,MLP,3.4160215854644775,0.23162084817886353,True,baseline,mlp,MLP
+yacht,kfold,4,4,knn_x,kNN(X),baseline,kNN(X),8.474771499633789,0.553253710269928,True,baseline,knn_x,kNN(X)
+yacht,kfold,4,4,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.7754645347595215,0.18118910491466522,True,baseline,mlkr_knn,MLKR+kNN
+yacht,kfold,4,4,mlp,MLP,baseline,MLP,3.281651258468628,0.21423420310020447,True,baseline,mlp,MLP
+yacht,kfold,5,5,knn_x,kNN(X),baseline,kNN(X),6.3050360679626465,0.399625688791275,True,baseline,knn_x,kNN(X)
+yacht,kfold,5,5,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,2.071427583694458,0.13129116594791412,True,baseline,mlkr_knn,MLKR+kNN
+yacht,kfold,5,5,mlp,MLP,baseline,MLP,1.3635814189910889,0.08642648905515671,True,baseline,mlp,MLP
+energy_efficiency,kfold,1,1,knn_x,kNN(X),baseline,kNN(X),2.245945930480957,0.22338207066059113,True,baseline,knn_x,kNN(X)
+energy_efficiency,kfold,1,1,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,1.219167947769165,0.12125860154628754,True,baseline,mlkr_knn,MLKR+kNN
+energy_efficiency,kfold,1,1,mlp,MLP,baseline,MLP,2.092294692993164,0.20809988677501678,True,baseline,mlp,MLP
+energy_efficiency,kfold,2,2,knn_x,kNN(X),baseline,kNN(X),2.330366849899292,0.23082217574119568,True,baseline,knn_x,kNN(X)
+energy_efficiency,kfold,2,2,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.9126507639884949,0.09039779007434845,True,baseline,mlkr_knn,MLKR+kNN
+energy_efficiency,kfold,2,2,mlp,MLP,baseline,MLP,2.3882999420166016,0.2365604192018509,True,baseline,mlp,MLP
+energy_efficiency,kfold,3,3,knn_x,kNN(X),baseline,kNN(X),2.3812673091888428,0.23768720030784607,True,baseline,knn_x,kNN(X)
+energy_efficiency,kfold,3,3,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.8238135576248169,0.08222928643226624,True,baseline,mlkr_knn,MLKR+kNN
+energy_efficiency,kfold,3,3,mlp,MLP,baseline,MLP,2.280042886734009,0.22758342325687408,True,baseline,mlp,MLP
+energy_efficiency,kfold,4,4,knn_x,kNN(X),baseline,kNN(X),2.2592787742614746,0.22478699684143066,True,baseline,knn_x,kNN(X)
+energy_efficiency,kfold,4,4,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.9553118944168091,0.09504877030849457,True,baseline,mlkr_knn,MLKR+kNN
+energy_efficiency,kfold,4,4,mlp,MLP,baseline,MLP,1.9664716720581055,0.19565413892269135,True,baseline,mlp,MLP
+energy_efficiency,kfold,5,5,knn_x,kNN(X),baseline,kNN(X),2.085770845413208,0.20394118130207062,True,baseline,knn_x,kNN(X)
+energy_efficiency,kfold,5,5,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,1.2229559421539307,0.11957740783691406,True,baseline,mlkr_knn,MLKR+kNN
+energy_efficiency,kfold,5,5,mlp,MLP,baseline,MLP,1.6521313190460205,0.16154102981090546,True,baseline,mlp,MLP
+bike_sharing,kfold,1,1,knn_x,kNN(X),baseline,kNN(X),101.08898162841797,0.5547617673873901,True,baseline,knn_x,kNN(X)
+bike_sharing,kfold,1,1,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,48.009098052978516,0.26346704363822937,True,baseline,mlkr_knn,MLKR+kNN
+bike_sharing,kfold,1,1,mlp,MLP,baseline,MLP,43.89207077026367,0.24087339639663696,True,baseline,mlp,MLP
+bike_sharing,kfold,2,2,knn_x,kNN(X),baseline,kNN(X),99.3612289428711,0.5464617013931274,True,baseline,knn_x,kNN(X)
+bike_sharing,kfold,2,2,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,47.89045333862305,0.2633853852748871,True,baseline,mlkr_knn,MLKR+kNN
+bike_sharing,kfold,2,2,mlp,MLP,baseline,MLP,41.61165237426758,0.22885358333587646,True,baseline,mlp,MLP
+bike_sharing,kfold,3,3,knn_x,kNN(X),baseline,kNN(X),104.12908935546875,0.5720959901809692,True,baseline,knn_x,kNN(X)
+bike_sharing,kfold,3,3,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,50.33420944213867,0.2765413522720337,True,baseline,mlkr_knn,MLKR+kNN
+bike_sharing,kfold,3,3,mlp,MLP,baseline,MLP,45.05074691772461,0.24751348793506622,True,baseline,mlp,MLP
+bike_sharing,kfold,4,4,knn_x,kNN(X),baseline,kNN(X),106.11823272705078,0.5886577367782593,True,baseline,knn_x,kNN(X)
+bike_sharing,kfold,4,4,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,51.13068389892578,0.28363147377967834,True,baseline,mlkr_knn,MLKR+kNN
+bike_sharing,kfold,4,4,mlp,MLP,baseline,MLP,44.00297546386719,0.24409273266792297,True,baseline,mlp,MLP
+bike_sharing,kfold,5,5,knn_x,kNN(X),baseline,kNN(X),105.04025268554688,0.5816353559494019,True,baseline,knn_x,kNN(X)
+bike_sharing,kfold,5,5,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,52.563140869140625,0.2910558879375458,True,baseline,mlkr_knn,MLKR+kNN
+bike_sharing,kfold,5,5,mlp,MLP,baseline,MLP,44.16618728637695,0.24455976486206055,True,baseline,mlp,MLP
+wine,kfold,1,1,knn_x,kNN(X),baseline,kNN(X),0.6385934352874756,0.7284492254257202,True,baseline,knn_x,kNN(X)
+wine,kfold,1,1,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.6158143877983093,0.7024649381637573,True,baseline,mlkr_knn,MLKR+kNN
+wine,kfold,1,1,mlp,MLP,baseline,MLP,0.6580846309661865,0.7506829500198364,True,baseline,mlp,MLP
+wine,kfold,2,2,knn_x,kNN(X),baseline,kNN(X),0.6361997723579407,0.7285360097885132,True,baseline,knn_x,kNN(X)
+wine,kfold,2,2,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.6197049617767334,0.7096472382545471,True,baseline,mlkr_knn,MLKR+kNN
+wine,kfold,2,2,mlp,MLP,baseline,MLP,0.6735358238220215,0.7712908387184143,True,baseline,mlp,MLP
+wine,kfold,3,3,knn_x,kNN(X),baseline,kNN(X),0.6321917772293091,0.7248392701148987,True,baseline,knn_x,kNN(X)
+wine,kfold,3,3,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.5999162197113037,0.6878337264060974,True,baseline,mlkr_knn,MLKR+kNN
+wine,kfold,3,3,mlp,MLP,baseline,MLP,0.6649134159088135,0.762356162071228,True,baseline,mlp,MLP
+wine,kfold,4,4,knn_x,kNN(X),baseline,kNN(X),0.6403266191482544,0.7355069518089294,True,baseline,knn_x,kNN(X)
+wine,kfold,4,4,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.6135523915290833,0.7047529220581055,True,baseline,mlkr_knn,MLKR+kNN
+wine,kfold,4,4,mlp,MLP,baseline,MLP,0.6613273024559021,0.7596292495727539,True,baseline,mlp,MLP
+wine,kfold,5,5,knn_x,kNN(X),baseline,kNN(X),0.6260647177696228,0.7166344523429871,True,baseline,knn_x,kNN(X)
+wine,kfold,5,5,mlkr_knn,MLKR+kNN,baseline,MLKR+kNN,0.6012579202651978,0.6882389187812805,True,baseline,mlkr_knn,MLKR+kNN
+wine,kfold,5,5,mlp,MLP,baseline,MLP,0.6558616161346436,0.7507418990135193,True,baseline,mlp,MLP
+califonia_housing,kfold,1,1,softmax,NN-kNN (softmax),pure,pure,0.6028351187705994,0.5213816165924072,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+califonia_housing,kfold,1,1,softmax,NN-kNN (softmax),adaptation,adaptation,0.5633094310760498,0.48719653487205505,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+califonia_housing,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.6699016094207764,0.5793862342834473,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+califonia_housing,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.6315015554428101,0.5461747646331787,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+califonia_housing,kfold,1,1,sparsemax,NN-kNN (sparsemax),pure,pure,0.43799522519111633,0.3788144290447235,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+califonia_housing,kfold,1,1,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.4330413341522217,0.3745299279689789,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+califonia_housing,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.4298338294029236,0.37175577878952026,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+califonia_housing,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.4270801544189453,0.36937424540519714,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+califonia_housing,kfold,2,2,softmax,NN-kNN (softmax),pure,pure,0.6040510535240173,0.5252159833908081,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+califonia_housing,kfold,2,2,softmax,NN-kNN (softmax),adaptation,adaptation,0.5522946715354919,0.48021429777145386,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+califonia_housing,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.6753718256950378,0.5872285962104797,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+califonia_housing,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.7185393571853638,0.6247622966766357,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+califonia_housing,kfold,2,2,sparsemax,NN-kNN (sparsemax),pure,pure,0.4395207464694977,0.3821586072444916,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+califonia_housing,kfold,2,2,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.44250762462615967,0.3847556412220001,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+califonia_housing,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.45018914341926575,0.3914346694946289,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+califonia_housing,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.4457044303417206,0.38753530383110046,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+califonia_housing,kfold,3,3,softmax,NN-kNN (softmax),pure,pure,0.5884606242179871,0.5084977149963379,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+califonia_housing,kfold,3,3,softmax,NN-kNN (softmax),adaptation,adaptation,0.5420376658439636,0.46838292479515076,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+califonia_housing,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.6664873957633972,0.5759218335151672,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+califonia_housing,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.9214873909950256,0.7962710857391357,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+califonia_housing,kfold,3,3,sparsemax,NN-kNN (sparsemax),pure,pure,0.4533509910106659,0.3917474150657654,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+califonia_housing,kfold,3,3,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.45118722319602966,0.38987767696380615,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+califonia_housing,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.4525595009326935,0.39106348156929016,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+califonia_housing,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.45122700929641724,0.38991203904151917,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+califonia_housing,kfold,4,4,softmax,NN-kNN (softmax),pure,pure,0.5632207989692688,0.48814770579338074,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+califonia_housing,kfold,4,4,softmax,NN-kNN (softmax),adaptation,adaptation,0.6455302238464355,0.5594858527183533,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+califonia_housing,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.5659582018852234,0.4905202388763428,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+califonia_housing,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.5320349335670471,0.4611186385154724,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+califonia_housing,kfold,4,4,sparsemax,NN-kNN (sparsemax),pure,pure,0.46327540278434753,0.40152424573898315,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+califonia_housing,kfold,4,4,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.4763062298297882,0.41281819343566895,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+califonia_housing,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.4544522762298584,0.393877238035202,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+califonia_housing,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.4597170352935791,0.3984402120113373,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+califonia_housing,kfold,5,5,softmax,NN-kNN (softmax),pure,pure,0.6138898730278015,0.5327070951461792,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+califonia_housing,kfold,5,5,softmax,NN-kNN (softmax),adaptation,adaptation,0.59871906042099,0.5195425152778625,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+califonia_housing,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.6825910806655884,0.5923230051994324,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+califonia_housing,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.5474094748497009,0.4750182032585144,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+califonia_housing,kfold,5,5,sparsemax,NN-kNN (sparsemax),pure,pure,0.44816961884498596,0.3889021873474121,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+califonia_housing,kfold,5,5,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.44726404547691345,0.38811635971069336,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+califonia_housing,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.4635428190231323,0.40224242210388184,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+califonia_housing,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.4552750587463379,0.3950679898262024,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+diabets,kfold,1,1,softmax,NN-kNN (softmax),pure,pure,49.9118766784668,0.639388382434845,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+diabets,kfold,1,1,softmax,NN-kNN (softmax),adaptation,adaptation,50.98168182373047,0.6530929207801819,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+diabets,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality,locality,49.847171783447266,0.6385595202445984,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+diabets,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,50.84443283081055,0.6513347625732422,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+diabets,kfold,1,1,sparsemax,NN-kNN (sparsemax),pure,pure,55.905818939208984,0.7161729335784912,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+diabets,kfold,1,1,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,54.41975402832031,0.6971359252929688,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+diabets,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,55.872406005859375,0.7157448530197144,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+diabets,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,54.44165802001953,0.6974164247512817,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+diabets,kfold,2,2,softmax,NN-kNN (softmax),pure,pure,53.146427154541016,0.6957692503929138,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+diabets,kfold,2,2,softmax,NN-kNN (softmax),adaptation,adaptation,53.34278106689453,0.6983398795127869,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+diabets,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality,locality,53.28597640991211,0.6975962519645691,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+diabets,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,53.03883361816406,0.6943607926368713,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+diabets,kfold,2,2,sparsemax,NN-kNN (sparsemax),pure,pure,59.350990295410156,0.7769967317581177,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+diabets,kfold,2,2,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,57.817081451416016,0.7569153904914856,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+diabets,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,59.098812103271484,0.7736952900886536,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+diabets,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,58.150909423828125,0.7612857818603516,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+diabets,kfold,3,3,softmax,NN-kNN (softmax),pure,pure,60.52315139770508,0.7780221104621887,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+diabets,kfold,3,3,softmax,NN-kNN (softmax),adaptation,adaptation,57.12474060058594,0.7343357801437378,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+diabets,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality,locality,60.540794372558594,0.7782489061355591,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+diabets,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,58.19892120361328,0.7481442093849182,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+diabets,kfold,3,3,sparsemax,NN-kNN (sparsemax),pure,pure,63.05430603027344,0.8105599284172058,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+diabets,kfold,3,3,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,57.520233154296875,0.7394197583198547,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+diabets,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,63.076358795166016,0.8108434677124023,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+diabets,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,58.59522247314453,0.7532386183738708,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+diabets,kfold,4,4,softmax,NN-kNN (softmax),pure,pure,52.62146759033203,0.694141685962677,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+diabets,kfold,4,4,softmax,NN-kNN (softmax),adaptation,adaptation,53.65137481689453,0.7077274322509766,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+diabets,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality,locality,52.780067443847656,0.696233868598938,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+diabets,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,53.215232849121094,0.7019742131233215,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+diabets,kfold,4,4,sparsemax,NN-kNN (sparsemax),pure,pure,60.39466094970703,0.7966796159744263,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+diabets,kfold,4,4,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,56.904518127441406,0.750640332698822,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+diabets,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,60.17308044433594,0.7937567830085754,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+diabets,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,57.220314025878906,0.7548061013221741,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+diabets,kfold,5,5,softmax,NN-kNN (softmax),pure,pure,56.079750061035156,0.7249046564102173,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+diabets,kfold,5,5,softmax,NN-kNN (softmax),adaptation,adaptation,56.016075134277344,0.7240815758705139,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+diabets,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality,locality,56.26613235473633,0.7273139357566833,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+diabets,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,57.726200103759766,0.746187150478363,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+diabets,kfold,5,5,sparsemax,NN-kNN (sparsemax),pure,pure,56.805789947509766,0.7342897057533264,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+diabets,kfold,5,5,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,56.58808135986328,0.7314755916595459,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+diabets,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,56.010616302490234,0.7240110039710999,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+diabets,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,55.92356872558594,0.7228859066963196,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+abalone,kfold,1,1,softmax,NN-kNN (softmax),pure,pure,2.2007133960723877,0.6861483454704285,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+abalone,kfold,1,1,softmax,NN-kNN (softmax),adaptation,adaptation,2.1015050411224365,0.6552166938781738,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+abalone,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality,locality,2.2124454975128174,0.6898062229156494,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+abalone,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,2.1152162551879883,0.6594916582107544,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+abalone,kfold,1,1,sparsemax,NN-kNN (sparsemax),pure,pure,2.282468318939209,0.711638331413269,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+abalone,kfold,1,1,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,2.1731455326080322,0.6775530576705933,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+abalone,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,2.2934539318084717,0.7150633335113525,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+abalone,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,2.2114808559417725,0.6895054578781128,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+abalone,kfold,2,2,softmax,NN-kNN (softmax),pure,pure,2.077643394470215,0.6340172290802002,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+abalone,kfold,2,2,softmax,NN-kNN (softmax),adaptation,adaptation,2.0449743270874023,0.6240478157997131,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+abalone,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality,locality,2.07197904586792,0.6322886347770691,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+abalone,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,2.053752899169922,0.6267267465591431,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+abalone,kfold,2,2,sparsemax,NN-kNN (sparsemax),pure,pure,2.140523672103882,0.6532058715820312,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+abalone,kfold,2,2,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,2.092637777328491,0.6385929584503174,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+abalone,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,2.1337170600891113,0.6511287689208984,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+abalone,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,2.084590196609497,0.6361371278762817,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+abalone,kfold,3,3,softmax,NN-kNN (softmax),pure,pure,2.3110151290893555,0.7277299761772156,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+abalone,kfold,3,3,softmax,NN-kNN (softmax),adaptation,adaptation,2.2088305950164795,0.6955523490905762,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+abalone,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality,locality,2.3314402103424072,0.7341616749763489,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+abalone,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,2.232236623764038,0.7029229402542114,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+abalone,kfold,3,3,sparsemax,NN-kNN (sparsemax),pure,pure,2.3722822666168213,0.7470227479934692,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+abalone,kfold,3,3,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,2.241624116897583,0.7058789730072021,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+abalone,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,2.3778762817382812,0.7487842440605164,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+abalone,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,2.2963109016418457,0.7230995893478394,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+abalone,kfold,4,4,softmax,NN-kNN (softmax),pure,pure,2.2450456619262695,0.7096612453460693,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+abalone,kfold,4,4,softmax,NN-kNN (softmax),adaptation,adaptation,2.2573068141937256,0.7135370373725891,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+abalone,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality,locality,2.2537832260131836,0.7124232649803162,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+abalone,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,2.188992738723755,0.6919428706169128,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+abalone,kfold,4,4,sparsemax,NN-kNN (sparsemax),pure,pure,2.367141008377075,0.7482557892799377,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+abalone,kfold,4,4,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,2.323265790939331,0.7343867421150208,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+abalone,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,2.3650453090667725,0.7475932836532593,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+abalone,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,2.2976174354553223,0.7262793183326721,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+abalone,kfold,5,5,softmax,NN-kNN (softmax),pure,pure,1.9345409870147705,0.5871395468711853,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+abalone,kfold,5,5,softmax,NN-kNN (softmax),adaptation,adaptation,1.8759353160858154,0.5693525671958923,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+abalone,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality,locality,1.9367061853408813,0.5877967476844788,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+abalone,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,1.8821333646774292,0.5712336897850037,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+abalone,kfold,5,5,sparsemax,NN-kNN (sparsemax),pure,pure,2.0009043216705322,0.6072810292243958,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+abalone,kfold,5,5,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.9335978031158447,0.5868533253669739,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+abalone,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.985814094543457,0.6027011275291443,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+abalone,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.919866919517517,0.5826859474182129,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+body_fat,kfold,1,1,softmax,NN-kNN (softmax),pure,pure,0.011874930001795292,0.6527619361877441,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+body_fat,kfold,1,1,softmax,NN-kNN (softmax),adaptation,adaptation,0.009840157814323902,0.5409108996391296,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+body_fat,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.01215129904448986,0.6679534316062927,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+body_fat,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.009662828408181667,0.5311630368232727,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+body_fat,kfold,1,1,sparsemax,NN-kNN (sparsemax),pure,pure,0.014893608167767525,0.8186975717544556,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+body_fat,kfold,1,1,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.01258192677050829,0.69162517786026,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+body_fat,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.014867271296679974,0.817249596118927,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+body_fat,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.012675788253545761,0.6967846155166626,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+body_fat,kfold,2,2,softmax,NN-kNN (softmax),pure,pure,0.009818284772336483,0.49819085001945496,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+body_fat,kfold,2,2,softmax,NN-kNN (softmax),adaptation,adaptation,0.0098325340077281,0.49891406297683716,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+body_fat,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.009830418974161148,0.4988063871860504,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+body_fat,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.01020241342484951,0.5176814198493958,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+body_fat,kfold,2,2,sparsemax,NN-kNN (sparsemax),pure,pure,0.011563281528651714,0.5867334008216858,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+body_fat,kfold,2,2,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.010047932155430317,0.5098432898521423,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+body_fat,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.011567668989300728,0.586956262588501,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+body_fat,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.009933797642588615,0.5040516257286072,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+body_fat,kfold,3,3,softmax,NN-kNN (softmax),pure,pure,0.011511328630149364,0.6163659691810608,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+body_fat,kfold,3,3,softmax,NN-kNN (softmax),adaptation,adaptation,0.01069600973278284,0.5727105736732483,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+body_fat,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.011558395810425282,0.6188862323760986,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+body_fat,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.010568383149802685,0.5658764243125916,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+body_fat,kfold,3,3,sparsemax,NN-kNN (sparsemax),pure,pure,0.012672245502471924,0.6785262227058411,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+body_fat,kfold,3,3,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.010970770381391048,0.5874230265617371,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+body_fat,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.012689166702330112,0.6794331669807434,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+body_fat,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.011063380166888237,0.5923808813095093,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+body_fat,kfold,4,4,softmax,NN-kNN (softmax),pure,pure,0.013074119575321674,0.7142131328582764,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+body_fat,kfold,4,4,softmax,NN-kNN (softmax),adaptation,adaptation,0.01191177498549223,0.6507163643836975,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+body_fat,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.013098654337227345,0.7155529856681824,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+body_fat,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.011449940502643585,0.6254869699478149,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+body_fat,kfold,4,4,sparsemax,NN-kNN (sparsemax),pure,pure,0.01402474194765091,0.7661436796188354,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+body_fat,kfold,4,4,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.012425093911588192,0.6787574887275696,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+body_fat,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.014031695201992989,0.7665231227874756,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+body_fat,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.01218483503907919,0.6656332015991211,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+body_fat,kfold,5,5,softmax,NN-kNN (softmax),pure,pure,0.009844857268035412,0.5124037861824036,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+body_fat,kfold,5,5,softmax,NN-kNN (softmax),adaptation,adaptation,0.010802899487316608,0.5622679591178894,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+body_fat,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.009893259033560753,0.5149227976799011,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+body_fat,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.010502864606678486,0.5466517210006714,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+body_fat,kfold,5,5,sparsemax,NN-kNN (sparsemax),pure,pure,0.012831142172217369,0.6678335666656494,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+body_fat,kfold,5,5,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.012338227592408657,0.6421788334846497,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+body_fat,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.01287445705384016,0.670087993144989,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+body_fat,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.012463812716305256,0.6487147212028503,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+airfoil,kfold,1,1,softmax,NN-kNN (softmax),pure,pure,1.9564547538757324,0.28551584482192993,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+airfoil,kfold,1,1,softmax,NN-kNN (softmax),adaptation,adaptation,1.7570103406906128,0.2564099133014679,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+airfoil,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality,locality,1.9976297616958618,0.2915247976779938,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+airfoil,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,1.9295015335083008,0.28158241510391235,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+airfoil,kfold,1,1,sparsemax,NN-kNN (sparsemax),pure,pure,1.8356624841690063,0.26788797974586487,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+airfoil,kfold,1,1,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.7333887815475464,0.2529626190662384,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+airfoil,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.7917906045913696,0.26148557662963867,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+airfoil,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.6367615461349487,0.2388613224029541,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+airfoil,kfold,2,2,softmax,NN-kNN (softmax),pure,pure,2.028900384902954,0.2905382215976715,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+airfoil,kfold,2,2,softmax,NN-kNN (softmax),adaptation,adaptation,1.947995662689209,0.2789526879787445,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+airfoil,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality,locality,2.100351095199585,0.30076995491981506,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+airfoil,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,1.9736878871917725,0.2826318144798279,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+airfoil,kfold,2,2,sparsemax,NN-kNN (sparsemax),pure,pure,1.983210802078247,0.28399553894996643,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+airfoil,kfold,2,2,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.6897648572921753,0.2419741302728653,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+airfoil,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.9853734970092773,0.284305214881897,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+airfoil,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.8277126550674438,0.2617282569408417,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+airfoil,kfold,3,3,softmax,NN-kNN (softmax),pure,pure,2.0557749271392822,0.300266295671463,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+airfoil,kfold,3,3,softmax,NN-kNN (softmax),adaptation,adaptation,2.0707945823669434,0.30246004462242126,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+airfoil,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality,locality,2.0824460983276367,0.30416184663772583,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+airfoil,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,2.0638647079467773,0.30144795775413513,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+airfoil,kfold,3,3,sparsemax,NN-kNN (sparsemax),pure,pure,1.8215919733047485,0.26606160402297974,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+airfoil,kfold,3,3,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.7794207334518433,0.2599020302295685,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+airfoil,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.8231861591339111,0.2662944495677948,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+airfoil,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.7795813083648682,0.2599255442619324,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+airfoil,kfold,4,4,softmax,NN-kNN (softmax),pure,pure,2.203307867050171,0.32101598381996155,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+airfoil,kfold,4,4,softmax,NN-kNN (softmax),adaptation,adaptation,2.129509449005127,0.3102637231349945,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+airfoil,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality,locality,2.282320261001587,0.33252784609794617,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+airfoil,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,2.199248790740967,0.32042455673217773,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+airfoil,kfold,4,4,sparsemax,NN-kNN (sparsemax),pure,pure,1.9781644344329834,0.2882131338119507,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+airfoil,kfold,4,4,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.882851243019104,0.27432626485824585,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+airfoil,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,2.007761001586914,0.2925252914428711,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+airfoil,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.9269213676452637,0.2807472050189972,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+airfoil,kfold,5,5,softmax,NN-kNN (softmax),pure,pure,2.584092855453491,0.37194040417671204,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+airfoil,kfold,5,5,softmax,NN-kNN (softmax),adaptation,adaptation,2.516988515853882,0.36228176951408386,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+airfoil,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality,locality,2.693035125732422,0.3876209855079651,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+airfoil,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,2.6610918045043945,0.38302329182624817,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+airfoil,kfold,5,5,sparsemax,NN-kNN (sparsemax),pure,pure,2.355226755142212,0.3389987051486969,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+airfoil,kfold,5,5,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,2.319823980331421,0.3339030146598816,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+airfoil,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,2.387302875518799,0.3436155319213867,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+airfoil,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,2.247779130935669,0.32353314757347107,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+car,kfold,1,1,softmax,NN-kNN (softmax),pure,pure,12893.1474609375,0.21600787341594696,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+car,kfold,1,1,softmax,NN-kNN (softmax),adaptation,adaptation,12917.80859375,0.21642103791236877,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+car,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality,locality,11781.365234375,0.1973814219236374,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+car,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,11934.86328125,0.1999530792236328,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+car,kfold,1,1,sparsemax,NN-kNN (sparsemax),pure,pure,9917.4052734375,0.1661532074213028,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+car,kfold,1,1,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,10696.0517578125,0.17919839918613434,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+car,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,9509.564453125,0.15932036936283112,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+car,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,10599.6181640625,0.177582785487175,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+car,kfold,2,2,softmax,NN-kNN (softmax),pure,pure,11689.0263671875,0.19272087514400482,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+car,kfold,2,2,softmax,NN-kNN (softmax),adaptation,adaptation,11326.9453125,0.186751127243042,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+car,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality,locality,10211.0986328125,0.16835378110408783,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+car,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,9661.6787109375,0.15929532051086426,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+car,kfold,2,2,sparsemax,NN-kNN (sparsemax),pure,pure,8577.5537109375,0.14142099022865295,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+car,kfold,2,2,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,8255.9384765625,0.13611842691898346,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+car,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,8301.462890625,0.13686898350715637,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+car,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,8177.689453125,0.13482829928398132,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+car,kfold,3,3,softmax,NN-kNN (softmax),pure,pure,15703.4423828125,0.26322242617607117,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+car,kfold,3,3,softmax,NN-kNN (softmax),adaptation,adaptation,14372.8974609375,0.24091973900794983,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+car,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality,locality,15850.7724609375,0.26569196581840515,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+car,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,13502.890625,0.22633658349514008,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+car,kfold,3,3,sparsemax,NN-kNN (sparsemax),pure,pure,12639.3193359375,0.21186134219169617,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+car,kfold,3,3,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,11394.5517578125,0.1909964233636856,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+car,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,12790.8896484375,0.2144019454717636,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+car,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,11834.421875,0.19836954772472382,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+car,kfold,4,4,softmax,NN-kNN (softmax),pure,pure,13062.392578125,0.22579365968704224,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+car,kfold,4,4,softmax,NN-kNN (softmax),adaptation,adaptation,11342.296875,0.19606046378612518,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+car,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality,locality,13887.00390625,0.24004772305488586,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+car,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,10822.3671875,0.18707306683063507,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+car,kfold,4,4,sparsemax,NN-kNN (sparsemax),pure,pure,9395.3740234375,0.16240638494491577,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+car,kfold,4,4,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,8948.62109375,0.154683917760849,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+car,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,9610.9658203125,0.1661330610513687,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+car,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,9491.9619140625,0.16407598555088043,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+car,kfold,5,5,softmax,NN-kNN (softmax),pure,pure,13519.96875,0.22133196890354156,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+car,kfold,5,5,softmax,NN-kNN (softmax),adaptation,adaptation,13071.599609375,0.21399182081222534,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+car,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality,locality,12378.046875,0.20263783633708954,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+car,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,12099.125,0.19807168841362,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+car,kfold,5,5,sparsemax,NN-kNN (sparsemax),pure,pure,9444.6005859375,0.1546151340007782,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+car,kfold,5,5,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,9355.96875,0.15316416323184967,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+car,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,9349.1552734375,0.15305262804031372,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+car,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,9445.4345703125,0.15462879836559296,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+student_performance,kfold,1,1,softmax,NN-kNN (softmax),pure,pure,1.3251324892044067,0.4080476760864258,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+student_performance,kfold,1,1,softmax,NN-kNN (softmax),adaptation,adaptation,1.3003697395324707,0.40042251348495483,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+student_performance,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality,locality,1.3224576711654663,0.40722405910491943,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+student_performance,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,1.3184161186218262,0.40597957372665405,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+student_performance,kfold,1,1,sparsemax,NN-kNN (sparsemax),pure,pure,1.6472489833831787,0.5072369575500488,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+student_performance,kfold,1,1,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.4066354036331177,0.4331448972225189,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+student_performance,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.4897077083587646,0.45872530341148376,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+student_performance,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.4106823205947876,0.4343910813331604,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+student_performance,kfold,2,2,softmax,NN-kNN (softmax),pure,pure,1.1800005435943604,0.3676808476448059,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+student_performance,kfold,2,2,softmax,NN-kNN (softmax),adaptation,adaptation,1.1986337900161743,0.37348684668540955,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+student_performance,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality,locality,1.370574712753296,0.42706260085105896,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+student_performance,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,1.3889529705047607,0.432789146900177,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+student_performance,kfold,2,2,sparsemax,NN-kNN (sparsemax),pure,pure,1.6775119304656982,0.5227022767066956,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+student_performance,kfold,2,2,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.5591845512390137,0.48583224415779114,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+student_performance,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.5152896642684937,0.4721548557281494,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+student_performance,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.3754661083221436,0.4285867214202881,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+student_performance,kfold,3,3,softmax,NN-kNN (softmax),pure,pure,1.7726116180419922,0.5777134299278259,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+student_performance,kfold,3,3,softmax,NN-kNN (softmax),adaptation,adaptation,1.8256701231002808,0.5950056910514832,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+student_performance,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality,locality,1.7567081451416016,0.5725303292274475,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+student_performance,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,1.8333202600479126,0.5974990725517273,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+student_performance,kfold,3,3,sparsemax,NN-kNN (sparsemax),pure,pure,2.093365430831909,0.6822505593299866,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+student_performance,kfold,3,3,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.8764808177947998,0.6115655303001404,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+student_performance,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.97186279296875,0.6426515579223633,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+student_performance,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.9982631206512451,0.65125572681427,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+student_performance,kfold,4,4,softmax,NN-kNN (softmax),pure,pure,1.1163527965545654,0.3438664376735687,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+student_performance,kfold,4,4,softmax,NN-kNN (softmax),adaptation,adaptation,1.2036542892456055,0.3707575798034668,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+student_performance,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality,locality,1.1243515014648438,0.3463302254676819,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+student_performance,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,1.190510630607605,0.36670902371406555,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+student_performance,kfold,4,4,sparsemax,NN-kNN (sparsemax),pure,pure,1.7619706392288208,0.5427339673042297,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+student_performance,kfold,4,4,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.2889180183410645,0.3970211446285248,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+student_performance,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.6209784746170044,0.49930456280708313,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+student_performance,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.3224947452545166,0.4073636829853058,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+student_performance,kfold,5,5,softmax,NN-kNN (softmax),pure,pure,0.9531518220901489,0.28261297941207886,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+student_performance,kfold,5,5,softmax,NN-kNN (softmax),adaptation,adaptation,0.9592885971069336,0.2844325602054596,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+student_performance,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.9157029986381531,0.2715092897415161,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+student_performance,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.9727196097373962,0.28841492533683777,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+student_performance,kfold,5,5,sparsemax,NN-kNN (sparsemax),pure,pure,1.5085182189941406,0.44728124141693115,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+student_performance,kfold,5,5,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.0943100452423096,0.3244669437408447,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+student_performance,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.389594316482544,0.4120197892189026,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+student_performance,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.0620678663253784,0.3149069845676422,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+yacht,kfold,1,1,softmax,NN-kNN (softmax),pure,pure,1.6613037586212158,0.10578318685293198,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+yacht,kfold,1,1,softmax,NN-kNN (softmax),adaptation,adaptation,1.6998807191848755,0.1082395613193512,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+yacht,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5.785214424133301,0.3683723509311676,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+yacht,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,4.175912380218506,0.2659003734588623,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+yacht,kfold,1,1,sparsemax,NN-kNN (sparsemax),pure,pure,0.8246535062789917,0.052509646862745285,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+yacht,kfold,1,1,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.357333779335022,0.0864279493689537,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+yacht,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.8127889633178711,0.0517541766166687,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+yacht,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,2.0333523750305176,0.12947329878807068,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+yacht,kfold,2,2,softmax,NN-kNN (softmax),pure,pure,3.153146743774414,0.22280699014663696,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+yacht,kfold,2,2,softmax,NN-kNN (softmax),adaptation,adaptation,2.040391683578491,0.14417771995067596,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+yacht,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality,locality,3.2311930656433105,0.2283218950033188,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+yacht,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,1.4962164163589478,0.10572533309459686,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+yacht,kfold,2,2,sparsemax,NN-kNN (sparsemax),pure,pure,1.8130227327346802,0.12811142206192017,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+yacht,kfold,2,2,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.579069972038269,0.11157990992069244,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+yacht,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,2.09597110748291,0.14810506999492645,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+yacht,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,2.012547254562378,0.1422102004289627,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+yacht,kfold,3,3,softmax,NN-kNN (softmax),pure,pure,2.5467846393585205,0.17268285155296326,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+yacht,kfold,3,3,softmax,NN-kNN (softmax),adaptation,adaptation,1.7734253406524658,0.1202458068728447,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+yacht,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality,locality,8.511390686035156,0.5771085619926453,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+yacht,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,4.856650352478027,0.3293015956878662,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+yacht,kfold,3,3,sparsemax,NN-kNN (sparsemax),pure,pure,1.7551168203353882,0.11900439858436584,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+yacht,kfold,3,3,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,1.277683973312378,0.08663240820169449,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+yacht,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.8665761947631836,0.12656182050704956,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+yacht,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.9768716096878052,0.06623604148626328,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+yacht,kfold,4,4,softmax,NN-kNN (softmax),pure,pure,3.1537187099456787,0.20588244497776031,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+yacht,kfold,4,4,softmax,NN-kNN (softmax),adaptation,adaptation,1.6810870170593262,0.10974546521902084,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+yacht,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality,locality,6.725344181060791,0.4390469193458557,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+yacht,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,4.241762638092041,0.2769126296043396,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+yacht,kfold,4,4,sparsemax,NN-kNN (sparsemax),pure,pure,1.2973536252975464,0.08469440788030624,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+yacht,kfold,4,4,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.8419151902198792,0.05496228486299515,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+yacht,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.6563771963119507,0.10813234001398087,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+yacht,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.0333640575408936,0.06746052205562592,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+yacht,kfold,5,5,softmax,NN-kNN (softmax),pure,pure,2.025944709777832,0.12840837240219116,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+yacht,kfold,5,5,softmax,NN-kNN (softmax),adaptation,adaptation,0.8526551723480225,0.05404298007488251,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+yacht,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality,locality,5.521938323974609,0.3499913811683655,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+yacht,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,2.8727941513061523,0.1820833683013916,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+yacht,kfold,5,5,sparsemax,NN-kNN (sparsemax),pure,pure,1.3315997123718262,0.08439943194389343,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+yacht,kfold,5,5,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.8563385009765625,0.05427642539143562,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+yacht,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,1.4447468519210815,0.0915709137916565,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+yacht,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,1.0492748022079468,0.06650511920452118,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+energy_efficiency,kfold,1,1,softmax,NN-kNN (softmax),pure,pure,0.9520108699798584,0.09468712657690048,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+energy_efficiency,kfold,1,1,softmax,NN-kNN (softmax),adaptation,adaptation,1.1276592016220093,0.11215712875127792,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+energy_efficiency,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.9605516195297241,0.09553658217191696,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+energy_efficiency,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.9768325686454773,0.09715588390827179,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+energy_efficiency,kfold,1,1,sparsemax,NN-kNN (sparsemax),pure,pure,0.4738501310348511,0.04712919145822525,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+energy_efficiency,kfold,1,1,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.47557803988456726,0.04730105772614479,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+energy_efficiency,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.4709939956665039,0.04684513434767723,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+energy_efficiency,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.4585479497909546,0.04560724273324013,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+energy_efficiency,kfold,2,2,softmax,NN-kNN (softmax),pure,pure,0.8319811224937439,0.08240749686956406,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+energy_efficiency,kfold,2,2,softmax,NN-kNN (softmax),adaptation,adaptation,1.1489057540893555,0.11379878222942352,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+energy_efficiency,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.8256991505622864,0.08178526163101196,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+energy_efficiency,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,1.193720817565918,0.11823770403862,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+energy_efficiency,kfold,2,2,sparsemax,NN-kNN (sparsemax),pure,pure,0.7823043465614319,0.0774870216846466,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+energy_efficiency,kfold,2,2,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.7487053871154785,0.07415905594825745,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+energy_efficiency,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.5400829315185547,0.05349506810307503,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+energy_efficiency,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.542177677154541,0.05370253324508667,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+energy_efficiency,kfold,3,3,softmax,NN-kNN (softmax),pure,pure,1.4710354804992676,0.14683200418949127,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+energy_efficiency,kfold,3,3,softmax,NN-kNN (softmax),adaptation,adaptation,1.0852184295654297,0.10832152515649796,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+energy_efficiency,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality,locality,1.0351536273956299,0.103324294090271,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+energy_efficiency,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,1.2233614921569824,0.12211033701896667,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+energy_efficiency,kfold,3,3,sparsemax,NN-kNN (sparsemax),pure,pure,0.5225478410720825,0.052158329635858536,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+energy_efficiency,kfold,3,3,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.516118586063385,0.05151659622788429,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+energy_efficiency,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.5304418206214905,0.05294627696275711,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+energy_efficiency,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.5303168296813965,0.05293378606438637,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+energy_efficiency,kfold,4,4,softmax,NN-kNN (softmax),pure,pure,0.9377626180648804,0.09330269694328308,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+energy_efficiency,kfold,4,4,softmax,NN-kNN (softmax),adaptation,adaptation,0.823663055896759,0.0819503664970398,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+energy_efficiency,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.8822253942489624,0.08777705579996109,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+energy_efficiency,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,1.1118453741073608,0.1106230765581131,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+energy_efficiency,kfold,4,4,sparsemax,NN-kNN (sparsemax),pure,pure,0.569063663482666,0.056618984788656235,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+energy_efficiency,kfold,4,4,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.5731273293495178,0.0570233054459095,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+energy_efficiency,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.4971260726451874,0.04946156591176987,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+energy_efficiency,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.48542097210884094,0.04829695075750351,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+energy_efficiency,kfold,5,5,softmax,NN-kNN (softmax),pure,pure,1.0648586750030518,0.10411905497312546,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+energy_efficiency,kfold,5,5,softmax,NN-kNN (softmax),adaptation,adaptation,0.8986985087394714,0.08787237107753754,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+energy_efficiency,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.9195479154586792,0.08991096913814545,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+energy_efficiency,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.8565853238105774,0.08375465869903564,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+energy_efficiency,kfold,5,5,sparsemax,NN-kNN (sparsemax),pure,pure,0.4930945932865143,0.048213496804237366,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+energy_efficiency,kfold,5,5,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.5137637257575989,0.050234463065862656,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+energy_efficiency,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.5216229557991028,0.05100291222333908,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+energy_efficiency,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.5042402148246765,0.04930327087640762,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+bike_sharing,kfold,1,1,softmax,NN-kNN (softmax),pure,pure,56.663490295410156,0.3109610974788666,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+bike_sharing,kfold,1,1,softmax,NN-kNN (softmax),adaptation,adaptation,52.35555648803711,0.28731977939605713,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+bike_sharing,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality,locality,56.50365447998047,0.31008395552635193,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+bike_sharing,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,52.235591888427734,0.28666144609451294,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+bike_sharing,kfold,1,1,sparsemax,NN-kNN (sparsemax),pure,pure,46.07058334350586,0.2528287470340729,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+bike_sharing,kfold,1,1,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,45.11362838745117,0.24757711589336395,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+bike_sharing,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,47.77549743652344,0.26218509674072266,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+bike_sharing,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,46.2154541015625,0.2536237835884094,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+bike_sharing,kfold,2,2,softmax,NN-kNN (softmax),pure,pure,56.392799377441406,0.31014615297317505,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+bike_sharing,kfold,2,2,softmax,NN-kNN (softmax),adaptation,adaptation,51.02790451049805,0.2806406319141388,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+bike_sharing,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality,locality,55.632240295410156,0.30596327781677246,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+bike_sharing,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,50.410743713378906,0.2772463858127594,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+bike_sharing,kfold,2,2,sparsemax,NN-kNN (sparsemax),pure,pure,41.579315185546875,0.2286757379770279,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+bike_sharing,kfold,2,2,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,41.626808166503906,0.22893694043159485,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+bike_sharing,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,46.028446197509766,0.25314486026763916,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+bike_sharing,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,44.63615798950195,0.24548761546611786,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+bike_sharing,kfold,3,3,softmax,NN-kNN (softmax),pure,pure,56.966224670410156,0.3129783570766449,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+bike_sharing,kfold,3,3,softmax,NN-kNN (softmax),adaptation,adaptation,53.15483856201172,0.2920381724834442,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+bike_sharing,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality,locality,56.96051025390625,0.31294694542884827,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+bike_sharing,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,53.85934829711914,0.2959088385105133,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+bike_sharing,kfold,3,3,sparsemax,NN-kNN (sparsemax),pure,pure,46.38391876220703,0.2548380494117737,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+bike_sharing,kfold,3,3,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,46.11837387084961,0.25337910652160645,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+bike_sharing,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,46.7579460144043,0.25689297914505005,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+bike_sharing,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,45.720401763916016,0.2511926293373108,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+bike_sharing,kfold,4,4,softmax,NN-kNN (softmax),pure,pure,56.93769836425781,0.3158440589904785,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+bike_sharing,kfold,4,4,softmax,NN-kNN (softmax),adaptation,adaptation,51.964412689208984,0.28825631737709045,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+bike_sharing,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality,locality,68.3770751953125,0.37930044531822205,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+bike_sharing,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,57.13255310058594,0.31692495942115784,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+bike_sharing,kfold,4,4,sparsemax,NN-kNN (sparsemax),pure,pure,44.4639892578125,0.24665005505084991,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+bike_sharing,kfold,4,4,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,44.3938102722168,0.24626079201698303,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+bike_sharing,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,46.93978500366211,0.2603837549686432,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+bike_sharing,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,44.926902770996094,0.2492179572582245,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+bike_sharing,kfold,5,5,softmax,NN-kNN (softmax),pure,pure,57.73639678955078,0.31970155239105225,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+bike_sharing,kfold,5,5,softmax,NN-kNN (softmax),adaptation,adaptation,53.03319549560547,0.29365870356559753,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+bike_sharing,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality,locality,57.31538391113281,0.31737032532691956,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+bike_sharing,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,51.57877731323242,0.28560522198677063,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+bike_sharing,kfold,5,5,sparsemax,NN-kNN (sparsemax),pure,pure,45.4091682434082,0.25144246220588684,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+bike_sharing,kfold,5,5,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,45.25544357299805,0.2505912482738495,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+bike_sharing,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,45.79127883911133,0.25355833768844604,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+bike_sharing,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,45.81907653808594,0.2537122666835785,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+wine,kfold,1,1,softmax,NN-kNN (softmax),pure,pure,0.6125240921974182,0.698711633682251,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+wine,kfold,1,1,softmax,NN-kNN (softmax),adaptation,adaptation,0.6106162071228027,0.6965352892875671,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+wine,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.6092772483825684,0.6950079202651978,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+wine,kfold,1,1,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.6087446808815002,0.6944004893302917,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+wine,kfold,1,1,sparsemax,NN-kNN (sparsemax),pure,pure,0.6315692663192749,0.7204366326332092,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+wine,kfold,1,1,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.6222245097160339,0.7097769975662231,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+wine,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.6312033534049988,0.7200192809104919,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+wine,kfold,1,1,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.6229655742645264,0.7106223702430725,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+wine,kfold,2,2,softmax,NN-kNN (softmax),pure,pure,0.62147456407547,0.7116736173629761,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+wine,kfold,2,2,softmax,NN-kNN (softmax),adaptation,adaptation,0.6190397143363953,0.7088854312896729,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+wine,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.6164690256118774,0.7059416174888611,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+wine,kfold,2,2,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.6151143312454224,0.704390287399292,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+wine,kfold,2,2,sparsemax,NN-kNN (sparsemax),pure,pure,0.6376009583473206,0.7301405668258667,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+wine,kfold,2,2,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.6285060048103333,0.7197256684303284,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+wine,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.6364278793334961,0.7287973165512085,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+wine,kfold,2,2,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.6227975487709045,0.713188648223877,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+wine,kfold,3,3,softmax,NN-kNN (softmax),pure,pure,0.612568736076355,0.7023404240608215,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+wine,kfold,3,3,softmax,NN-kNN (softmax),adaptation,adaptation,0.6102150082588196,0.6996417045593262,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+wine,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.6094549894332886,0.6987703442573547,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+wine,kfold,3,3,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.6082509756088257,0.6973899006843567,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+wine,kfold,3,3,sparsemax,NN-kNN (sparsemax),pure,pure,0.6307162046432495,0.7231473922729492,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+wine,kfold,3,3,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.6215782165527344,0.7126703262329102,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+wine,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.6300663352012634,0.7224022746086121,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+wine,kfold,3,3,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.626133918762207,0.7178935408592224,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+wine,kfold,4,4,softmax,NN-kNN (softmax),pure,pure,0.6129779815673828,0.7040930390357971,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+wine,kfold,4,4,softmax,NN-kNN (softmax),adaptation,adaptation,0.6117077469825745,0.7026340961456299,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+wine,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.6089518070220947,0.6994684338569641,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+wine,kfold,4,4,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.6119652986526489,0.7029297947883606,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+wine,kfold,4,4,sparsemax,NN-kNN (sparsemax),pure,pure,0.6295891404151917,0.7231734395027161,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+wine,kfold,4,4,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.6221067905426025,0.7145788669586182,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+wine,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.6279972791671753,0.7213448882102966,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+wine,kfold,4,4,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.6298825740814209,0.7235104441642761,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation
+wine,kfold,5,5,softmax,NN-kNN (softmax),pure,pure,0.6105350255966187,0.6988581418991089,True,nnknn,softmax:pure,NN-kNN (softmax) - pure
+wine,kfold,5,5,softmax,NN-kNN (softmax),adaptation,adaptation,0.6084057092666626,0.6964207887649536,True,nnknn,softmax:adaptation,NN-kNN (softmax) - adaptation
+wine,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality,locality,0.6075337529182434,0.6954227089881897,True,nnknn,softmax_locality:locality,NN-kNN (softmax) + locality - locality
+wine,kfold,5,5,softmax_locality,NN-kNN (softmax) + locality,locality + adaptation,locality + adaptation,0.6020678877830505,0.6891661286354065,True,nnknn,softmax_locality:locality + adaptation,NN-kNN (softmax) + locality - locality + adaptation
+wine,kfold,5,5,sparsemax,NN-kNN (sparsemax),pure,pure,0.6224367022514343,0.7124816179275513,True,nnknn,sparsemax:pure,NN-kNN (sparsemax) - pure
+wine,kfold,5,5,sparsemax,NN-kNN (sparsemax),adaptation,adaptation,0.6131453514099121,0.7018460631370544,True,nnknn,sparsemax:adaptation,NN-kNN (sparsemax) - adaptation
+wine,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality,locality,0.621485710144043,0.7113929986953735,True,nnknn,sparsemax_locality:locality,NN-kNN (sparsemax) + locality - locality
+wine,kfold,5,5,sparsemax_locality,NN-kNN (sparsemax) + locality,locality + adaptation,locality + adaptation,0.6125237345695496,0.7011345624923706,True,nnknn,sparsemax_locality:locality + adaptation,NN-kNN (sparsemax) + locality - locality + adaptation

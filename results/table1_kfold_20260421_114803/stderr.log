@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "D:\NN-kNN\results\table1_kfold_20260421_114803\run_table1_kfold.py", line 31, in <module>
+    summary_df, runs_df, _ = run_table1_kfold(
+                             ^^^^^^^^^^^^^^^^^
+  File "D:\NN-kNN\tools\table1_nnknn_kfold.py", line 429, in run_table1_kfold
+    nnknn_summary_df, nnknn_runs_df, nnknn_artifacts = run_table1_nnknn_kfold(
+                                                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\NN-kNN\tools\table1_nnknn_kfold.py", line 303, in run_table1_nnknn_kfold
+    dataset_state = load_regression_dataset_state(dataset_name)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\NN-kNN\model\regression_workflow.py", line 273, in load_regression_dataset_state
+    bundle = get_regression_dataset(dataset_name, **dict(dataset_kwargs or {}))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\NN-kNN\model\regression_workflow.py", line 248, in get_regression_dataset
+    X, y = Reg_data(real_name)
+           ^^^^^^^^^^^^^^^^^^^
+  File "D:\NN-kNN\datasets\reg_data.py", line 325, in Reg_data
+    Xs, ys = DATATYPES[dataset]()
+             ^^^^^^^^^^^^^^^^^^^^
+  File "D:\NN-kNN\datasets\reg_data.py", line 220, in Bike_Sharing
+    from ucimlrepo import fetch_ucirepo
+ModuleNotFoundError: No module named 'ucimlrepo'

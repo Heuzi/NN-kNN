@@ -1,0 +1,669 @@
+              NN-kNN for Regression: Accurate Prediction from Interpretable Retrieval
+
+
+                                                                  Anonymous
+
+
+
+
+                                  Abstract                                    The k-nearest neighbors (k-NN) algorithm is a classic in-           37
+                                                                           terpretable method that answers a query by retrieving the              38
+ 1           Neural Network k-Nearest Neighbor (NN-kNN)                    k most similar training instances and predicting by major-             39
+ 2           was proposed as an interpretable network model                ity vote (classification) or (distance-)weighted averaging (re-        40
+ 3           that learns feature weights and similarity to retrieve        gression) [Cover and Hart, 1967]. Viewed through the lens              41
+ 4           relevant cases for classification. This paper extends         of case-based reasoning (CBR), k-NN performs case-based                42
+ 5           it to regression with the goal of generating accurate         prediction by solving new problems via retrieval of similar            43
+ 6           predictions based on neighboring cases with simi-             prior cases from memory [Aamodt and Plaza, 1994]. In CBR               44
+ 7           lar labels. Specifically, we introduce three modular          terms, each training example is a case consisting of a problem         45
+ 8           components: an attention mechanism that weights               description x and a solution y. We use this case vocabulary            46
+ 9           the contribution of retrieved cases, a locality-aware         when discussing explanations, but otherwise follow standard            47
+10           regularizer that favors label-similar neighbors, and          ML notation, where x denotes the input features and y the tar-         48
+11           an optional case adaptation module that refines the           get (class label or real value). We call a retrieved case (xi , yi )   49
+12           retrieved estimate. Across synthetic and standard             a label-similar neighbor for a query (xq , yq ) when its label yi      50
+13           tabular regression benchmarks, NN-kNN achieves                provides local support for the query target yq (same class in          51
+14           competitive predictive error against strong base-             classification, numerically close in regression). In practice,         52
+15           lines (kNN-R, MLKR, and MLPs) while providing                 similarity is typically defined over the inputs xi and xq , even       53
+16           cases with similar labels as explanation (later re-           though the ground-truth similarity metric for x-space is often         54
+17           ferred as label-similar case). Moreover, NN-kNN               unknown. Human subjects studies have supported the use-                55
+18           supports manual knowledge injection through tun-              fulness of similar cases as explanations [Doyle et al., 2006;          56
+19           ing weights for human-comprehensible features.                Gates et al., 2023], and this paper treats similar neighbors as        57
+20           The result is a simple, general, and interpretable            natural case-based explanations.1                                      58
+21           approach to continuous-valued prediction that uni-               A variety of interpretable approaches combine neural rep-           59
+22           fies retrieval, attention, and optional case adapta-          resentations with example-based explanations [Keane and                60
+23           tion within a single neural framework.                        Kenny, 2019; Li et al., 2017; Chen et al., 2019]. One exam-            61
+                                                                           ple is Deep k-Nearest Neighbors (DkNN), which performs k-              62
+                                                                           NN lookup in the hidden representations of a pretrained deep           63
+24   1       Introduction                                                  model to provide post-hoc explanations and confidence esti-            64
+
+25   Many of today’s strongest predictors—including deep neural            mates [Papernot and Mcdaniel, 2018]. In contrast, the neural           65
+
+26   networks [LeCun et al., 2015], kernel methods such as sup-            network based k-nearest neighbor (NN-kNN) model [Ye et                 66
+
+27   port vector machines [Cortes and Vapnik, 1995], and super-            al., 2025] integrates retrieval and aggregation into the pre-          67
+
+28   vised metric-learning methods such as MLKR [Weinberger                dictor itself, jointly learning a feature extractor, feature im-       68
+
+29   and Tesauro, 2007]—achieve excellent accuracy but can be              portance weights [Wettschereck et al., 1997], case weights             69
+                                                                           [Bicego and Loog, 2016], and a task-specific distance metric.          70
+30   difficult to interpret. This opacity motivates much work on in-
+31   terpretability and the limits of post-hoc explanations [Doshi-        Unlike standard neural models, NN-kNN remains transpar-                71
+
+32   Velez and Kim, 2017; Rudin, 2019]. In contrast, classic               ent at inference time by retrieving training cases and expos-          72
+
+33   transparent models such as decision trees [Breiman et al.,            ing how they contribute to the output, and it has shown strong         73
+
+34   1984] and generalized additive models [Hastie and Tibshi-             performance on classification tasks ranging from tabular data          74
+
+35   rani, 1986] provide more direct reasoning traces, but can sac-        to images and text.                                                    75
+
+36   rifice flexibility and predictive power on complex problems.             This study considers the major extension of NN-kNN to-              76
+                                                                           ward regression, which involves a set of challenges detailed           77
+         0
+          Consistent with IJCAI policy, we used a LLM to assist with
+                                                                               1
+     formatting (e.g., table and equation typesetting) and language pol-         Other forms of case-based explanations (counterfactuals, semi-
+     ishing. All scientific content was written by the authors.            factuals) are not in the scope of this study.
+ 78   in Sec. 3.1. Most notably, NN-kNN, or retrieval-based meth-            an identity function if no feature extraction is needed). The                131
+ 79   ods in general, may predict the target label yq accurately by          distance dqi between query xq and case xi is computed as                     132
+ 80   learning to retrieve cases whose target values are far apart                         D
+ 81   and assign them a weight such that the weighted combination                          X       (f )    (f )    (f )
+                                                                                                                             
+                                                                                                                                        (f )
+                                                                                                                                             
+ 82   match yq . As an extreme example, a model can interpolate a                  dqi =          wi      dqi ,   dqi = distf zq(f ) , zi      ,    (1)
+                                                                                           f =1
+ 83   straight line perfectly with only two data points and any query
+ 84   on the line can be calculated as a weighted combination of the         where wi is the effective feature weights for case i. We pa-                 133
+ 85   two data points. In this setting, the retrieved cases indeed pro-      rameterize wi by mixing a small set of global weight patterns                134
+ 86   duce accurate results, yet they can be based on poor neigh-            {w(s) }Ss=1 using a case-specific mixture vector αi ∈ RS . In-               135
+ 87   bors for similarity-based explanation: they do not provide lo-         tuitively, {w(s) }Ss=1 represents recurring feature-importance               136
+ 88   cally consistent evidence for the predicted value. Section 4.3         patterns, and αi determines how strongly each pattern con-                   137
+ 89   presents results illustrating such misalignment between ac-            tributes to case i’s feature weights:                                        138
+ 90   curacy and explanation quality arising in practice. The key
+ 91   focus of this paper is on learning to retrieve cases that simul-                                            S
+                                                                                                                         (s)
+                                                                                                                  X
+ 92   taneously provide good predictions and good similarity-based                                        wi =          αi w(s) .                   (2)
+ 93   explanations.                                                                                               s=1
+ 94      This work makes the following contributions:2                       This parameter-efficient formulation interpolates between                    139
+ 95     1. NN-kNN for regression via attention-weighted label                global weighting (S = 1) and local weighting as S increases.                 140
+ 96         aggregation. We extend NN-kNN beyond classifica-                   Case activation is determined by                                           141
+ 97         tion by replacing majority voting with an attention-                                                   
+            weighted aggregation of retrieved numeric labels, en-                                          bi − dqi
+ 98                                                                                              aqi = σ              ,               (3)
+ 99         abling continuous-valued prediction while preserving                                              τ
+100         case-based explanations through per-neighbor weights.            where bi is a learnable case bias and τ is a temperature param-              142
+101     2. Retrieval of label-similar cases for regression. We im-           eter. Activations are aggregated using learned case weights                  143
+102         prove retrieval in NN-kNN regression by penalizing at-           ci . For classification, evidence for class k is computed as                 144
+103         tention assigned to top-K neighbors whose labels devi-
+                                                                                            N
+104         ate beyond a preset tolerance, encouraging retrieval of a                       X
+105         set of cases whose label is similar to the query target.          sk (xq ) =          aqi ci I[yi = k],            ŷq = arg max sk (xq ).
+                                                                                                                                          k
+                                                                                            i=1
+106     3. Optional label adaptation via case differences. To re-                                                                        (4)
+107         duce reliance on imperfect retrieval, our method option-            NN-kNN is inherently interpretable: predictions are con-                  145
+108         ally adapts retrieved labels for the query using a learned       structed directly from retrieved cases, and the learned param-               146
+109         case-difference heuristic case adaptation mechanism.             eters reveal how features and cases contribute to decisions.                 147
+
+110     4. NN-kNN learns semantically meaningful feature
+111         weights and allows knowledge injection by manual                 2.2    CBR Adaptation                                                        148
+
+112         tuning. Feature weights provide a straightforward in-            In case-based reasoning (CBR) for regression, retrieval alone                149
+113         dication of a feature’s relative importance (the higher          is often insufficient, since the retrieved cases rarely match the            150
+114         the more important). NN-kNN for regression learns                query’s target label exactly. Small but meaningful differences               151
+115         feature weights that reflect ground-truth feature impor-         in the problem description can correspond to systematic shifts               152
+116         tance. Users can also manually adjust learned feature            in the target value. A solution is to apply an adaptation step               153
+117         weights to steer retrieval and prediction toward expert-         that adjusts retrieved solutions to better fit the query.                    154
+118         provided judgments of feature importance. Therefore,                The case difference heuristic (CDH) was introduced to                     155
+119         NN-kNN provides a simple mechanism for injecting do-             learn adaptation rules from case pairs by attributing solution               156
+120         main knowledge.                                                  differences to the pairs’ problem differences [Hanney and                    157
+                                                                             Keane, 1996; Jalali et al., 2017; Liao et al., 2018]. Most rel-              158
+
+121   2       Related Work                                                   evant here is a neural network-based case difference heuristic               159
+                                                                             method, NN-CDH [Ye et al., 2022]. Using the notation in                      160
+122   2.1      Original NN-kNN
+                                                                             Sec. 2.1, let zq = ϕ(xq ) and zi = ϕ(xi ) be embeddings for                  161
+123   The original neural network k-nearest neighbor model (NN-              the query and a retrieved case. NN-CDH defines a neural                      162
+124   kNN) formulates the k-NN retrieval-and-vote pipeline as a              model gψ (·) that takes the case context zi and the case dif-                163
+125   differentiable neural computation graph, enabling end-to-end           ference ∆zqi = zq − zi , and outputs an adjustment to the                    164
+126   learning of similarity and aggregation mechanisms [Ye et al.,          retrieved label yi ,                                                         165
+127   2024; Ye et al., 2025].
+128      Given a query xq and a case base {(xi , yi )}N
+                                                      i=1 , NN-kNN
+                                                                                    ȳqi = yi + gψ (∆zqi , zi ),                ∆zqi = zq − zi .    (5)
+129   applies a learnable feature extractor ϕ(·) and performs re-               However, because zq = (zq − zi ) + zi , the adapter can re-               166
+130   trieval in the resulting embedding space, z = ϕ(x) (ϕ can be           construct the query embedding and potentially predict the tar-               167
+          2
+          An anonymized repository containing experimental code and          get directly, bypassing adaptation. To prevent this embedding                168
+      configurations is provided in the supplementary material and will be   leakage, we modify NN-CDH to condition on the retrieved                      169
+      made available online if the paper is accepted.                        label yi rather than the context embedding zi .                              170
+                                                  case                        Tesauro, 2007]). For example, on the C ARS dataset in Tab. 1,         189
+              query                                                           MLKR and NN-kNN (SOFTMAX) learn a similarity metric                   190
+                                                  with
+                                                                              yet underperform their non-trainable counterpart, weighted            191
+                                                                              k-NN. This suggests that the learned metric can become mis-           192
+                                                                              aligned with label similarity (e.g., due to overfitting and/or        193
+                                                                              an unfavorable inductive bias), reducing retrieval quality and        194
+                                                                              downstream accuracy.                                                  195
+                                                                                 (2) Accurate but dissimilar label mixtures. A retrieval-           196
+                                                                              based predictor can match the query target by mixing neigh-           197
+                                                                              bors with widely separated labels, yielding accurate predic-          198
+                                                                              tions but weak similarity-based explanations. As an extreme           199
+                 Case Distance                                                illustration, any point on a straight line can be interpolated as     200
+                                                                              a weighted combination of the line’s two endpoints, even if           201
+                                                                              neither endpoint is locally similar to the query. We observe          202
+
+                      Case Activation
+                                                                              this behavior for “NN-kNN (SOFTMAX) w/o Lld ” in Tab. 2:              203
+                                                                              it achieves strong predictive accuracy (best after adaptation)        204
+                                                                              while retrieving the least similar neighbors under the hidden         205
+
+                              select top k            optional                ground-truth distance metric.                                         206
+
+
+
+                                             activation normalizer            3.2   NN-kNN for Regression                                           207
+             locality loss Label
+                                                                              This study builds a retrieval-based model to accurately predict       208
+
+                              Retrieval Process                               continuous labels and explain with label-similar cases. More-         209
+
+                                                 with      without            over, only a small set of cases should be activated. Fig. 1           210
+             aggregate                         adaptation adaptation
+                                                                              shows the overall architecture. The following describes the           211
+                                                                              modifications to NN-kNN from Sec. 2.1.                                212
+
+                                                                              Attention Computation and Normalization. An attention                 213
+                                                                              mechanism assigns a relevance weight to each retrieved case           214
+                                                                              and enables prediction by a weighted average of their labels.         215
+                                                                              For a query q, we compute the distance dqi to each training           216
+                                      regression loss                         case i using the distance function in Sec. 2.1, and define a          217
+             Adaptation Process                                               simplified case activation,                                           218
+
+
+      Figure 1: Architecture of NN-kNN for regression. The retrieval                                  aqi = bi − dqi ,                       (6)
+      process is modified from the NN-kNN core [Ye et al., 2025]. We
+      introduce three regression-oriented components: (1) a selective acti-   where bi ∈ R is a learnable case bias that represents the de-         219
+      vation normalizer (softmax/sparsemax), (2) a label-distance loss that   fault activation of case i. This formulation allows cases to          220
+      biases retrieval toward label-similar neighbors, and (3) an optional    activate over different query regions and avoids committing           221
+      NN-CDH adaptation module that adapts retrieved labels.                  to a neighborhood of fixed K samples as in traditional k-NN.          222
+                                                                                 We convert these activations into an attention distribution        223
+
+171   3     NN-kNN for Regression                                             using a global normalizer,                                            224
+                                                                                                                     
+172   3.1    Regression Challenge for Retrieval-Based                                             πqi = Norm aq /τ i ,                   (7)
+173          Methods
+                                                                              where aq = (aq1 , . . . , aqN ) is the activation vector over all N   225
+174   A basic tenet of CBR is that similar problems have similar so-
+                                                                              cases, τ > 0 is a temperature hyperparameter, and Norm(·)             226
+175   lutions. In classification, nearby inputs often share the same
+                                                                              can be instantiated as softmax or a sparse simplex normalizer         227
+176   label, so a majority vote from retrieved neighbors typically
+                                                                              such as sparsemax. Softmax yields a dense distribution over           228
+177   supports the predicted class. In regression, the target is con-
+                                                                              cases, whereas sparse normalizers can assign exact zero mass          229
+178   tinuous and predictions are formed by attention- or distance-
+                                                                              to many cases, resulting in a smaller set of influential neigh-       230
+179   weighted averaging over retrieved neighbors. This presents
+                                                                              bors. In either case, this replaces original independent gating       231
+180   two challenges in regression:
+                                                                              (Eq. (3)) with a normalization in which all cases compete for         232
+181      (1) Inaccuracy from similarity misalignment. Retrieval
+                                                                              probability mass andPthe resulting weights form a proper dis-         233
+182   selects neighbors based on input-space similarity, but accu-
+                                                                              tribution (πqi ≥ 0, i πqi = 1).                                       234
+183   rate prediction requires neighbors that are also label-similar.
+                                                                                 The regression prediction is obtained by attention-                235
+184   This motivates learning (or carefully designing) a similarity
+                                                                              weighted averaging of retrieved labels,                               236
+185   measure that aligns input-space similarity with label simi-
+186   larity. Metric learning is extensively studied for classifica-                                         N
+      tion [Kulis, 2013], but is less emphasized in regression, with
+                                                                                                             X
+187
+                                                                                                     ŷq =         πqi yi .                  (8)
+188   fewer dedicated approaches (e.g., MLKR [Weinberger and                                                 i=1
+237   Optional NN-CDH Adaptation. The attention-weighted                       Locality Regularization. Beyond minimizing prediction             278
+                 (0)                                                           error, we encourage the attention mechanism in Eq. (7) to
+238   average ŷq can be inaccurate when the target value lies near                                                                              279
+
+239   the tail of the label distribution (e.g., outliers or extreme val-       concentrate on label-similar neighbors, i.e., retrieved cases     280
+
+240   ues), where even the most relevant retrieved cases may re-               whose labels do not deviate excessively from the query tar-       281
+
+241   main systematically biased above or below yq . To improve                get. We apply the locality penalty to the normalized attention    282
+
+242   accuracy beyond what retrieval alone can provide, we intro-              mass over the retrieved set. Let Iq = TopK(πq1 , . . . , πqN )    283
+
+243   duce an optional NN-CDH adaptation module that adjusts the               be the indices of the top-K attended cases for query q, and       284
+
+244   retrieved prediction using the discrepancy between the query             define                                                            285
+                                                                                                           πqi
+245   and the retrieved neighborhood.                                                         π̃qi = P             ,      i ∈ Iq ,       (14)
+246      When adaptation is enabled, the model first forms an ag-                                         j∈Iq πqj
+                                                                                      P
+247   gregate retrieved case (prototype) in representation space, to-          so that i∈Iq π̃qi = 1.                                            286
+
+248   gether with its corresponding aggregate label,                              We normalize label deviation using the median absolute         287
+
+                        N                              N
+                                                                               deviation (MAD), a robust alternative to standard devia-          288
+                        X                              X                       tion that is less sensitive to outliers. To obtain a standard-    289
+                z̄q =         πqi zi ,      ŷq(0) =         πqi yi ,    (9)   deviation-like scale under mild assumptions, we apply the         290
+                        i=1                            i=1
+                                                                               normal-consistency correction σy = 1.4826 · MAD, where            291
+
+249   where zi denote the learned embeddings of case i (Sec. 2.1).             1.4826 = 1/Φ−1 (0.75) [Rousseeuw and Croux, 1993; The             292
+250   It then applies an NN-CDH adaptation network gψ that oper-               SciPy Community, 2025]. Using a dimensionless tolerance           293
+251   ates on the case problem difference and the retrieved context            ϵ > 0, we penalize label distances beyond ϵ,                      294
+252   label, producing an additive solution correction,                                          X       h      |y − y |
+                                                                                                                     i      q
+                                                                                                                                   iα
+                                                                                    Lld (q) =        π̃qi max 0,              −ϵ       , (15)
+                                                                                                                       σy
+                                                
+                       ∆yq = gψ zq − z̄q , ŷq(0) .            (10)                            i∈Iq
+
+                                                                               where α ∈ {1, 2} controls the penalty growth.                     295
+253   The final adapted prediction is
+                                                                               Training objective. The overall training objective is a           296
+
+                              ŷq = ŷq(0) + ∆yq .                      (11)   weighted sum of the losses defined above,                         297
+
+
+         Because adaptation can “fix” errors downstream, when re-
+                                                                                          h                      i
+254
+255   trieval and adaptation are trained together, retrieval becomes                L = Eq Lmse (q) + λld Lld (q) + λbias Lbias .        (16)
+256   less selective and may converge to less label-similar neigh-
+257   borhoods [Smyth and Keane, 1998; Leake and Ye, 2021]. Al-                4   Evaluation                                                    298
+
+258   though not a primary focus here, we mitigate this issue with             We evaluate NN-kNN for regression through four experi-            299
+259   staged training. We first train retrieval alone (without adapta-         ments. The first compares predictive performance against          300
+260   tion) to establish a label-similar neighborhood structure, then          strong baselines on standard tabular datasets. The second         301
+261   freeze retrieval and train NN-CDH to perform targeted label              tests performance on high-dimensional inputs using an image       302
+262   adjustment on the fixed retrieved neighborhoods.                         dataset with frozen feature extraction. The third uses a syn-     303
+                                                                               thetic dataset with a known ground-truth feature weighting to     304
+263   3.3   Training Objectives                                                assess whether NN-kNN’s explanations—feature weights, re-         305
+
+264   In NN-kNN, the embedding function ϕθ , the distance com-                 trieved cases, and case biases—align with ground truth. The       306
+
+265   putation parameters (w, α)(Sec. 2.1), the case biases {bi }N
+                                                                 i=1 ,
+                                                                               fourth is a case study illustrating how manual feature tuning     307
+
+266   and (when enabled) the NN-CDH adapter gψ are trained end-                can incorporate externally-provided preferences.                  308
+
+267   to-end by backpropagation under the following objectives.                Hyperparameters and training settings. We experiment              309
+
+268   Regression loss. This is a mean squared error loss that mea-             with both softmax and sparsemax as the case activation nor-       310
+
+269   sures the error of the final prediction,                                 malizer Norm (Eq. (7)), with temperature τ = 1.0 control-         311
+
+                                               2                              ling the sharpness of the case-attention distribution. We use     312
+
+                           Lmse = yq − ŷq .                  (12)             K = 40 for the normalized attention subset Iq in the lo-          313
+                                                                               cality regularizers (Eq. (14)–(15)). In the label-distance loss   314
+270   Case-bias regularization. The learnable case-specific bias               (Eq. (15)), we set the tolerance ϵ = 0.1 and exponent α = 2,      315
+271   bi in Eq. (6) allows each training case to adjust its baseline           and weight the locality terms with λld = 0.1 in the full ob-      316
+272   tendency to be retrieved. Without regularization, these biases           jective (Eq. (16)). We train the model with a batch size of       317
+273   may grow and dominate the distance term, leading to degen-               64 using Adam, with learning rates of 10−3 for the feature        318
+274   erate retrieval behavior (e.g., a small set of cases receiving           extractor ϕ and the (glocal) feature-weighting module, and        319
+275   consistently high attention regardless of the query). We there-          3 × 10−4 for the case biases; Training is conducted for up        320
+276   fore add an ℓ2 penalty on the bias parameters,                           to 7000 epochs, with early stopping applied based on valida-      321
+
+                                              N
+                                                                               tion performance, using a patience of 80 epochs. NN-CDH           322
+                                           1 X 2                               is first pretrained on 5N randomly sampled case pairs (N is       323
+                              Lbias      =      b ,                     (13)
+                                           N i=1 i                             the number of training cases) and then incorporated into NN-      324
+                                                                               kNN. We next train the retrieval components and freeze them,      325
+277   where N is the number of training cases.                                 and subsequently fine-tune NN-CDH within the full model.          326
+327   Preprocessing and evaluation metric. We perform a ran-                     conflict with locality regularization on locally struc-                                   383
+328   dom 80/20 train–validation split and compute normalization                 tured datasets (e.g., California Housing, where soft-                                     384
+329   statistics on the training split only. Input features are stan-            max+locality degrades relative to softmax-only). Sec-                                     385
+330   dardized per dimension using the training-set mean and stan-               ond, adaptation can further worsen performance when                                       386
+331   dard deviation, and the same transformation is applied to val-             retrieval is already misaligned: for instance, on Cali-                                   387
+332   idation features. We also standardize y using the training-set             fornia Housing, softmax+locality+adaptation underper-                                     388
+333   mean and standard deviation. For reporting, we convert pre-                forms softmax+locality, suggesting that here adaptation                                   389
+334   dictions back to the original target scale via ŷraw = ŷ σy + µy          may amplify upstream retrieval errors rather than cor-                                    390
+335   and report RMSE in the raw target units.                                   recting them.                                                                             391
+336      Computational experiments are organized into the follow-           4. Failure scenarios concentrate in specific configura-                                        392
+337   ing subsections, each guided by a specific hypothesis or ex-             tions, not the framework as a whole. When NN-                                               393
+338   perimental goal.                                                         kNN underperforms vanilla weighted k-NN (e.g., Cars),                                       394
+                                                                               the underperformance is largely confined to particular                                      395
+339   4.1   Performance on Tabular Datasets                                    softmax configurations; sparsemax resolves these cases.                                     396
+340   Hypothesis: NN-kNN achieves comparable or lower RMSE                     This suggests a normalizer–regularizer interaction issue                                    397
+341   than weighted k-NN, MLKR, and MLP on standard regres-                    rather than an inherent limitation of NN-kNN.                                               398
+342   sion datasets.
+343      We compare these models on standard regression bench-            4.2     Performance on High-Dimensional Inputs                                                   399
+
+344   marks from scikit-learn (California Housing, Diabetes) and          Hypothesis: With a frozen feature extractor for high-                                            400
+345   the UCI Repository [Kelly et al., ] (Abalone, Body Fat, Bike        dimensional inputs, NN-kNN matches an MLP head in pre-                                           401
+346   Sharing, Wine Quality, Airfoil, Cars/Automobile, Student            dictive performance while retrieving label-similar neighbors                                     402
+347   Performance, Yacht, Energy Efficiency). The weighted k-NN           as case-based explanations.                                                                      403
+348   baseline retrieves the k nearest training samples under Eu-
+349   clidean distance in x-space (or z-space if feature extraction               Query                   Top-1                   Top-2                   Top-3
+                                                                            GT: 5.0 | Pred: 5.8    GT: 4.0 | Act: 0.896    GT: 1.0 | Act: 0.057    GT: 1.0 | Act: 0.047
+350   is involved) and predicts by an inverse-distance weighted av-
+351   erage. We set k = 5 based on preliminary trials and keep it
+352   fixed across datasets to maintain a simple, uniform baseline
+353   comparison. We include the MLP as a strong parametric neu-
+354   ral baseline that does not perform retrieval, to assess whether
+355   NN-kNN remains competitive with standard black-box pre-                     Query                   Top-1                   Top-2                   Top-3
+                                                                           GT: 29.0 | Pred: 28.1   GT: 34.0 | Act: 0.465   GT: 30.0 | Act: 0.319   GT: 25.0 | Act: 0.216
+356   dictors. We include MLKR (Metric Learning for Kernel Re-
+357   gression) as a regression-oriented metric-learning baseline.
+358   MLKR learns a Mahalanobis distance so that nearby points
+359   in the learned space support accurate kernel-weighted pre-
+360   diction, making it a close point of comparison to NN-kNN’s
+361   learned similarity and attention-weighted prediction.                       Query                   Top-1                   Top-2                   Top-3
+                                                                           GT: 50.0 | Pred: 49.4   GT: 52.0 | Act: 0.837   GT: 41.0 | Act: 0.110   GT: 47.0 | Act: 0.053
+362      All results are produced with one shared configuration
+363   across datasets (see Tab. 1). Given sensitivity to the inter-
+364   action between normalizer, locality, and adaptation, modest
+365   dataset-specific tuning would likely yield further gains. The
+366   key findings are:
+367    1. Overall competitiveness. Across most datasets, NN-
+368       kNN is competitive with strong baselines and typically          Figure 2: Qualitative retrieval results on the UTKFace age regres-
+369       outperforms weighted k-NN and MLKR. This highlights             sion task. GT denotes the ground-truth age and Act the activation
+370       the benefit of learning representations, feature weights,       value. For each query, the top-3 activated cases are shown.
+371       and case importance end-to-end.
+                                                                             To test NN-kNN on high-dimensional inputs while avoid-                                        404
+372    2. Softmax vs. sparsemax performance is dataset-
+                                                                          ing confounds from representation learning, we evaluate a                                        405
+373       dependent. Different datasets favor different aggrega-
+                                                                          setting where all models operate on the same fixed feature                                       406
+374       tion behaviors. For example, Student Performance re-
+                                                                          vectors. Concretely, we perform age prediction on the UTK-                                       407
+375       sults consistently favor softmax variants, suggesting that
+                                                                          Face dataset [Zhang et al., 2017], where each image is re-                                       408
+376       smoother averaging can be beneficial when the target
+                                                                          sized to 64×64 with three color channels and then encoded                                        409
+377       function is not strongly locally clustered.
+                                                                          to an embedding extracted from the penultimate layer of a                                        410
+378    3. Softmax interacts less robustly with locality and               pretrained frozen ResNet18 [He et al., 2016]. We adopt the                                       411
+379       adaptation. While sparsemax performs well on datasets           same train–validation split as in the other datasets. To fa-                                     412
+380       with strong local structure (e.g., Cars, Yacht, Energy          cilitate training, we randomly select 4,000 samples from the                                     413
+381       Efficiency), softmax variants are more brittle in com-          training-set to construct the case base. The learning rate is                                    414
+382       bination with other components. First, softmax may              set to 5 × 10−4 for the (glocal) feature-weighting module and                                    415
+       Model                           CH       Di      Ab      BF       BS       WQ      AF       Cars         SP      Y       EE     UTK
+       Weighted k-NN                  0.634   61.85    2.24    0.013    111.51   0.634    2.38   12683.68       2.43   10.50   2.30    12.98
+       MLP                            0.494   57.10    2.05    0.010    45.40    0.646    2.51   15763.32       1.48   4.52    1.38    11.68
+       MLKR                           0.466   59.70    2.15    0.012    52.31    0.596    2.44   16447.38       1.70   3.32    1.19    12.43
+       NN-kNN (softmax), pure         0.586   58.46    2.14    0.011    71.86    0.579    2.05   13194.01       1.41   3.24    0.942   12.60
+        + adaptation                  0.535   57.68    2.08    0.010    62.64    0.578    1.89   11755.02       1.34   4.50     1.38   12.04
+        + locality                    0.665   58.51    2.16    0.011    72.04    0.577    2.08   13642.72       1.48   8.86    0.896   12.71
+        + locality + adaptation       0.903   57.35    2.07    0.011    63.72    0.576    1.98   11637.63       1.37   6.65    1.26    12.03
+       NN-kNN (sparsemax), pure       0.445   70.31    2.22    0.014    46.92    0.594    1.64   10935.63       1.92   1.48    0.544   14.85
+        + adaptation                  0.438   64.06    2.12    0.012    46.32    0.589    1.58   10017.56       1.61   1.21    0.546   13.31
+        + locality                    0.453   70.26    2.22    0.014    47.67    0.594    1.71    9966.15       1.80   1.49    0.477   14.95
+        + locality + adaptation       0.441   64.82    2.16    0.012    46.87    0.589    1.65    9923.38       1.54   1.01    0.501   13.22
+
+      Table 1: Average RMSE of five runs (lower is better) using raw-scale targets; values are rounded for readability. Dataset abbreviations:
+      CH=California Housing, Di=Diabetes, Ab=Abalone, BF=Body Fat, BS=Bike Sharing, WQ=Wine Quality, AF=Airfoil, SP=Student Perfor-
+      mance, Y=Yacht, EE=Energy Efficiency, UTK=UTKFace (ResNet features). Best value per column is in bold, and second-best is underlined.
+
+416   1 × 10−4 for the case biases. Models are trained for up to 300        Nearest Neighbors Found. We study the extent to which                454
+417   epochs with early stopping using a patience of 15 epochs.             different NN-kNN and baseline models retrieve similar                455
+
+418   Results. The result is reported in the UTK column of Ta-              neighbors suitable for explanation. Because the synthetic            456
+
+419   ble 1. NN-kNN remains close to MLP, while retaining its               dataset provides ground-truth feature weights, we can di-            457
+
+420   case-based explanation interface (see Fig. 2). In this exper-         rectly evaluate retrieval quality against the underlying simi-       458
+
+421   iment, NN-kNN is trained to retrieve age-similar cases, not           larity structure. We compute the mean ground-truth distance          459
+
+422   necessarily cases that are visually similar in human-salient          of the top K=5 retrieved cases under the weighted ℓ2 met-            460
+
+423   aspects such as race or gender. We deliberately use a simple          ric induced by w∗ . Specifically, for a query xq and retrieved       461
+
+424   regression objective to keep the comparison with baselines            neighbor xi , we define                                              462
+
+425   fair and focused on the prediction mechanism itself; incorpo-                                     sX
+                                                                                                                  (f )    (f ) 2
+426   rating additional objectives for human-salient attributes is an                   d∗ (xq , xi ) =      wf∗ xq − xi          ,   (17)
+427   important future direction.                                                                           f
+
+428   4.3   Explanation from Learned Parameters                             and report the mean d∗ over the top-K neighbors.                     463
+429   Hypothesis: NN-kNN learns semantically meaningful pa-                    We compare NN-kNN with (i) a weighted-by-distance k-              464
+430   rameters, producing explanations that reflect the underlying          NN regressor operating in the original input space and (ii)          465
+431   ground truth.                                                         a multilayer perceptron (MLP) regressor. Because the MLP             466
+432      We use a synthetic regression dataset with known (but hid-         does not include a built-in retrieval mechanism, we approxi-         467
+433   den) feature and case importance to test whether NN-kNN’s             mate its “implicit” neighbors by extracting penultimate-layer        468
+434   learned feature weights and case biases recover the gener-            representations for all samples and retrieving the nearest           469
+435   ating structure, and whether its retrieved neighbors support          training points under Euclidean distance in that representa-         470
+436   similarity-based explanations under the ground-truth metric.          tion space. (iii) We also include an oracle k-NN that retrieves      471
+437      Specifically, we generate a linear regression dataset with         neighbors by label distance, providing an upper bound on re-         472
+438   additive Gaussian noise. The dataset consists of 3000 samples         trieval quality. Predictive performance is measured by valida-       473
+439   with 5 features, each drawn independently from a standard             tion RMSE. As shown in Table 2, NN-kNN achieves compet-              474
+440   normal distribution. The target variable is generated as              itive RMSE while retrieving neighbors that are closer to the         475
+                                        ∗
+                              y = Xw + ϵ,                                   query under the ground-truth metric.                                 476
+
+
+441
+               ∗
+      where w = [2.5, −1.7, 0.0, 0.9, 3.2]⊤ represents the true un-         Learned Case Biases. Because the labels include Gaussian             477
+
+442   derlying feature weights, and ϵ ∼ N (0, 1.02 ) is Gaussian            noise ϵ ∼ N (0, 1), some training cases are noisier and can in-      478
+
+443   noise. Cases with lower importance have stronger noises.              troduce confusion. We quantify this with a case randomness           479
+                                                                            score ri = |yi − x⊤     ∗
+                                                                                                i w |, the absolute deviation between the        480
+444   Feature weights Learned. NN-kNN learns feature                        observed label yi and its noise-free counterpart. We observe a       481
+445   weights consistent with the ground truth (normalized                  moderate negative correlation between case randomness and            482
+446   w∗ : [0.301, 0.205, 0.000, 0.108, 0.386]): softmax learns             the learned case bias (Pearson r = −0.359), suggesting that          483
+447   [0.282, 0.230, 0.000, 0.171, 0.318] and sparsemax learns              NN-kNN tends to correctly downweight noisier cases.                  484
+448   [0.311, 0.197, 0.046, 0.125, 0.321], correctly emphasizing
+449   the relative importance between all weights while keeping             The Effect of Sparsemax and Locality Loss In this ex-                485
+450   w3 near zero. Note that NN-kNN’s feature weights are                  periment, we noticed that NN-kNN using either softmax and            486
+451   constrained to be nonnegative because they parameterize               sparsemax can achieve low prediction error. Adaptation can           487
+452   a distance metric; therefore, they should align with the              further improve the error. We also notice that when using            488
+453   magnitudes (not the signs) of the ground-truth coefficients.          softmax without locality regularization, even if NN-kNN is           489
+       Model                              RMSE       d∗ of Top-5 Neighbors          Stage      w0       w1        w2         MSE / R2
+                                                                                    A         0.000    0.000     0.312    0.5285 / 0.4814
+       NN-kNN (softmax) w/o Lld            0.9711             1.3719
+       after adaptation                    0.9603
+                                                                                    B.1       0.000    0.000     0.318    0.5290 / 0.4809
+       NN-kNN (sparsemax) w/o Lld          1.1907               0.299               B.2       0.000    0.117     0.213    0.5361 / 0.4740
+       after adaptation                    1.0440                                   C.1       0.101    0.055     0.057    0.0096 / 0.9906
+       NN-kNN (softmax)                    0.9854             0.2853                C.2       0.425    0.169     0.187    0.0092 / 0.9909
+       after adaptation                    0.9672
+       NN-kNN (sparsemax)                  1.1674             0.3006           Table 3: Manual feature tuning on the synthetic dataset. Stages:
+       after adaptation                    1.0460                              A = set w0 =w1 =0 (both frozen); B.1 = unfreeze w1 (w0 frozen);
+                                                                               B.2 = manual edit that increases w1 and decreases w2 (then retrain,
+       Weighted k-NN                       1.3189             0.3284           w0 frozen); C.1 = unfreeze w0 (no manual edit); C.2 = manual edit
+       MLP                                 0.9638             0.4216           that increases w0 (then retrain). Lower MSE and higher R2 indicate
+       Oracle k-NN (y)                     0.0148             0.2402           better performance.
+
+      Table 2: Synthetic dataset results. d∗ is the ground-truth weighted ℓ2
+      distance defined by the data-generating weights w∗ , averaged over          In Stage B.1, we initialize from the Stage A checkpoint,           524
+      the top-5 retrieved neighbors (the lower the better). For NN-kNN         unfreeze w1 and continue training. This produces no mean-             525
+      variants, we present the prediction error both before and after adap-    ingful improvement: the learned weights remain close to               526
+      tation. For the MLP, neighbors are retrieved in penultimate-layer
+                                                                               Stage A, suggesting that the model does not substantially             527
+      representation space.
+                                                                               shift weight from w2 to w1 once it has committed to one               528
+                                                                               of the redundant sensors. In Stage B.2, we simulate expert            529
+490   accurate, it tends to activate far away cases. This corresponds
+                                                                               intervention by manually increasing w1 and suppressing w2 ,           530
+491   to our earlier discussion in Sec. 3.1.
+                                                                               reflecting a user preference for one redundant feature over           531
+492      In summary, the synthetic dataset results show that for
+                                                                               the other. After retraining, the model assigns more weight to         532
+493   this data, NN-kNN learns feature weights and case biases
+                                                                               w1 than in B.1, while achieving essentially the same error as         533
+494   that align with the ground truth and achieves accurate pre-
+                                                                               Stages A and B.1. This shows that NN-kNN can absorb ex-               534
+495   dictions by retrieving similar neighbors. In contrast, although
+                                                                               ternally supplied feature preferences and retain them through         535
+496   the MLP attains similar prediction error to NN-kNN, it in-
+                                                                               optimization.                                                         536
+497   duces neighbors much farther from the true target under the
+                                                                                  In Stage C.1, we initialize from Stage B.2 and unfreeze w0 ,       537
+498   ground-truth metric, offering weaker support for explanation.
+                                                                               allowing all feature weights to adapt freely. The model recov-        538
+
+499   4.4     Manual Feature Weight Tuning                                     ers the intended structure, assigning substantial weight to w0        539
+                                                                               and achieving near-perfect predictive performance. Finally,           540
+500   Previous work [Deng et al., 2025] applied NN-kNN to de-
+                                                                               in Stage C.2, we start from Stage B.2 again but first man-            541
+501   pression screening and demonstrated that the model sup-
+                                                                               ually nudge w0 toward its ground-truth value; the resulting           542
+502   ports manual feature weight tuning for mental health prac-
+                                                                               performance is comparable to C.1, indicating that feature ed-         543
+503   titioners to align model behavior with their domain judgment
+                                                                               its aligned with the ground-truth do not hinder convergence.          544
+504   (e.g., which factors are important for depression). Qualita-
+                                                                                  Overall, this experiment illustrates that NN-kNN supports          545
+505   tive evidence suggested that this interaction was useful and
+                                                                               feature-level manual tuning in a transparent and controllable         546
+506   interpretable, but most real-world settings lack an objective
+                                                                               manner. This suggests that edits to feature weights performed         547
+507   ground truth for feature importance, making it difficult to
+                                                                               by a human would have predictable effects on both model be-           548
+508   quantify the effect of feature weight tuning.
+                                                                               havior and performance, and could either guide or constrain           549
+509       Building on this research direction, we examine the hy-
+                                                                               learning depending on when and how they are applied.                  550
+510   pothesis: When initialized with manually specified feature
+511   weights, NN-kNN can refine them through training while ap-
+512   proximately preserving the user-specified weighting.                     5   Conclusion                                                        551
+513       We construct a synthetic regression dataset (n = 1500)
+                                                                               NN-kNN for regression produces transparent predictions as             552
+514   from latent factors s1 , s2 ∼ N (0, 1):
+                                                                               an attention-weighted aggregation of retrieved labels. It             553
+
+            x0 = s1 + η0 ,    x1 = s2 + η1 ,      x2 = s2 + η2 ,        (18)   learns a similarity metric along with case- and feature-              554
+                                                                               weights, making each neighbor’s contribution explicit and di-         555
+515   with ηj ∼ N (0, 0.052 ) and                                              rectly interpretable. Across our regression benchmarks, NN-           556
+                                                                               kNN achieves performance competitive with strong baselines            557
+                   y = s1 + s2 + ϵ,         ϵ ∼ N (0, 0.12 ).           (19)
+                                                                               while retaining case-based explanations.                              558
+516   Thus x0 measures s1 and (x1 , x2 ) are redundant for s2 . To                A future direction is to extend this case-based transparency       559
+517   isolate feature weights learning and manual edits, we use                beyond supervised regression. In particular, we plan to inves-        560
+518   sparsemax NN-kNN without NN-CDH or locality regulariza-                  tigate NN-kNN as a value/policy component in reinforcement            561
+519   tion, learning a single global feature-weight vector w ∈ R3              learning agents for game playing, where each action can be            562
+520   (Tab. 3).                                                                accompanied by retrieved episodes as an explicit rationale. A         563
+521      In Stage A, we impose a misspecified prior by freezing                second direction is a human subject study to quantify human           564
+522   w0 = w1 = 0 during training. At convergence, the model re-               satisfaction with provided explanations such as label-similar         565
+523   lies entirely on w2 , resulting in poor predictive performance.          cases and the effectiveness of feature weight tuning.                 566
+567   References                                                     [Jalali et al., 2017] V. Jalali, D. Leake, and N. Forouzan-       620
+
+      [Aamodt and Plaza, 1994] Agnar Aamodt and Enric Plaza.            dehmehr. Learning and applying case adaptation rules           621
+568
+                                                                        for classification: An ensemble approach. In Proceedings       622
+569     Case-based reasoning: Foundational issues, methodolog-
+                                                                        of the Twenty-Sixth International Joint Conference on Ar-      623
+570     ical variations, and system approaches. AI Communica-
+                                                                        tificial Intelligence, pages 4874–4878. International Joint    624
+571     tions, 7(1):39–59, 1994.
+                                                                        Conferences on Artificial Intelligence, 2017.                  625
+572   [Bicego and Loog, 2016] Manuele Bicego and Marco Loog.         [Keane and Kenny, 2019] Mark T. Keane and Eoin M.                 626
+573      Weighted k-nearest neighbor revisited. In Twenty-Third         Kenny. How case-based reasoning explains neural net-           627
+574      International Conference on Pattern Recognition (ICPR),        works: A theoretical analysis of xai using post-hoc            628
+575      pages 1642–1647. IEEE, 2016.                                   explanation-by-example from a survey of ann-cbr twin-          629
+
+576   [Breiman et al., 1984] Leo Breiman, Jerome H. Friedman,           systems. In Case-Based Reasoning Research and Devel-           630
+
+577     Richard A. Olshen, and Charles J. Stone. Classification         opment, pages 155–171, Cham, 2019. Springer.                   631
+
+578     and Regression Trees. Chapman and Hall/CRC, 1 edition,       [Kelly et al., ] Markelle Kelly, Rachel Longjohn, and Kolby       632
+579     1984.                                                           Nottingham. The uci machine learning repository. https:        633
+
+580   [Chen et al., 2019] Chaofan Chen, Oscar Li, Daniel Tao,           //archive.ics.uci.edu. Accessed: 2026-04-09.                   634
+
+581     Alina Barnett, Cynthia Rudin, and Jonathan K Su. This        [Kulis, 2013] Brian Kulis. Metric learning: A survey. Foun-       635
+582     looks like that: Deep learning for interpretable image          dations and Trends in Machine Learning, 5(4):287–364,          636
+583     recognition. In Advances in Neural Information Process-         2013.                                                          637
+584     ing Systems, volume 32. Curran, 2019.                        [Leake and Ye, 2021] David Leake and Xiaomeng Ye. Har-            638
+
+585   [Cortes and Vapnik, 1995] Corinna Cortes and Vladimir             monizing case retrieval and adaptation with alternating op-    639
+
+586     Vapnik. Support-vector networks. Machine Learning,              timization. In Case-Based Reasoning Research and Devel-        640
+
+587     20(3):273–297, 1995.                                            opment, pages 125–139, Cham, 2021. Springer.                   641
+
+588   [Cover and Hart, 1967] Thomas Cover and Peter Hart. Near-      [LeCun et al., 2015] Yann LeCun, Yoshua Bengio, and Ge-           642
+
+589     est neighbor pattern classification. IEEE Transactions on       offrey Hinton. Deep learning. Nature, 521(7553):436–           643
+
+590     Information Theory, 13(1):21–27, 1967.                          444, 2015.                                                     644
+
+
+      [Deng et al., 2025] Kuo Deng, Xiaomeng Ye, Kun Wang,           [Li et al., 2017] Oscar Li, Hao Liu, Chaofan Chen, and            645
+591
+592     Angelina Pennino, Abigail Jarvis, and Yola Hall. Fully in-      Cynthia Rudin. Deep learning for case-based reasoning          646
+
+593     terpretable and adjustable model for depression diagnosis:      through prototypes: A neural network that explains its pre-    647
+
+594     A qualitative approach. The International FLAIRS Con-           dictions. 2017.                                                648
+
+595     ference Proceedings, 38(1), May 2025.                        [Liao et al., 2018] Chieh-Kang Liao, Alan Liu, and Yu-            649
+                                                                        Sheng Chao. A machine learning approach to case adapta-        650
+596   [Doshi-Velez and Kim, 2017] Finale Doshi-Velez and Been
+                                                                        tion. In 2018 IEEE First International Conference on Ar-       651
+597     Kim. Towards a rigorous science of interpretable machine        tificial Intelligence and Knowledge Engineering (AIKE),        652
+598     learning. arXiv preprint, 2017.                                 pages 106–109, 2018.                                           653
+599   [Doyle et al., 2006] Dónal Doyle, Padraig Cunningham, and     [Papernot and Mcdaniel, 2018] Nicolas Papernot and Patrick        654
+600     Paul Walsh. An evaluation of the usefulness of explanation      Mcdaniel. Deep k-nearest neighbors: Towards confi-             655
+601     in a case-based reasoning system for decision support in        dent, interpretable and robust deep learning. ArXiv,           656
+602     bronchiolitis treatment. Computational Intelligence, 22(3-      abs/1803.04765, 2018.                                          657
+603     4):269–281, 2006.
+                                                                     [Rousseeuw and Croux, 1993] Peter J. Rousseeuw and                658
+604   [Gates et al., 2023] L. Gates, D. Leake, and K. Wilkerson.        Christophe Croux. Alternatives to the median absolute          659
+605     Cases are king: A user study of case presentation to ex-        deviation. Journal of the American Statistical Association,    660
+606     plain cbr decisions. In Case-Based Reasoning Research           88(424):1273–1283, 1993.                                       661
+607     and Development, ICCBR 2023, pages 153–168. Springer,        [Rudin, 2019] Cynthia Rudin. Stop explaining black box            662
+608     2023.                                                           machine learning models for high stakes decisions and use      663
+609   [Hanney and Keane, 1996] K. Hanney and M. Keane. Learn-           interpretable models instead. Nature Machine Intelligence,     664
+610     ing adaptation rules from a case-base. In Proceedings of        1(5):206–215, 2019.                                            665
+611     the Third European Workshop on Case-Based Reasoning,         [Smyth and Keane, 1998] B. Smyth and M. Keane.                    666
+612     pages 179–192, Berlin, 1996. Springer.                          Adaptation-guided retrieval: Questioning the similar-          667
+
+613   [Hastie and Tibshirani, 1986] Trevor Hastie and Robert Tib-       ity assumption in reasoning.        Artificial Intelligence,   668
+
+614     shirani. Generalized additive models. Statistical science,      102(2):249–293, 1998.                                          669
+
+615     1(3):297–310, 1986.                                          [The SciPy Community, 2025] The SciPy Community.                  670
+
+616   [He et al., 2016] Kaiming He, Xiangyu Zhang, Shaoqing             scipy.stats.median abs deviation. SciPy Documentation          671
+
+617     Ren, and Jian Sun. Deep residual learning for image recog-      (v1.16.2 Manual), 2025. Accessed: 2025-12-26.                  672
+
+618     nition. In 2016 IEEE Conference on Computer Vision and       [Weinberger and Tesauro, 2007] Kilian Q. Weinberger and           673
+619     Pattern Recognition (CVPR), pages 770–778, 2016.                Gerald Tesauro. Metric learning for kernel regression.         674
+675     In Proceedings of the Eleventh International Conference
+676     on Artificial Intelligence and Statistics (AISTATS), pages
+677     612–619. PMLR, 2007.
+678   [Wettschereck et al., 1997] Dietrich Wettschereck, David W.
+679     Aha, and Takao Mohri. A review and empirical evaluation
+680     of feature weighting methods for a class of lazy learning
+681     algorithms, page 273–314. Kluwer Academic Publishers,
+682     USA, 1997.
+683   [Ye et al., 2022] Xiaomeng Ye, David Leake, and David
+684     Crandall. Case adaptation with neural networks: Capa-
+685     bilities and limitations. In Mark T. Keane and Nirmalie
+686     Wiratunga, editors, Case-Based Reasoning Research and
+687     Development, pages 143–158, Cham, 2022. Springer.
+688   [Ye et al., 2024] Xiaomeng Ye, David Leake, Yu Wang, Zi-
+689     wei Zhao, and David Crandall. Towards network imple-
+690     mentation of CBR: Case study of a neural network K-
+691     NN algorithm. In Case-Based Reasoning Research and
+692     Development, ICCBR 2024, pages 354–370, Cham, 2024.
+693     Springer.
+694   [Ye et al., 2025] Xiaomeng Ye, David Leake, Yu Wang, and
+695     David Crandall. Run like a neural network, explain like
+696     k-nearest neighbor. In James Kwok, editor, Proceedings
+697     of the Thirty-Fourth International Joint Conference on Ar-
+698     tificial Intelligence, IJCAI-25, pages 6857–6865. Interna-
+699     tional Joint Conferences on Artificial Intelligence Organi-
+700     zation, 8 2025. Main Track.
+701   [Zhang et al., 2017] Zhifei Zhang, Yang Song, and Hairong
+702     Qi. Age progression/regression by conditional adversarial
+703     autoencoder. In IEEE Conference on Computer Vision and
+704     Pattern Recognition (CVPR). IEEE, 2017.
+

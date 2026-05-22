@@ -1,4 +1,4 @@
---extra-index-url https://download.pytorch.org/whl/cu126
+--extra-index-url https://download.pytorch.org/whl/cu128
 annotated-types==0.7.0
 asttokens==3.0.1
 certifi==2025.11.12
@@ -62,14 +62,15 @@ smmap==5.0.2
 stack-data==0.6.3
 sympy==1.14.0
 threadpoolctl==3.6.0
-torch==2.9.1+cu126
-torchvision==0.24.1+cu126
+torch==2.9.1+cu128
+torchvision==0.24.1+cu128
 tornado==6.5.4
 tqdm==4.67.1
 traitlets==5.14.3
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.3
+ucimlrepo==0.0.7
 urllib3==2.6.2
 wandb==0.23.1
 wcwidth==0.2.14
