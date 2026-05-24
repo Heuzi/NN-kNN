@@ -1,35 +1,49 @@
-#Update:: Our second paper is now accepted into IJCAI 2026, link will be posted after conference. Now NN-kNN can do both classification and regression.
-
-#Update:: the paper is now accepted into IJCAI 2025, [paper link](https://www.ijcai.org/proceedings/2025/763)
-
 # NN-kNN
 
-Update: Now we separate the functionality of the original backup_of_nnknn.ipynb into multiple files, some are in .py files. The main entry point is nnknn.ipynb.
+NN-kNN is a neural case-based model for classification and regression. The
+IJCAI-26 codebase is the maintained implementation: it learns retrieval over
+cases with feature weighting and normalized case activation, then aggregates
+retrieved labels for the target task.
 
-This is for better modularity and organization. It is also easier to extend and build upon. You can still refer to old backup_of_nnknn.ipynb files to learn about the model (which is probably easier since everything is in one file).
+- IJCAI-25 classification paper: [paper link](https://www.ijcai.org/proceedings/2025/763)
+- IJCAI-26 regression paper: publication link will be added after release.
 
-# old NN-kNN
-The notebook backup_of_nnknn.ipynb provides an example of how to use our code. Once you run the code once, you should understand the workflow. The code can be run on google colab or your own computer (if you copy everything to your own colab, notice there are dependencies so you need to copy the whole project, not just the ipynb).
+## Maintained Workflows
 
-To run the code, you need to run the file in this order:
+- Regression orchestration: `model/regression_workflow.py`
+- Classification orchestration: `model/classification_workflow.py`
+- Classification loaders: `datasets/classification_data.py`
+- Shared NN-kNN core: `model/nnknn_model.py`
 
-Run the section "Setup"
-Run "NCA and LMNN setup", if you don't want to use NCA or LMNN, you can skip this step.
-Run "Data Sets", choose dataset_name, this will determine the dataset to experiment on. The code for data set preprocessing is in the folder "dataset"
-If your data set is a classification data set, run "Classification with NNKNN"
-If your data set is a regression data set, run "Regression with NNKNN"
-This should be the essentials.
+Classification uses the current model rather than the old classification
+implementation. Normalized case activation is aggregated into class
+probability mass and optimized with negative log likelihood. Supported
+classification datasets include the IJCAI-25 small tabular set
+(`iris`, `zebra`, `zebra_special`, `wine`, `breast_cancer`, `balance`,
+`digits`) and image tasks (`mnist`, `cifar10`, `svhn`).
+Image runs use an inner validation slice of the official training set for
+checkpoint selection and report accuracy on the untouched official test set.
 
-You may run "Results Interpretation" to see how to interpret the model or results. 
+## Notebooks
 
-The section "Sanity Check" provides a standard neural network so you can compare that with NN-kNN.
+- `nnknn_sample_classification.ipynb`: maintained classification workflow,
+  explanations, representative baselines, and optional image subset runs.
+- `nnknn_sample_regression.ipynb`: maintained regression workflow.
 
-Some notes:
+## Quick Checks
 
-Each data set requires more or less a different configuration of parameters. This is currently stored in a config file and handled by the line
+```bash
+bash codex/setup.sh
+.venv/bin/python codex/smoke_test.py --mode imports
+.venv/bin/python codex/smoke_test.py --mode train
+.venv/bin/python codex/smoke_test.py --mode classification
 ```
-cfg = conf_file['dataset'][dataset_name]
-```
-The current config should be relatively good, feel free to tweak it
 
-nnknn.ipynb provides an example of the workflow. The actual code for nn-knn is in the folder "model". If you intend to build and expand your own nnknn model, you can copy the folder "model" and use the nnknn.ipynb as a guide only.
+For a small classification benchmark run:
+
+```bash
+.venv/bin/python tools/run_classification_benchmarks.py iris --mode kfold --runs 3 --epochs 20
+```
+
+Use representative small-data or subset image checks during development;
+full multi-run paper benchmarks are intentionally expensive.

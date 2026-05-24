@@ -29,10 +29,13 @@ default_args = {
     "post_mlp_activation": "relu",
     "post_mlp_flatten_after_base": True,
 
-    "task_type": "classification",  # or "regression
-    "softmax_over_cases": False,  # Whether to apply softmax over case activations
+    "task_type": "classification",  # or "regression"
+    "softmax_over_cases": True,  # Class mass and regression output require normalized case activations
     "tau": 1.0,  # Temperature parameter for softmax over case activations, higher = softer
     "case_normalizer": "softmax",   # 'softmax' | 'sparsemax' | 'entmax15'
+    "case_score_mode": "bias_minus_distance",
+    "classification_loss": "nll_class_mass",
+    "classification_probability_epsilon": 1e-8,
 
     #for locality regularization in regression
     "regression_locality": False,  # Whether to use locality regularization in regression training
@@ -72,6 +75,7 @@ default_args = {
     # "feature_weightor_path": 'best_fw.pth',
 
     "ignore_identical_in_training": True, #effectively leave one out when retrieving cases in training
+    "freeze_feature_extractor": False,
     "feature_extractor_lr": 5e-4,
     "glocal_weightor_lr": 5e-4,
     "adapter_lr": 1e-4,
@@ -568,19 +572,29 @@ class NN_KNN_Model(nn.Module):
         # load additional configuration parameters from kwargs
         self.config = kwargs
         self.task_type = kwargs.get('task_type', default_args['task_type'])
+        if self.task_type not in {"classification", "regression"}:
+            raise ValueError(f"Unknown task_type: {self.task_type}")
         self.softmax_over_cases = kwargs.get('softmax_over_cases', default_args['softmax_over_cases'])
         self.tau = kwargs.get('tau', default_args['tau'])
 
         if self.task_type == "regression": 
             self.softmax_over_cases = True  # enforce softmax over cases for regression
             print("Enforcing softmax_over_cases = True for regression task.")
+        elif not self.softmax_over_cases:
+            raise ValueError(
+                "Classification in the maintained NN-kNN core requires "
+                "softmax_over_cases=True so class outputs are probability mass."
+            )
         self.case_normalizer = kwargs.get('case_normalizer', default_args['case_normalizer'])
 
         self.glocal_weightor_set_num = kwargs.get('glocal_fw_set_num', default_args['glocal_fw_set_num'])
         self.neg_weight_flag = kwargs.get('neg_weight_flag', default_args['neg_weight_flag'])
 
-        if self.neg_weight_flag and self.task_type != "classification":
-            raise ValueError("neg_weight_flag can only be True for classification tasks. If you are doing regression, please set neg_weight_flag to False.")
+        if self.neg_weight_flag:
+            raise ValueError(
+                "neg_weight_flag relies on legacy classification case weights, "
+                "which were removed from the maintained NN-kNN core."
+            )
 
         self.sampling_cases_flag = kwargs.get('sampling_cases_flag', default_args['sampling_cases_flag'])
         self.use_sampling_cases_divisor = kwargs.get('use_sampling_cases_divisor', default_args['use_sampling_cases_divisor'])
@@ -840,7 +854,7 @@ class NN_KNN_Model(nn.Module):
         # -----------------------------
         # Case scoring (case_score_mode)
         # -----------------------------
-        mode = self.config.get("case_score_mode", "sigmoid")
+        mode = self.config.get("case_score_mode", default_args["case_score_mode"])
         if mode == "neg_distance":
             # KNN-like: closer => larger score
             z = -distances
@@ -851,9 +865,10 @@ class NN_KNN_Model(nn.Module):
             z = b - distances                                   # [B, N_sel]
 
         elif mode == "neg_distance_logw":
-            # KNN-like with a per-case "reliability" weight
-            w = F.relu(self.weights[case_indices]).unsqueeze(0) # [1, N_sel]
-            z = -distances + torch.log(w + 1e-8)                # [B, N_sel]
+            raise ValueError(
+                "case_score_mode='neg_distance_logw' relies on retired legacy "
+                "case weights. Use 'bias_minus_distance' or 'neg_distance'."
+            )
 
         elif mode == "sigmoid":
             # Your original style (but *as logits* for the normalizer)
@@ -940,19 +955,16 @@ class NN_KNN_Model(nn.Module):
         selected_labels = self.labels[case_indices]  # [num_selected_cases, num_classes]
 
         if self.task_type == "classification":
-            labeled_activations = weighted_activations.unsqueeze(2) * selected_labels.unsqueeze(0)  # [batch_size, num_selected_cases, num_classes]
-
-            if self.neg_weight_flag:
-                print("ERROR: Negative weights for negative classes not yet implemented in this version.")
-                # negative_labels =  (selected_labels - 1)
-                # weighted_neg_activations =  (pre_activations * self.negative_weights[case_indices])
-                # weighted_neg_activations = weighted_neg_activations.unsqueeze(-1) * negative_labels
-                # labeled_activations = labeled_activations + weighted_neg_activations
-
-            # Sum over cases to produce predictions
-            # pre_adapted_solution = None  # Not used for classification
-            final_predictions = labeled_activations.sum(dim=1)  # [batch_size, num_classes]
+            # Retrieval is unchanged: only the final output aggregates case
+            # attention into probability mass for each one-hot class label.
+            final_predictions = torch.matmul(
+                weighted_activations, selected_labels.to(weighted_activations.dtype)
+            )
+            final_predictions = final_predictions / final_predictions.sum(
+                dim=1, keepdim=True
+            ).clamp_min(1e-12)
             predicted_solution = final_predictions.argmax(dim=1)  # [batch_size]
+            pre_adapted_solution = None
         else:  # regression
             # Ensure labels are [N_sel, 1]
             if selected_labels.dim() == 1:
@@ -1074,8 +1086,9 @@ class NN_KNN_Model(nn.Module):
 
         if use_topk:
             # top-K by the normalized attention over selected cases
+            top_k = min(self.top_k, weighted_activations.size(1))
             top_k_activations, top_k_indices = torch.topk(
-                weighted_activations, k=self.top_k, dim=1
+                weighted_activations, k=top_k, dim=1
             )  # [B, K]
 
             # Map selected-set indices -> global case indices
@@ -1123,6 +1136,19 @@ class NN_KNN_Model(nn.Module):
         # -----------------------------------------------------------------------
         return final_predictions, predicted_solution, pre_adapted_solution, most_activated_cases, most_activated_case_labels, most_activated_activations
 
+
+def classification_class_mass_loss(
+    class_mass: torch.Tensor,
+    targets: torch.Tensor,
+    eps: float = 1e-8,
+) -> torch.Tensor:
+    """Compute NLL directly on NN-kNN class probability mass."""
+    if class_mass.dim() != 2:
+        raise ValueError(f"Expected [batch, classes] class mass, got {tuple(class_mass.shape)}.")
+    probabilities = class_mass.clamp_min(0.0) + float(eps)
+    probabilities = probabilities / probabilities.sum(dim=1, keepdim=True).clamp_min(float(eps))
+    return F.nll_loss(probabilities.log(), targets.long())
+
 def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glocal_fw_set_num=glocal_fw_set_num
     """
     Train an NN-kNN model using the provided train/validation split.
@@ -1164,7 +1190,7 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
         torch.utils.data.TensorDataset(X_train, y_train),
         batch_size=cfg["batch_size"],
         shuffle=True,
-        drop_last=True
+        drop_last=X_train.size(0) >= int(cfg["batch_size"])
     )
     feature_dim = get_feature_dim(X_train, feature_extractor)
     # Initialize the global feature weightor
@@ -1218,9 +1244,20 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
 
     task = cfg.get("task_type", default_args["task_type"])
     if task == "classification":
-        criterion = nn.CrossEntropyLoss()
-        num_classes = len(torch.unique(y_train))
-        ys = torch.nn.functional.one_hot(y_train, num_classes=num_classes)
+        if cfg.get("classification_loss", default_args["classification_loss"]) != "nll_class_mass":
+            raise ValueError("Maintained classification supports classification_loss='nll_class_mass' only.")
+        if not cfg.get("softmax_over_cases", default_args["softmax_over_cases"]):
+            raise ValueError("Classification requires softmax_over_cases=True.")
+        class_ids = torch.unique(y_train.long()).sort().values
+        expected_ids = torch.arange(class_ids.numel(), device=class_ids.device)
+        if not torch.equal(class_ids, expected_ids):
+            raise ValueError("Classification labels must be consecutive integer ids starting at zero.")
+        criterion = partial(
+            classification_class_mass_loss,
+            eps=float(cfg.get("classification_probability_epsilon", default_args["classification_probability_epsilon"])),
+        )
+        num_classes = int(class_ids.numel())
+        ys = torch.nn.functional.one_hot(y_train.long(), num_classes=num_classes).float()
     else:
         criterion = nn.MSELoss()
         ys = y_train.float().unsqueeze(1)  # [N, 1] for scalar regression
@@ -1306,7 +1343,12 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
 
     # ---- Optional: freeze feature extractor for early epochs ----
     freeze_epochs = int(cfg.get("freeze_feature_extractor_epochs", 0))
-    if freeze_epochs > 0 and model.feature_extractor is not None:
+    freeze_feature_extractor = bool(cfg.get("freeze_feature_extractor", default_args["freeze_feature_extractor"]))
+    if freeze_feature_extractor and model.feature_extractor is not None:
+        for p in model.feature_extractor.parameters():
+            p.requires_grad_(False)
+        print("[freeze] feature_extractor frozen for all training epochs")
+    elif freeze_epochs > 0 and model.feature_extractor is not None:
         for p in model.feature_extractor.parameters():
             p.requires_grad_(False)
         print(f"[freeze] feature_extractor frozen for first {freeze_epochs} epochs")
@@ -1345,7 +1387,7 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
 
     case_net_lr = cfg.get("case_net_lr", default_args["case_net_lr"])   
     optimizer = torch.optim.Adam([
-        {'params': feature_extractor_params, 'lr': fearture_extractor_lr },
+        {'params': feature_extractor_params, 'lr': 0.0 if freeze_feature_extractor else fearture_extractor_lr },
         {'params': glocal_weightor_params, 'lr': glocal_weightor_lr },
         {'params': adapter_params, 'lr': adapter_lr },
         {'params': case_net_params, 'lr': case_net_lr }
@@ -1515,15 +1557,18 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
     # Train retrieval parts
     _set_requires_grad(feature_extractor_params + glocal_weightor_params + case_net_params, True)
 
-    # IMPORTANT: actually freeze feature_extractor at start if using freeze_epochs
-    if freeze_epochs > 0 and model.feature_extractor is not None:
+    # Hold fixed pretrained extractors throughout training when requested.
+    if freeze_feature_extractor and model.feature_extractor is not None:
+        for p in model.feature_extractor.parameters():
+            p.requires_grad_(False)
+    elif freeze_epochs > 0 and model.feature_extractor is not None:
         for p in model.feature_extractor.parameters():
             p.requires_grad_(False)
 
     # Optimizer LR: adapter group -> 0, others unchanged
     # groups: 0=feature_extractor, 1=glocal, 2=adapter, 3=case_net
     if len(optimizer.param_groups) >= 4:
-        optimizer.param_groups[0]["lr"] = fearture_extractor_lr
+        optimizer.param_groups[0]["lr"] = 0.0 if freeze_feature_extractor else fearture_extractor_lr
         optimizer.param_groups[1]["lr"] = glocal_weightor_lr
         optimizer.param_groups[2]["lr"] = 0.0
         optimizer.param_groups[3]["lr"] = case_net_lr
@@ -1534,7 +1579,7 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
 
     for epoch in range(training_epochs):
         # unfreeze feature extractor at scheduled epoch (stage1 only)
-        if freeze_epochs > 0 and model.feature_extractor is not None and epoch == freeze_epochs:
+        if not freeze_feature_extractor and freeze_epochs > 0 and model.feature_extractor is not None and epoch == freeze_epochs:
             for p in model.feature_extractor.parameters():
                 p.requires_grad_(True)
             print(f"[Stage1/unfreeze] feature_extractor unfrozen at epoch {epoch}")

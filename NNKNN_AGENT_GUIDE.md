@@ -7,7 +7,7 @@ repository. It is not a full paper summary. Its goal is to answer:
 
 - what the NN-kNN model is in this codebase
 - where the important code lives
-- which workflow entry points matter for regression/table reporting
+- which workflow entry points matter for classification and regression reporting
 - which files are legacy versus current
 
 ## What NN-kNN Is Here
@@ -21,6 +21,8 @@ At a high level, NN-kNN is a neural case-based model.
   those distances.
 - Case activations are normalized, usually by `softmax` or `sparsemax`.
 - The retrieved cases are aggregated into a prediction.
+- For classification, normalized case activation is summed into class
+  probability mass and optimized with NLL on that mass.
 - For regression, an optional NN-CDH adapter can modify the retrieved solution
   after retrieval.
 
@@ -38,6 +40,11 @@ The key practical distinction in the current Table 1 work is:
 - [model/regression_workflow.py](model/regression_workflow.py)
   This is the main orchestration layer for regression experiments and repeated
   benchmarks.
+- [model/classification_workflow.py](model/classification_workflow.py)
+  This is the maintained orchestration layer for classification experiments,
+  image comparisons, and small-dataset benchmark checks.
+- [datasets/classification_data.py](datasets/classification_data.py)
+  This contains portable classification loaders with train-only preprocessing.
 
 Important anchors:
 
@@ -47,6 +54,39 @@ Important anchors:
 - `train_model(...)` at [model/nnknn_model.py](model/nnknn_model.py#L1126)
 - `add_to_pair_list(...)` at [model/nn_cdh.py](model/nn_cdh.py#L43)
 - `NNCDHAdapter` at [model/nn_cdh.py](model/nn_cdh.py#L112)
+
+## Classification Workflow Files
+
+Classification now uses the IJCAI-26 shared core rather than restoring the
+older IJCAI-25 implementation. The retrieval pipeline stays common to both
+tasks; only the final aggregation and loss are task-specific.
+
+Important entry points in `model/classification_workflow.py`:
+
+- `make_classification_cfg(...)`
+- `load_classification_dataset_state(...)`
+- `split_classification_state(...)`
+- `train_nnknn_classification_state(...)`
+- `evaluate_nnknn_classification_state(...)`
+- `run_single_nnknn_classification_experiment(...)`
+- `run_repeated_classification_model_benchmarks(...)`
+
+Supported small datasets are `iris`, `zebra`, `zebra_special`, `wine`,
+`breast_cancer`, `balance`, and `digits`. Supported image workflows are
+`mnist`, `cifar10`, and `svhn`.
+
+Small-data baselines are NN-kNN, kNN, and a four-hidden-layer MLP. Image
+comparisons include a ConvNet, pixel kNN, pretrained-ConvNet-feature kNN,
+trainable-CNN NN-kNN, and frozen-pretrained-CNN NN-kNN. The legacy `NN-kNNO`
+case-weight path is intentionally unsupported because case weights were
+removed from the maintained core.
+
+Routine classification check:
+
+```bash
+.venv/bin/python codex/smoke_test.py --mode classification
+.venv/bin/python tools/run_classification_benchmarks.py iris --mode kfold --runs 3 --epochs 20
+```
 
 ## Regression Workflow Files
 

@@ -15,5 +15,6 @@ Recommended environment variables:
 
 Quick validation commands inside a task:
 
-- `python codex/smoke_test.py --mode imports`
-- `python codex/smoke_test.py --mode train`
+- `.venv/bin/python codex/smoke_test.py --mode imports`
+- `.venv/bin/python codex/smoke_test.py --mode train`
+- `.venv/bin/python codex/smoke_test.py --mode classification`
