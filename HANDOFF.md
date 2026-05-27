@@ -18,6 +18,30 @@
   an exact reproduction of IJCAI-25 results from the older classification
   formulation.
 
+## Current Work Focus
+
+- Classification support is now functional; current work is focused on
+  improving scores on the earlier IJCAI-25 classification tasks while keeping
+  the maintained IJCAI-26-based NN-kNN retrieval/core implementation.
+- Do not restore the retired legacy case-weight classification path solely to
+  reproduce old numbers. Improvements should come from the current workflow,
+  dataset protocol checks, hyperparameter tuning, or appropriate current-core
+  feature extractors.
+- Initial 10-fold stratified CV checks using `softmax`, `tau=0.5`, 50 epochs,
+  and seed 42 produced:
+  - `iris`: `0.9600 +/- 0.0562`
+  - `zebra` / Zebra (a): `0.5182 +/- 0.1488`
+  - `zebra_special` / Zebra (b): `0.5227 +/- 0.0890`
+- Zebra (a) and (b) are currently close to chance, so they are the immediate
+  debugging priority. Inspect their alternating-boundary structure,
+  preprocessing/splitting protocol, retrieved cases, feature weights,
+  temperature, normalizer choice, and possible current-core feature mapping.
+- Use `nnknn_sample_classification.ipynb` for interactive inspection. Use
+  `"zebra"` for Zebra (a) and `"zebra_special"` for Zebra (b).
+- Before expanding to full prior-paper comparisons, establish better
+  representative results on Zebra and then rerun the remaining small
+  classification suite (`wine`, `breast_cancer`, `balance`, `digits`).
+
 ## Current Local Artifacts
 
 - `checkpoints/` and transient smoke-test/runtime artifacts are expected and
