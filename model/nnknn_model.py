@@ -89,21 +89,6 @@ default_args = {
 }
 
 
-def normalize_case_normalization_cfg(cfg):
-    """Translate the deprecated softmax_over_cases key to normalize_over_cases."""
-    normalized = dict(cfg)
-    legacy_key = "softmax_over_cases"
-    current_key = "normalize_over_cases"
-    if legacy_key in normalized:
-        if current_key in normalized and normalized[current_key] != normalized[legacy_key]:
-            raise ValueError(
-                "Config contains conflicting normalize_over_cases and deprecated "
-                "softmax_over_cases values."
-            )
-        normalized[current_key] = normalized.pop(legacy_key)
-    return normalized
-
-
 def get_feature_dim(case, feature_extractor):
     if feature_extractor is None:
         # Assuming last dimension is feature dimension
@@ -585,7 +570,6 @@ class NN_KNN_Model(nn.Module):
         self.adapt_enabled = True  # train_model will flip this during warm-up
 
         # load additional configuration parameters from kwargs
-        kwargs = normalize_case_normalization_cfg(kwargs)
         self.config = kwargs
         self.task_type = kwargs.get('task_type', default_args['task_type'])
         if self.task_type not in {"classification", "regression"}:
@@ -1180,8 +1164,6 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
         best_accuracy: The best accuracy achieved during training.
         glocal_weightor: The trained global feature weightor.
     """
-
-    cfg = normalize_case_normalization_cfg(cfg)
 
     # Move data to the appropriate device
     X_train = X_train.to(device)
