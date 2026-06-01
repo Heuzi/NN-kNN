@@ -30,8 +30,8 @@ def run_import_smoke() -> None:
     cls_datasets = list_supported_classification_datasets()
     cls_methods = list_supported_classification_benchmark_methods()
     regression_cfg = make_regression_cfg({"task_type": "regression"})
-    if regression_cfg.get("case_score_mode") != "sigmoid":
-        raise AssertionError("Generic regression runs must preserve the sigmoid case-score fallback.")
+    if regression_cfg.get("case_score_mode") != "bias_minus_distance":
+        raise AssertionError("Generic regression runs must use the current bias-minus-distance case score.")
     print("import smoke ok")
     print(f"synthetic datasets: {datasets['synthetic']}")
     print(f"benchmark methods: {methods}")
