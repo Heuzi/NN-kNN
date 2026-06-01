@@ -16,7 +16,7 @@ from sklearn.model_selection import KFold
 
 from datasets.reg_data import DATATYPES, Reg_data, standardize_tensor
 from model.device_utils import resolve_runtime_device
-from model.nnknn_model import default_args, train_model
+from model.nnknn_model import default_args, normalize_case_normalization_cfg, train_model
 
 
 _TRUE_W_LINEAR = torch.tensor([2.5, -1.7, 0.0, 0.9, 3.2], dtype=torch.float32).view(-1, 1)
@@ -97,9 +97,9 @@ def make_regression_cfg(
     Output:
         A deep-copied config dictionary ready for training.
     """
-    cfg = copy.deepcopy(dict(base_cfg or default_args))
+    cfg = normalize_case_normalization_cfg(copy.deepcopy(dict(base_cfg or default_args)))
     if overrides:
-        cfg.update(copy.deepcopy(dict(overrides)))
+        cfg.update(normalize_case_normalization_cfg(copy.deepcopy(dict(overrides))))
     return cfg
 
 

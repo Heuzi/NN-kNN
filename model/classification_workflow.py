@@ -25,7 +25,7 @@ from datasets.classification_data import (
 )
 from model.device_utils import resolve_runtime_device
 from model.feature_extractors import CIFAR10Classifier, MNISTClassifier, get_feature_extractor_from
-from model.nnknn_model import default_args, train_model
+from model.nnknn_model import default_args, normalize_case_normalization_cfg, train_model
 
 
 _SMALL_METHODS = ["nnknn", "knn", "mlp"]
@@ -80,8 +80,8 @@ def list_supported_classification_benchmark_methods() -> dict[str, list[str]]:
 def _validate_classification_cfg(cfg: Mapping[str, Any]) -> None:
     if cfg.get("task_type") != "classification":
         raise ValueError("Classification configs must set task_type='classification'.")
-    if not cfg.get("softmax_over_cases", False):
-        raise ValueError("Classification configs must set softmax_over_cases=True.")
+    if not cfg.get("normalize_over_cases", False):
+        raise ValueError("Classification configs must set normalize_over_cases=True.")
     if cfg.get("case_normalizer") not in {"softmax", "sparsemax"}:
         raise ValueError("Maintained classification supports case_normalizer='softmax' or 'sparsemax'.")
     if cfg.get("classification_loss") != "nll_class_mass":
@@ -97,12 +97,12 @@ def make_classification_cfg(
     *,
     base_cfg: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    cfg = copy.deepcopy(dict(base_cfg or default_args))
+    cfg = normalize_case_normalization_cfg(copy.deepcopy(dict(base_cfg or default_args)))
     cfg.update(
         {
             "task_type": "classification",
             "case_score_mode": "bias_minus_distance",
-            "softmax_over_cases": True,
+            "normalize_over_cases": True,
             "case_normalizer": "softmax",
             "classification_loss": "nll_class_mass",
             "regression_locality": False,
@@ -115,7 +115,7 @@ def make_classification_cfg(
         }
     )
     if overrides:
-        cfg.update(copy.deepcopy(dict(overrides)))
+        cfg.update(normalize_case_normalization_cfg(copy.deepcopy(dict(overrides))))
     _validate_classification_cfg(cfg)
     return cfg
 
@@ -262,6 +262,7 @@ def train_nnknn_classification_state(
     checkpoint_label: str | None = None,
     clone_feature_extractor: bool = True,
 ) -> dict[str, Any]:
+    cfg = normalize_case_normalization_cfg(cfg)
     _validate_classification_cfg(cfg)
     cfg_run = copy.deepcopy(dict(cfg))
     if checkpoint_label is not None:

@@ -10,6 +10,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from model.nnknn_model import normalize_case_normalization_cfg
 from model.regression_workflow import (
     list_supported_regression_benchmark_methods,
     list_supported_regression_datasets,
@@ -32,6 +33,11 @@ def run_import_smoke() -> None:
     regression_cfg = make_regression_cfg({"task_type": "regression"})
     if regression_cfg.get("case_score_mode") != "bias_minus_distance":
         raise AssertionError("Generic regression runs must use the current bias-minus-distance case score.")
+    if regression_cfg.get("normalize_over_cases") is not True:
+        raise AssertionError("Generic regression runs must normalize case activations.")
+    legacy_cfg = normalize_case_normalization_cfg({"softmax_over_cases": True})
+    if legacy_cfg != {"normalize_over_cases": True}:
+        raise AssertionError("Deprecated softmax_over_cases configs must map to normalize_over_cases.")
     print("import smoke ok")
     print(f"synthetic datasets: {datasets['synthetic']}")
     print(f"benchmark methods: {methods}")

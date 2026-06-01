@@ -30,7 +30,7 @@ default_args = {
     "post_mlp_flatten_after_base": True,
 
     "task_type": "classification",  # or "regression"
-    "softmax_over_cases": True,  # Class mass and regression output require normalized case activations
+    "normalize_over_cases": True,  # Class mass and regression output require normalized case activations
     "tau": 1.0,  # Temperature parameter for softmax over case activations, higher = softer
     "case_normalizer": "softmax",   # 'softmax' | 'sparsemax' | 'entmax15'
     "case_score_mode": "bias_minus_distance",
@@ -87,6 +87,21 @@ default_args = {
 
     "checkpoint_path": None,  # Path to save/load model checkpoints
 }
+
+
+def normalize_case_normalization_cfg(cfg):
+    """Translate the deprecated softmax_over_cases key to normalize_over_cases."""
+    normalized = dict(cfg)
+    legacy_key = "softmax_over_cases"
+    current_key = "normalize_over_cases"
+    if legacy_key in normalized:
+        if current_key in normalized and normalized[current_key] != normalized[legacy_key]:
+            raise ValueError(
+                "Config contains conflicting normalize_over_cases and deprecated "
+                "softmax_over_cases values."
+            )
+        normalized[current_key] = normalized.pop(legacy_key)
+    return normalized
 
 
 def get_feature_dim(case, feature_extractor):
@@ -536,7 +551,7 @@ class NN_KNN_Model(nn.Module):
             glocal_weightor: Optional glocal weightor for feature weighting.
             **kwargs: Additional configuration parameters that includes:
                 - task_type: "classification" or "regression".
-                - softmax_over_cases: Whether to apply softmax over case activations.
+                - normalize_over_cases: Whether to normalize case activations.
                 - tau: Temperature parameter for softmax over case activations, higher = softer.
                 - glocal_fw_set_num: Number of glocal weight sets.
                 - neg_weight_flag: Whether to allow negative weights for negative classes
@@ -570,20 +585,21 @@ class NN_KNN_Model(nn.Module):
         self.adapt_enabled = True  # train_model will flip this during warm-up
 
         # load additional configuration parameters from kwargs
+        kwargs = normalize_case_normalization_cfg(kwargs)
         self.config = kwargs
         self.task_type = kwargs.get('task_type', default_args['task_type'])
         if self.task_type not in {"classification", "regression"}:
             raise ValueError(f"Unknown task_type: {self.task_type}")
-        self.softmax_over_cases = kwargs.get('softmax_over_cases', default_args['softmax_over_cases'])
+        self.normalize_over_cases = kwargs.get('normalize_over_cases', default_args['normalize_over_cases'])
         self.tau = kwargs.get('tau', default_args['tau'])
 
         if self.task_type == "regression": 
-            self.softmax_over_cases = True  # enforce softmax over cases for regression
-            print("Enforcing softmax_over_cases = True for regression task.")
-        elif not self.softmax_over_cases:
+            self.normalize_over_cases = True  # enforce normalized case activations for regression
+            print("Enforcing normalize_over_cases = True for regression task.")
+        elif not self.normalize_over_cases:
             raise ValueError(
                 "Classification in the maintained NN-kNN core requires "
-                "softmax_over_cases=True so class outputs are probability mass."
+                "normalize_over_cases=True so class outputs are probability mass."
             )
         self.case_normalizer = kwargs.get('case_normalizer', default_args['case_normalizer'])
 
@@ -907,7 +923,7 @@ class NN_KNN_Model(nn.Module):
         # -----------------------------
         # Normalize over cases if needed
         # -----------------------------
-        if self.softmax_over_cases:
+        if self.normalize_over_cases:
             if mode != "hard_knn":
                 # z already computed above
 
@@ -1165,6 +1181,8 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
         glocal_weightor: The trained global feature weightor.
     """
 
+    cfg = normalize_case_normalization_cfg(cfg)
+
     # Move data to the appropriate device
     X_train = X_train.to(device)
     y_train = y_train.to(device)
@@ -1246,8 +1264,8 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
     if task == "classification":
         if cfg.get("classification_loss", default_args["classification_loss"]) != "nll_class_mass":
             raise ValueError("Maintained classification supports classification_loss='nll_class_mass' only.")
-        if not cfg.get("softmax_over_cases", default_args["softmax_over_cases"]):
-            raise ValueError("Classification requires softmax_over_cases=True.")
+        if not cfg.get("normalize_over_cases", default_args["normalize_over_cases"]):
+            raise ValueError("Classification requires normalize_over_cases=True.")
         class_ids = torch.unique(y_train.long()).sort().values
         expected_ids = torch.arange(class_ids.numel(), device=class_ids.device)
         if not torch.equal(class_ids, expected_ids):
