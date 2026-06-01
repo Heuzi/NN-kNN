@@ -1,0 +1,4 @@
+dataset,mode,method,num_runs,accuracy_mean,accuracy_std,accuracy_table
+iris,kfold,nnknn,10,0.9600000000000002,0.05621826951410451,0.9600 +/- 0.0562
+zebra,kfold,nnknn,10,0.5181818181818182,0.14876288131677065,0.5182 +/- 0.1488
+zebra_special,kfold,nnknn,10,0.5227272727272727,0.08899500094296008,0.5227 +/- 0.0890
