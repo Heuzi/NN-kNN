@@ -98,6 +98,24 @@ The benchmark CLI creates a fresh timestamped folder under `results/` with
 `summary.csv`, `runs.csv`, and `manifest.json`. The notebook keeps repeated
 tabular and image benchmark sections opt-in so its default path stays quick.
 
+For manual small-data classification debugging, use
+[nnknn_sample_classification.ipynb](nnknn_sample_classification.ipynb). Run the
+single-experiment sanity section first and change the dataset passed to
+`run_single_nnknn_classification_experiment(...)`:
+
+- use `"iris"` for the Iris sanity baseline
+- use `"zebra"` for Zebra (a)
+- use `"zebra_special"` for Zebra (b)
+
+Inspect `accuracy`, `class_probabilities`, `most_activated_cases`,
+`most_activated_class_ids`, `most_activated_activations`, and
+`glocal_weightor.get_feature_weights_display()`. Misclassified validation
+queries are more informative than always inspecting query zero. Zebra (a) is
+the alternating vertical-band generator in `datasets/classification_data.py`;
+debug whether retrieved cases cross those boundaries before expanding to full
+benchmark comparisons. Use the opt-in repeated benchmark section only when a
+single-run hypothesis is ready for aggregate validation.
+
 ## Regression Workflow Files
 
 The regression work has been refactored so repeated experiment logic lives in
@@ -330,11 +348,14 @@ Important status note:
 
 ## Notebook vs Script Status
 
-Primary notebook:
+Primary notebooks:
 
+- [nnknn_sample_classification.ipynb](nnknn_sample_classification.ipynb)
+  for classification single-run inspection and opt-in benchmark checks.
 - [nnknn_sample_regression.ipynb](nnknn_sample_regression.ipynb)
+  for regression single-run inspection and workflow calls.
 
-The notebook is still useful for interactive debugging and single-run
+The notebooks are still useful for interactive debugging and single-run
 inspection, but serious repeated reporting now belongs in the workflow/helper
 Python files.
 
