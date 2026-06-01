@@ -26,9 +26,8 @@ At a high level, NN-kNN is a neural case-based model.
 - For regression, an optional NN-CDH adapter can modify the retrieved solution
   after retrieval.
 
-The maintained config key for enabling case normalization is
-`normalize_over_cases`. The older `softmax_over_cases` name is accepted as a
-deprecated alias because the selected normalizer may also be `sparsemax`.
+The config key for enabling case normalization is `normalize_over_cases`
+because the selected normalizer may be `softmax` or `sparsemax`.
 
 The key practical distinction in the current Table 1 work is:
 
