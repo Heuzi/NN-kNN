@@ -74,6 +74,9 @@ Important entry points in `model/classification_workflow.py`:
 Supported small datasets are `iris`, `zebra`, `zebra_special`, `wine`,
 `breast_cancer`, `balance`, and `digits`. Supported image workflows are
 `mnist`, `cifar10`, and `svhn`.
+SST-5 and SST-2 remain deferred; do not add text-loader dependencies or
+restructure the local `datasets` package as part of routine classification
+work.
 
 Small-data baselines are NN-kNN, kNN, and a four-hidden-layer MLP. Image
 comparisons include a ConvNet, pixel kNN, pretrained-ConvNet-feature kNN,
@@ -87,6 +90,10 @@ Routine classification check:
 .venv/bin/python codex/smoke_test.py --mode classification
 .venv/bin/python tools/run_classification_benchmarks.py iris --mode kfold --runs 3 --epochs 20
 ```
+
+The benchmark CLI creates a fresh timestamped folder under `results/` with
+`summary.csv`, `runs.csv`, and `manifest.json`. The notebook keeps repeated
+tabular and image benchmark sections opt-in so its default path stays quick.
 
 ## Regression Workflow Files
 

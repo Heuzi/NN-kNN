@@ -33,7 +33,7 @@ default_args = {
     "softmax_over_cases": True,  # Class mass and regression output require normalized case activations
     "tau": 1.0,  # Temperature parameter for softmax over case activations, higher = softer
     "case_normalizer": "softmax",   # 'softmax' | 'sparsemax' | 'entmax15'
-    "case_score_mode": "bias_minus_distance",
+    "case_score_mode": "sigmoid",  # Preserve the generic regression fallback; workflows may override explicitly
     "classification_loss": "nll_class_mass",
     "classification_probability_epsilon": 1e-8,
 

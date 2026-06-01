@@ -23,6 +23,8 @@ classification datasets include the IJCAI-25 small tabular set
 `digits`) and image tasks (`mnist`, `cifar10`, `svhn`).
 Image runs use an inner validation slice of the official training set for
 checkpoint selection and report accuracy on the untouched official test set.
+SST-5 and SST-2 remain deferred; text-loader dependencies are intentionally
+outside the current classification workflow.
 
 ## Notebooks
 
@@ -44,6 +46,9 @@ For a small classification benchmark run:
 ```bash
 .venv/bin/python tools/run_classification_benchmarks.py iris --mode kfold --runs 3 --epochs 20
 ```
+
+Each CLI run creates a fresh timestamped folder under `results/` containing
+`summary.csv`, `runs.csv`, and `manifest.json`.
 
 Use representative small-data or subset image checks during development;
 full multi-run paper benchmarks are intentionally expensive.

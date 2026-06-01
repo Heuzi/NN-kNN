@@ -48,8 +48,9 @@
   gitignored.
 - Root checkpoint files such as `nnknn_regression_best.pth` and
   `nnknn_regression_best_retr.pth` may change when experiments are run.
-- Classification runs write checkpoints beneath `checkpoints/` by default and
-  benchmark CSVs beneath `results/classification/` when the CLI is used.
+- Classification runs write checkpoints beneath `checkpoints/` by default.
+  The CLI creates a fresh `results/classification_<suite>_<timestamp>/` folder
+  with summary, per-run, and manifest files for each benchmark invocation.
 - `results/` contains completed Table 1 output folders. Keep old run folders
   for comparison and postmortem context rather than overwriting them.
 

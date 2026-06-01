@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
+import json
 from pathlib import Path
 import sys
 
@@ -24,7 +26,7 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--normalizer", default="softmax", choices=["softmax", "sparsemax"])
-    parser.add_argument("--output-dir", default="results/classification")
+    parser.add_argument("--output-dir", default="results", help="Parent folder for a fresh timestamped run.")
     parser.add_argument("--max-train-samples", type=int, default=None)
     parser.add_argument("--max-eval-samples", type=int, default=None)
     args = parser.parse_args()
@@ -54,10 +56,30 @@ def main() -> None:
         base_seed=args.seed,
         dataset_kwargs_map=dataset_kwargs_map,
     )
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    summary.to_csv(output_dir / "classification_summary.csv", index=False)
-    runs.to_csv(output_dir / "classification_runs.csv", index=False)
+    image_names = {"mnist", "cifar10", "cifar-10", "cifar_10", "svhn"}
+    normalized_names = {name.lower() for name in args.datasets}
+    suite = "image" if normalized_names <= image_names else "mixed" if normalized_names & image_names else "tabular"
+    created_at = datetime.now(timezone.utc)
+    output_dir = Path(args.output_dir) / f"classification_{suite}_{created_at.strftime('%Y%m%d_%H%M%S_%f')}"
+    output_dir.mkdir(parents=True, exist_ok=False)
+    summary.to_csv(output_dir / "summary.csv", index=False)
+    runs.to_csv(output_dir / "runs.csv", index=False)
+    manifest = {
+        "created_at_utc": created_at.isoformat(),
+        "suite": suite,
+        "datasets": args.datasets,
+        "methods": args.methods,
+        "mode": args.mode,
+        "runs": args.runs,
+        "epochs": args.epochs,
+        "batch_size": args.batch_size,
+        "seed": args.seed,
+        "normalizer": args.normalizer,
+        "max_train_samples": args.max_train_samples,
+        "max_eval_samples": args.max_eval_samples,
+        "outputs": ["summary.csv", "runs.csv", "manifest.json"],
+    }
+    (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(summary.to_string(index=False))
     print(f"Wrote results to {output_dir}.")
 
