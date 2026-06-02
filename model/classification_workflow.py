@@ -77,6 +77,40 @@ def list_supported_classification_benchmark_methods() -> dict[str, list[str]]:
     return {"small": list(_SMALL_METHODS), "image": list(_IMAGE_METHODS)}
 
 
+def _uses_default(value: Any, default_value: Any) -> bool:
+    return value == default_value
+
+
+def _select_standardize_by_feature_scale(
+    X_train_raw: np.ndarray,
+    *,
+    ratio_threshold: float = 10.0,
+) -> bool:
+    feature_scales = np.std(X_train_raw, axis=0)
+    nonzero_scales = feature_scales[feature_scales > 1e-12]
+    if nonzero_scales.size <= 1:
+        return False
+    return float(nonzero_scales.max() / nonzero_scales.min()) > ratio_threshold
+
+
+def _apply_dataset_classification_defaults(
+    cfg: Mapping[str, Any],
+    state: Mapping[str, Any],
+) -> dict[str, Any]:
+    cfg_run = copy.deepcopy(dict(cfg))
+    if state.get("dataset_kind") == "small":
+        if _uses_default(cfg_run.get("glocal_fw_set_num"), default_args["glocal_fw_set_num"]):
+            cfg_run["glocal_fw_set_num"] = 4
+        if _uses_default(cfg_run.get("glocal_weightor_lr"), default_args["glocal_weightor_lr"]):
+            cfg_run["glocal_weightor_lr"] = 1e-2
+        if _uses_default(cfg_run.get("case_net_lr"), default_args["case_net_lr"]):
+            cfg_run["case_net_lr"] = 1e-2
+        if _uses_default(cfg_run.get("patience"), 20):
+            cfg_run["patience"] = 30
+    _validate_classification_cfg(cfg_run)
+    return cfg_run
+
+
 def _validate_classification_cfg(cfg: Mapping[str, Any]) -> None:
     if cfg.get("task_type") != "classification":
         raise ValueError("Classification configs must set task_type='classification'.")
@@ -86,6 +120,10 @@ def _validate_classification_cfg(cfg: Mapping[str, Any]) -> None:
         raise ValueError("Maintained classification supports case_normalizer='softmax' or 'sparsemax'.")
     if cfg.get("classification_loss") != "nll_class_mass":
         raise ValueError("Maintained classification uses classification_loss='nll_class_mass'.")
+    if cfg.get("pre_topk_mask", False):
+        top_k = int(cfg.get("top_k", 0))
+        if top_k <= 0:
+            raise ValueError("Classification pre_topk_mask requires top_k to be a positive integer.")
     if cfg.get("regression_locality", False) or cfg.get("use_nn_cdh", False):
         raise ValueError("Regression locality and NN-CDH are not classification components.")
     if cfg.get("neg_weight_flag", False) or cfg.get("case_score_mode") == "neg_distance_logw":
@@ -105,6 +143,8 @@ def make_classification_cfg(
             "softmax_over_cases": True,
             "case_normalizer": "softmax",
             "classification_loss": "nll_class_mass",
+            "pre_topk_mask": True,
+            "top_k": 5,
             "regression_locality": False,
             "use_nn_cdh": False,
             "nn_cdh_pretrain": False,
@@ -152,7 +192,7 @@ def split_classification_state(
     seed: int = 42,
     train_idx: np.ndarray | torch.Tensor | None = None,
     val_idx: np.ndarray | torch.Tensor | None = None,
-    standardize: bool = True,
+    standardize: bool | None = None,
     image_validation_ratio: float = 0.1,
 ) -> dict[str, Any]:
     if state.get("dataset_kind") == "image":
@@ -205,6 +245,8 @@ def split_classification_state(
     X_train_raw = X[train_idx]
     X_val_raw = X[val_idx]
     scaler = None
+    if standardize is None:
+        standardize = _select_standardize_by_feature_scale(X_train_raw)
     if standardize:
         scaler = StandardScaler().fit(X_train_raw)
         X_train = scaler.transform(X_train_raw)
@@ -369,7 +411,7 @@ def run_single_nnknn_classification_experiment(
     run_seed: int = 42,
     split_seed: int | None = None,
     train_ratio: float = 0.8,
-    standardize: bool = True,
+    standardize: bool | None = None,
     checkpoint_label: str | None = None,
 ) -> dict[str, Any]:
     seed_everything(run_seed)
@@ -382,10 +424,11 @@ def run_single_nnknn_classification_experiment(
     )
     if feature_extractor is None and state["dataset_kind"] == "image":
         feature_extractor = build_nnknn_image_feature_extractor(str(state["dataset_name"]))
+    cfg_run = _apply_dataset_classification_defaults(cfg, state)
     state["run_seed"] = run_seed
     trained = train_nnknn_classification_state(
         state,
-        cfg,
+        cfg_run,
         feature_extractor=feature_extractor,
         checkpoint_label=checkpoint_label,
     )
@@ -475,14 +518,17 @@ def _evaluate_knn(
     X_eval = features_val if features_val is not None else state.get("X_test", state["X_val"])
     y_eval = state.get("y_test", state["y_val"])
     classifier = KNeighborsClassifier(n_neighbors=min(n_neighbors, len(state["y_train"])))
-    classifier.fit(X_train.flatten(start_dim=1).numpy(), state["y_train"].numpy())
-    predicted = classifier.predict(X_eval.flatten(start_dim=1).numpy())
+    classifier.fit(
+        X_train.flatten(start_dim=1).detach().cpu().numpy(),
+        state["y_train"].detach().cpu().numpy(),
+    )
+    predicted = classifier.predict(X_eval.flatten(start_dim=1).detach().cpu().numpy())
     result = dict(state)
     result.update(
         {
             "baseline_model": classifier,
             "predictions": torch.tensor(predicted, dtype=torch.long),
-            "accuracy": float(accuracy_score(y_eval.numpy(), predicted)),
+            "accuracy": float(accuracy_score(y_eval.detach().cpu().numpy(), predicted)),
         }
     )
     return result
@@ -641,7 +687,7 @@ def run_repeated_classification_model_benchmarks(
     mode: str = "holdout",
     base_seed: int = 42,
     train_ratio: float = 0.8,
-    standardize: bool = True,
+    standardize: bool | None = None,
     dataset_kwargs_map: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, dict[str, list[dict[str, Any]]]]]:
     names = [dataset_names] if isinstance(dataset_names, str) else list(dataset_names)
@@ -664,6 +710,11 @@ def run_repeated_classification_model_benchmarks(
                 for method in method_names
             ]
         artifacts[dataset_name] = {method: [] for method in method_names}
+        dataset_nnknn_cfg = (
+            _apply_dataset_classification_defaults(nnknn_cfg, initial)
+            if nnknn_cfg is not None
+            else None
+        )
         if is_image:
             splits = [(None, None)] * num_runs
             run_mode = "official"
@@ -689,7 +740,7 @@ def run_repeated_classification_model_benchmarks(
             state["run_seed"] = run_seed
             results = run_classification_benchmark_methods_on_state(
                 state,
-                nnknn_cfg,
+                dataset_nnknn_cfg,
                 methods=method_names,
                 method_cfgs=method_cfgs,
                 run_seed=run_seed,

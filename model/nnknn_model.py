@@ -36,6 +36,7 @@ default_args = {
     "case_score_mode": "bias_minus_distance",
     "classification_loss": "nll_class_mass",
     "classification_probability_epsilon": 1e-8,
+    "classification_model_selection_metric": "accuracy",
 
     #for locality regularization in regression
     "regression_locality": False,  # Whether to use locality regularization in regression training
@@ -1521,6 +1522,23 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
 
         return val_loss, metric
 
+    def _is_better_checkpoint(
+        val_loss: float,
+        val_metric: float,
+        best_val_loss: float,
+        best_val_metric: float,
+    ) -> bool:
+        if task == "classification" and cfg.get(
+            "classification_model_selection_metric",
+            default_args["classification_model_selection_metric"],
+        ) == "accuracy":
+            if val_metric > best_val_metric:
+                return True
+            if val_metric == best_val_metric and val_loss < best_val_loss:
+                return True
+            return False
+        return val_loss < best_val_loss
+
 
     # -------------------------
     # Setup + checkpoints
@@ -1574,6 +1592,7 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
         optimizer.param_groups[3]["lr"] = case_net_lr
 
     best_val_loss = float("inf")
+    best_val_metric = -float("inf")
     patience_counter = 0
     best_epoch = 0
 
@@ -1625,12 +1644,13 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
         # validate + early stop
         val_loss, val_metric = _validate_one_epoch(epoch, "Stage1")
 
-        if epoch == 0 or val_loss < best_val_loss:
+        if epoch == 0 or _is_better_checkpoint(val_loss, val_metric, best_val_loss, best_val_metric):
             best_val_loss = val_loss
+            best_val_metric = val_metric
             best_epoch = epoch
             metric_for_model_select = val_metric
             torch.save(model.state_dict(), retr_ckpt)
-            print(f"[Stage1] New best (epoch {epoch+1}) Val Loss: {val_loss:.4f} — saved: {retr_ckpt}")
+            print(f"[Stage1] New best (epoch {epoch+1}) Val Metric: {val_metric:.4f} | Val Loss: {val_loss:.4f} — saved: {retr_ckpt}")
             patience_counter = 0
         else:
             patience_counter += 1
@@ -1673,6 +1693,7 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
             optimizer.param_groups[3]["lr"] = 0.0
 
         best_val_loss = float("inf")
+        best_val_metric = -float("inf")
         patience_counter = 0
         best_epoch = 0
 
@@ -1712,12 +1733,13 @@ def train_model(X_train, y_train, X_val, y_val, feature_extractor, cfg): # , glo
             # validate + early stop
             val_loss, val_metric = _validate_one_epoch(epoch, "Stage2")
 
-            if epoch == 0 or val_loss < best_val_loss:
+            if epoch == 0 or _is_better_checkpoint(val_loss, val_metric, best_val_loss, best_val_metric):
                 best_val_loss = val_loss
+                best_val_metric = val_metric
                 best_epoch = epoch
                 metric_for_model_select = val_metric
                 torch.save(model.state_dict(), cdh_ckpt)
-                print(f"[Stage2] New best (epoch {epoch+1}) Val Loss: {val_loss:.4f} — saved: {cdh_ckpt}")
+                print(f"[Stage2] New best (epoch {epoch+1}) Val Metric: {val_metric:.4f} | Val Loss: {val_loss:.4f} — saved: {cdh_ckpt}")
                 patience_counter = 0
             else:
                 patience_counter += 1
