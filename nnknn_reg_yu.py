@@ -456,7 +456,7 @@ if __name__ == "__main__":
     #     "use_nn_cdh": args.use_nn_cdh,
     #     "save_ckpt": args.save_ckpt,
     #     "task_type": "regression",
-    #     "softmax_over_cases": True,      # model enforces True in regression; kept explicit for clarity
+    #     "normalize_over_cases": True,      # model enforces True in regression; kept explicit for clarity
     #     "tau": 1.0,                      # 1.0, attention sharpness over cases, lower -> sharper
     #     "case_normalizer": "sparsemax",  # 'softmax' | 'sparsemax' | 'entmax15'
 
@@ -510,7 +510,7 @@ if __name__ == "__main__":
 
         "save_ckpt": args.save_ckpt,
         "task_type": "regression",
-        "softmax_over_cases": True,      # model enforces True in regression; kept explicit for clarity
+        "normalize_over_cases": True,      # model enforces True in regression; kept explicit for clarity
         "tau": 1.0,                      # 1.0, attention sharpness over cases, lower -> sharper
         "case_normalizer": "sparsemax",  # 'softmax' | 'sparsemax' | 'entmax15'
 
@@ -561,7 +561,7 @@ if __name__ == "__main__":
     #     "use_nn_cdh": args.use_nn_cdh,
     #     "save_ckpt": args.save_ckpt,
     #     "task_type": "regression",
-    #     "softmax_over_cases": True,      # model enforces True in regression; kept explicit for clarity
+    #     "normalize_over_cases": True,      # model enforces True in regression; kept explicit for clarity
     #     "tau": 1.0,                      # 1.0, attention sharpness over cases, lower -> sharper
     #     "case_normalizer": "sparsemax",  # 'softmax' | 'sparsemax' | 'entmax15'
 
@@ -607,7 +607,7 @@ if __name__ == "__main__":
     #     "use_nn_cdh": args.use_nn_cdh,
     #     "save_ckpt": args.save_ckpt,
     #     "task_type": "regression",
-    #     "softmax_over_cases": True,      # model enforces True in regression; kept explicit for clarity
+    #     "normalize_over_cases": True,      # model enforces True in regression; kept explicit for clarity
     #     "tau": 1.0,                      # attention sharpness over cases, lower -> sharper
     #     "case_normalizer": "sparsemax",  # 'softmax' | 'sparsemax' | 'entmax15'
 

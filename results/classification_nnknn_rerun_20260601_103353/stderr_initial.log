@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "D:\NN-kNN\results\classification_nnknn_rerun_20260601_103353\run_benchmark.py", line 7, in <module>
+    from model.classification_workflow import (
+ModuleNotFoundError: No module named 'model'

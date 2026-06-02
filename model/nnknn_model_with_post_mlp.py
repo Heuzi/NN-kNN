@@ -24,7 +24,7 @@ default_args = {
     # Replace the following with actual values or pass them in at runtime
 
     "task_type": "classification",  # or "regression
-    "softmax_over_cases": False,  # Whether to apply softmax over case activations
+    "normalize_over_cases": False,  # Whether to apply softmax over case activations
     "tau": 0.01,  # Temperature parameter for softmax over case activations, higher = softer
     "case_normalizer": "softmax",   
     # Optional post-MLP projector after (optional) upstream feature extractor
@@ -513,7 +513,7 @@ class NN_KNN_Model(nn.Module):
             glocal_weightor: Optional glocal weightor for feature weighting.
             **kwargs: Additional configuration parameters that includes:
                 - task_type: "classification" or "regression".
-                - softmax_over_cases: Whether to apply softmax over case activations.
+                - normalize_over_cases: Whether to apply softmax over case activations.
                 - tau: Temperature parameter for softmax over case activations, higher = softer.
                 - glocal_fw_set_num: Number of glocal weight sets.
                 - neg_weight_flag: Whether to allow negative weights for negative classes
@@ -547,12 +547,12 @@ class NN_KNN_Model(nn.Module):
         # load additional configuration parameters from kwargs
         self.config = kwargs
         self.task_type = kwargs.get('task_type', default_args['task_type'])
-        self.softmax_over_cases = kwargs.get('softmax_over_cases', default_args['softmax_over_cases'])
+        self.normalize_over_cases = kwargs.get('normalize_over_cases', default_args['normalize_over_cases'])
         self.tau = kwargs.get('tau', default_args['tau'])
 
         if self.task_type == "regression": 
-            self.softmax_over_cases = True  # enforce softmax over cases for regression
-            print("Enforcing softmax_over_cases = True for regression task.")
+            self.normalize_over_cases = True  # enforce softmax over cases for regression
+            print("Enforcing normalize_over_cases = True for regression task.")
         self.case_normalizer = kwargs.get('case_normalizer', default_args['case_normalizer'])
 
         self.glocal_weightor_set_num = kwargs.get('glocal_fw_set_num', default_args['glocal_fw_set_num'])
@@ -816,7 +816,7 @@ class NN_KNN_Model(nn.Module):
         weighted_activations = pre_activations * F.relu(self.weights[case_indices])  # Scale by case-specific weights
 
         ##Potentially, smooth case activations here using a softmax with temperature
-        if self.softmax_over_cases:
+        if self.normalize_over_cases:
             z = weighted_activations 
              # Exclude identical cases in training
             # Pre-mask for the normalizer
@@ -947,7 +947,7 @@ class NN_KNN_Model(nn.Module):
                 )  # [batch_size, num_selected_cases, 1]
                 adapted_labels = base_labels # [batch_size, num_selected_cases, 1]
 
-            #self.softmax_over_cases is forced on when regression
+            #self.normalize_over_cases is forced on when regression
             #soft attention over cases where attention are their activations multiplied by their weights
             pre_adapted_solution = weighted_activations.unsqueeze(2) * base_labels  # [batch_size, num_selected_cases, 1]
             labeled_activations = weighted_activations.unsqueeze(2) * adapted_labels  # [batch_size, num_selected_cases, 1]

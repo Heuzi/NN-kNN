@@ -114,8 +114,8 @@ def _apply_dataset_classification_defaults(
 def _validate_classification_cfg(cfg: Mapping[str, Any]) -> None:
     if cfg.get("task_type") != "classification":
         raise ValueError("Classification configs must set task_type='classification'.")
-    if not cfg.get("softmax_over_cases", False):
-        raise ValueError("Classification configs must set softmax_over_cases=True.")
+    if not cfg.get("normalize_over_cases", False):
+        raise ValueError("Classification configs must set normalize_over_cases=True.")
     if cfg.get("case_normalizer") not in {"softmax", "sparsemax"}:
         raise ValueError("Maintained classification supports case_normalizer='softmax' or 'sparsemax'.")
     if cfg.get("classification_loss") != "nll_class_mass":
@@ -140,7 +140,7 @@ def make_classification_cfg(
         {
             "task_type": "classification",
             "case_score_mode": "bias_minus_distance",
-            "softmax_over_cases": True,
+            "normalize_over_cases": True,
             "case_normalizer": "softmax",
             "classification_loss": "nll_class_mass",
             "pre_topk_mask": True,

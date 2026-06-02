@@ -1,0 +1,26 @@
+{
+  "status": "completed",
+  "started_at": "2026-06-01T14:34:41.556182+00:00",
+  "datasets": [
+    "iris",
+    "zebra",
+    "zebra_special"
+  ],
+  "methods": [
+    "nnknn"
+  ],
+  "mode": "kfold",
+  "num_runs": 10,
+  "base_seed": 42,
+  "config": {
+    "task_type": "classification",
+    "training_epochs": 50,
+    "batch_size": 32,
+    "patience": 20,
+    "tau": 0.5,
+    "case_normalizer": "softmax",
+    "normalize_over_cases": true,
+    "case_score_mode": "bias_minus_distance"
+  },
+  "completed_at": "2026-06-01T14:35:12.172069+00:00"
+}

@@ -53,7 +53,7 @@ def build_table1_paper_base_cfg(
         {
             "task_type": "regression",
             "case_score_mode": "bias_minus_distance",
-            "softmax_over_cases": True,
+            "normalize_over_cases": True,
             "tau": 1.0,
             "regression_locality": False,
             "lambda_base": 1.0,

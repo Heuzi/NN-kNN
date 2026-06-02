@@ -26,6 +26,9 @@ At a high level, NN-kNN is a neural case-based model.
 - For regression, an optional NN-CDH adapter can modify the retrieved solution
   after retrieval.
 
+The config key for enabling case normalization is `normalize_over_cases`
+because the selected normalizer may be `softmax` or `sparsemax`.
+
 The key practical distinction in the current Table 1 work is:
 
 - retrieval-only output before adaptation
@@ -74,6 +77,9 @@ Important entry points in `model/classification_workflow.py`:
 Supported small datasets are `iris`, `zebra`, `zebra_special`, `wine`,
 `breast_cancer`, `balance`, and `digits`. Supported image workflows are
 `mnist`, `cifar10`, and `svhn`.
+SST-5 and SST-2 remain deferred; do not add text-loader dependencies or
+restructure the local `datasets` package as part of routine classification
+work.
 
 Small-data baselines are NN-kNN, kNN, and a four-hidden-layer MLP. Image
 comparisons include a ConvNet, pixel kNN, pretrained-ConvNet-feature kNN,
@@ -87,6 +93,28 @@ Routine classification check:
 .venv/bin/python codex/smoke_test.py --mode classification
 .venv/bin/python tools/run_classification_benchmarks.py iris --mode kfold --runs 3 --epochs 20
 ```
+
+The benchmark CLI creates a fresh timestamped folder under `results/` with
+`summary.csv`, `runs.csv`, and `manifest.json`. The notebook keeps repeated
+tabular and image benchmark sections opt-in so its default path stays quick.
+
+For manual small-data classification debugging, use
+[nnknn_sample_classification.ipynb](nnknn_sample_classification.ipynb). Run the
+single-experiment sanity section first and change the dataset passed to
+`run_single_nnknn_classification_experiment(...)`:
+
+- use `"iris"` for the Iris sanity baseline
+- use `"zebra"` for Zebra (a)
+- use `"zebra_special"` for Zebra (b)
+
+Inspect `accuracy`, `class_probabilities`, `most_activated_cases`,
+`most_activated_class_ids`, `most_activated_activations`, and
+`glocal_weightor.get_feature_weights_display()`. Misclassified validation
+queries are more informative than always inspecting query zero. Zebra (a) is
+the alternating vertical-band generator in `datasets/classification_data.py`;
+debug whether retrieved cases cross those boundaries before expanding to full
+benchmark comparisons. Use the opt-in repeated benchmark section only when a
+single-run hypothesis is ready for aggregate validation.
 
 ## Regression Workflow Files
 
@@ -320,11 +348,14 @@ Important status note:
 
 ## Notebook vs Script Status
 
-Primary notebook:
+Primary notebooks:
 
+- [nnknn_sample_classification.ipynb](nnknn_sample_classification.ipynb)
+  for classification single-run inspection and opt-in benchmark checks.
 - [nnknn_sample_regression.ipynb](nnknn_sample_regression.ipynb)
+  for regression single-run inspection and workflow calls.
 
-The notebook is still useful for interactive debugging and single-run
+The notebooks are still useful for interactive debugging and single-run
 inspection, but serious repeated reporting now belongs in the workflow/helper
 Python files.
 
