@@ -12,7 +12,9 @@ retrieved labels for the target task.
 
 - Regression orchestration: `model/regression_workflow.py`
 - Classification orchestration: `model/classification_workflow.py`
+- RL/DQN orchestration: `model/rl_workflow.py`
 - Classification loaders: `datasets/classification_data.py`
+- RL task registry: `datasets/rl_tasks.py`
 - Shared NN-kNN core: `model/nnknn_model.py`
 
 Classification uses the current model rather than the old classification
@@ -31,6 +33,39 @@ outside the current classification workflow.
 - `nnknn_sample_classification.ipynb`: maintained classification workflow,
   explanations, representative baselines, and optional image subset runs.
 - `nnknn_sample_regression.ipynb`: maintained regression workflow.
+- `dqn_cartpole_demo.ipynb`: thin debugging surface for the repo-native DQN
+  workflow; the DQN implementation lives in Python files.
+
+## RL Baseline Protocol
+
+The first RL baseline is a CleanRL-style DQN on `CartPole-v1`:
+
+```bash
+python tools/run_rl_dqn.py cartpole --profile fast --seed 0
+python tools/run_rl_dqn.py cartpole --eval-only --checkpoint <checkpoint.pt>
+```
+
+Current reference run:
+
+- `results/rl/dqn_cartpole_20260615_145845_570666/`
+- selected checkpoint step: `125000`
+- selected eval mean return: `500.0` over 20 episodes
+- last/end-of-budget eval mean return: `87.7`
+
+For DQN, NEC, and future NN-kNN-RL comparisons, prefer a fixed environment-step
+budget with periodic evaluation and best-checkpoint selection. Do not treat the
+best checkpoint alone as proof that the budget was adequate. A fixed budget is
+most informative when the model has reached a good policy and later regressed or
+plateaued; if the best model is the final model, or the success threshold is
+never reached, treat the run as possible underfit/unsolved and increase the
+budget or tune before making paper-style comparisons.
+
+Each RL run records `training_efficiency` in `summary.json`, including the step
+where the selected best model was found, the first step that crossed the success
+threshold, the training fraction used, the best-vs-last return gap, and a budget
+interpretation such as `regressed_after_best`, `final_is_best_check_for_underfit`,
+or `unsolved_or_underfit`. Use these fields as sample-efficiency proxies across
+DQN, NEC, and NN-kNN-RL.
 
 ## Quick Checks
 
@@ -39,6 +74,7 @@ bash codex/setup.sh
 .venv/bin/python codex/smoke_test.py --mode imports
 .venv/bin/python codex/smoke_test.py --mode train
 .venv/bin/python codex/smoke_test.py --mode classification
+.venv/bin/python codex/smoke_test.py --mode rl
 ```
 
 For a small classification benchmark run:

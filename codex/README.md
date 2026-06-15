@@ -18,3 +18,13 @@ Quick validation commands inside a task:
 - `.venv/bin/python codex/smoke_test.py --mode imports`
 - `.venv/bin/python codex/smoke_test.py --mode train`
 - `.venv/bin/python codex/smoke_test.py --mode classification`
+- `.venv/bin/python codex/smoke_test.py --mode rl`
+
+RL/DQN baseline commands:
+
+- `.venv/bin/python tools/run_rl_dqn.py cartpole --profile smoke --seed 0`
+- `.venv/bin/python tools/run_rl_dqn.py cartpole --profile fast --seed 0`
+
+RL runs write timestamped artifacts under `results/rl/`. Inspect
+`summary.json`, especially `training_efficiency`, before comparing DQN, NEC,
+or future NN-kNN-RL results.

@@ -7,7 +7,8 @@ repository. It is not a full paper summary. Its goal is to answer:
 
 - what the NN-kNN model is in this codebase
 - where the important code lives
-- which workflow entry points matter for classification and regression reporting
+- which workflow entry points matter for classification, regression, and RL
+  reporting
 - which files are legacy versus current
 
 ## What NN-kNN Is Here
@@ -46,8 +47,13 @@ The key practical distinction in the current Table 1 work is:
 - [model/classification_workflow.py](model/classification_workflow.py)
   This is the maintained orchestration layer for classification experiments,
   image comparisons, and small-dataset benchmark checks.
+- [model/rl_workflow.py](model/rl_workflow.py)
+  This is the maintained DQN baseline workflow for CartPole and future
+  RL-family extensions.
 - [datasets/classification_data.py](datasets/classification_data.py)
   This contains portable classification loaders with train-only preprocessing.
+- [datasets/rl_tasks.py](datasets/rl_tasks.py)
+  This contains the RL task registry and task metadata.
 
 Important anchors:
 
@@ -57,6 +63,64 @@ Important anchors:
 - `train_model(...)` at [model/nnknn_model.py](model/nnknn_model.py#L1126)
 - `add_to_pair_list(...)` at [model/nn_cdh.py](model/nn_cdh.py#L43)
 - `NNCDHAdapter` at [model/nn_cdh.py](model/nn_cdh.py#L112)
+
+## RL / DQN Workflow Files
+
+The current RL path is a repo-native, CleanRL-style DQN baseline on
+`CartPole-v1`. It is an engineering baseline before adding NEC or NN-kNN-RL.
+Do not use `Outdated NN-kNN Reinforcement Learning.ipynb` or
+`OutdatedNewCartpole.ipynb` as implementation references.
+
+Important entry points in `model/rl_workflow.py`:
+
+- `RLTaskSpec`
+- `DQNConfig`
+- `make_dqn_config(...)`
+- `train_dqn(...)`
+- `evaluate_dqn(...)`
+- `load_dqn_checkpoint(...)`
+- `list_supported_rl_tasks(...)`
+
+Task metadata lives in `datasets/rl_tasks.py`; currently supported:
+
+- `cartpole` -> `CartPole-v1`
+
+CLI and notebook surfaces:
+
+- `tools/run_rl_dqn.py` is the source-of-truth CLI.
+- `dqn_cartpole_demo.ipynb` is a thin debugging notebook that calls the Python
+  workflow functions.
+
+Routine RL checks:
+
+```bash
+.venv/bin/python codex/smoke_test.py --mode rl
+.venv/bin/python tools/run_rl_dqn.py cartpole --profile smoke --seed 0
+.venv/bin/python tools/run_rl_dqn.py cartpole --profile fast --seed 0
+.venv/bin/python tools/run_rl_dqn.py cartpole --eval-only --checkpoint <checkpoint.pt>
+```
+
+RL protocol for DQN, NEC, and NN-kNN-RL comparisons:
+
+- Train through the fixed environment-step budget; do not early-stop by
+  default.
+- Evaluate periodically and save the best evaluated checkpoint.
+- Keep the final/end-of-budget evaluation for diagnosis.
+- Use `training_efficiency` in `summary.json` before interpreting results.
+- Treat `best_model_step` and `first_success_step` as sample-efficiency proxies.
+- If `budget_interpretation` is `unsolved_or_underfit`, or if the best model is
+  the final model and the curve is still rising, increase the budget or tune
+  before making paper-style comparisons.
+
+Current CartPole DQN reference result:
+
+- run folder: `results/rl/dqn_cartpole_20260615_145845_570666/`
+- selected checkpoint step: `125000`
+- selected eval mean return: `500.0` over 20 episodes
+- last/end-of-budget eval mean return: `87.7`
+- interpretation: the fixed budget exposed regression after the best model, so
+  best-checkpoint selection was useful and the selected step is an efficiency
+  signal.
 
 ## Classification Workflow Files
 
@@ -354,6 +418,9 @@ Primary notebooks:
   for classification single-run inspection and opt-in benchmark checks.
 - [nnknn_sample_regression.ipynb](nnknn_sample_regression.ipynb)
   for regression single-run inspection and workflow calls.
+- [dqn_cartpole_demo.ipynb](dqn_cartpole_demo.ipynb)
+  for DQN CartPole inspection while keeping implementation logic in
+  `model/rl_workflow.py`.
 
 The notebooks are still useful for interactive debugging and single-run
 inspection, but serious repeated reporting now belongs in the workflow/helper
@@ -367,6 +434,10 @@ Legacy or specialized files:
   Historical code snapshots.
 - `Copy_nnknn_model.py`, `nnknn_model_1_4.py`
   Older variants, usually not the first place to edit.
+- `Outdated NN-kNN Reinforcement Learning.ipynb` and
+  `OutdatedNewCartpole.ipynb`
+  Archival RL notebooks. Do not use these as current implementation
+  references.
 
 ## Current Practical Conventions
 
@@ -386,6 +457,8 @@ Legacy or specialized files:
   `run_repeated_regression_model_benchmarks(...)`.
 - For paper-style Table 1 reruns with 5-fold CV and std reporting, use
   `run_table1_kfold(...)` from `tools/table1_nnknn_kfold.py`.
+- For RL/DQN runs, use `tools/run_rl_dqn.py` and inspect `summary.json`,
+  `eval_metrics.csv`, and `training_efficiency` before comparing methods.
 - Use `datasets/reg_data.py` as the source of truth for tabular regression
   datasets.
 - Treat `HANDOFF.md` as the current experiment-status document.
@@ -399,6 +472,8 @@ Legacy or specialized files:
 - Long experiments write progress to `stdout.log` and errors to `stderr.log`
   under timestamped folders in `results/`.
 - `MLKR` depends on `metric-learn` and `scikit-learn`.
+- RL/DQN depends on `gymnasium[classic_control]`.
+- RL outputs are timestamped under `results/rl/`.
 - `bike_sharing` depends on `ucimlrepo`; verify the active environment before
   launching a full Table 1 run that includes it.
 - Table 1 baseline defaults are encoded in `tools/table1_nnknn_kfold.py` to
@@ -415,6 +490,8 @@ Legacy or specialized files:
 
 - Check [HANDOFF.md](HANDOFF.md) first.
 - Then check the newest `results/table1_kfold_*` folder.
+- For RL work, also check the newest `results/rl/dqn_*` folder and read
+  `summary.json` before trusting a checkpoint.
 - Tail:
   - `stdout.log`
   - `stderr.log`
@@ -430,3 +507,9 @@ If you need to understand the repo quickly, read in this order:
 4. [model/nnknn_model.py](model/nnknn_model.py)
 5. [model/nn_cdh.py](model/nn_cdh.py)
 6. [datasets/reg_data.py](datasets/reg_data.py)
+
+For RL work, read these immediately after `HANDOFF.md`:
+
+1. [model/rl_workflow.py](model/rl_workflow.py)
+2. [datasets/rl_tasks.py](datasets/rl_tasks.py)
+3. [tools/run_rl_dqn.py](tools/run_rl_dqn.py)
