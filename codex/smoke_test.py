@@ -10,22 +10,19 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from model.regression_workflow import (
-    list_supported_regression_benchmark_methods,
-    list_supported_regression_datasets,
-    make_regression_cfg,
-    run_single_nnknn_regression_experiment,
-)
-from model.classification_workflow import (
-    list_supported_classification_benchmark_methods,
-    list_supported_classification_datasets,
-    make_classification_cfg,
-    run_single_nnknn_classification_experiment,
-)
-from datasets.rl_tasks import list_supported_rl_tasks
-
 
 def run_import_smoke() -> None:
+    from datasets.rl_tasks import list_supported_rl_tasks
+    from model.regression_workflow import (
+        list_supported_regression_benchmark_methods,
+        list_supported_regression_datasets,
+        make_regression_cfg,
+    )
+    from model.classification_workflow import (
+        list_supported_classification_benchmark_methods,
+        list_supported_classification_datasets,
+    )
+
     datasets = list_supported_regression_datasets()
     methods = list_supported_regression_benchmark_methods()
     cls_datasets = list_supported_classification_datasets()
@@ -45,6 +42,8 @@ def run_import_smoke() -> None:
 
 
 def run_training_smoke() -> None:
+    from model.regression_workflow import make_regression_cfg, run_single_nnknn_regression_experiment
+
     Path("checkpoints").mkdir(parents=True, exist_ok=True)
 
     cfg = make_regression_cfg(
@@ -78,6 +77,8 @@ def run_training_smoke() -> None:
 
 
 def run_classification_smoke() -> None:
+    from model.classification_workflow import make_classification_cfg, run_single_nnknn_classification_experiment
+
     Path("checkpoints").mkdir(parents=True, exist_ok=True)
     cfg = make_classification_cfg(
         {
@@ -122,12 +123,27 @@ def run_rl_smoke() -> None:
     print(f"mean_return={float(final_eval['mean_return']):.6f}")
 
 
+def run_nec_smoke() -> None:
+    from model.nec_workflow import make_nec_config, train_nec
+
+    cfg = make_nec_config("smoke", seed=0)
+    state = train_nec("cartpole", cfg, progress=False)
+    final_eval = state["final_eval"]
+    if final_eval["episodes"] != cfg.eval_episodes:
+        raise AssertionError("NEC smoke evaluation did not run the configured number of episodes.")
+    if not state["checkpoint_path"].exists():
+        raise AssertionError("NEC smoke did not write a checkpoint.")
+    print("nec smoke ok")
+    print(f"run_dir={state['run_dir']}")
+    print(f"mean_return={float(final_eval['mean_return']):.6f}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Smoke checks for Codex cloud environments.")
     parser.add_argument(
         "--mode",
         default="imports",
-        choices=("imports", "train", "classification", "rl"),
+        choices=("imports", "train", "classification", "rl", "nec"),
         help="Choose a lightweight import check or a tiny training run.",
     )
     args = parser.parse_args()
@@ -138,6 +154,8 @@ def main() -> None:
         run_classification_smoke()
     elif args.mode == "rl":
         run_rl_smoke()
+    elif args.mode == "nec":
+        run_nec_smoke()
     else:
         run_import_smoke()
 

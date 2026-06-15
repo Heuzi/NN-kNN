@@ -2,10 +2,10 @@
 
 ## Repository expectations
 
-- This repository is primarily a Python regression/classification research workflow centered on `model/` and `datasets/`, with a new RL/DQN baseline path for CartPole and future NEC/NN-kNN-RL work.
+- This repository is primarily a Python regression/classification research workflow centered on `model/` and `datasets/`, with RL/DQN and RL/NEC baseline paths for CartPole and future NN-kNN-RL work.
 - For regression work, prefer the helpers in `model/regression_workflow.py` instead of calling low-level training code directly.
 - Regression configs must explicitly set `task_type="regression"`. The notebook does this already; ad hoc scripts should too.
-- For RL baseline work, prefer `model/rl_workflow.py`, `datasets/rl_tasks.py`, and `tools/run_rl_dqn.py` instead of notebook-only implementations.
+- For RL baseline work, prefer `model/rl_workflow.py`, `model/nec_workflow.py`, `datasets/rl_tasks.py`, `tools/run_rl_dqn.py`, and `tools/run_rl_nec.py` instead of notebook-only implementations.
 - Treat notebooks named `Outdated...` as archival only. Do not use them as implementation references for RL work.
 - For DQN, NEC, and NN-kNN-RL comparisons, use fixed environment-step budgets with periodic evaluation and best-checkpoint selection. Interpret `training_efficiency` before making paper-style claims; if the best model is the final model or the threshold is never reached, treat the run as possible underfit/unsolved.
 - Use synthetic datasets for quick validation unless a task specifically requires the larger real datasets in `datasets/`.
@@ -21,6 +21,7 @@
 - Fast import check: `python codex/smoke_test.py --mode imports`
 - Fast training smoke test: `python codex/smoke_test.py --mode train`
 - Fast RL smoke test: `python codex/smoke_test.py --mode rl`
+- Fast NEC smoke test: `python codex/smoke_test.py --mode nec`
 
 ## Notes
 

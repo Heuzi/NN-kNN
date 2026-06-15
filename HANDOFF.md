@@ -5,6 +5,9 @@
 - The maintained NN-kNN core supports both regression and classification.
 - A repo-native RL/DQN baseline now exists for `CartPole-v1`; it is the first
   engineering step toward DQN, NEC, and NN-kNN-RL comparisons.
+- A repo-native RL/NEC baseline now exists for `CartPole-v1`; it uses exact
+  per-action kNN dictionaries and the same fixed-budget/best-checkpoint
+  reporting protocol as DQN.
 - Classification uses normalized case activation as class probability mass
   with NLL loss; it does not restore the older class-weight formulation.
 - `model/classification_workflow.py` and `datasets/classification_data.py`
@@ -13,6 +16,8 @@
 - `model/rl_workflow.py`, `datasets/rl_tasks.py`, and `tools/run_rl_dqn.py`
   provide the maintained DQN baseline workflow. The implementation is
   CleanRL-style, but repo-native so NN-kNN-RL can be swapped in later.
+- `model/nec_workflow.py` and `tools/run_rl_nec.py` provide the maintained NEC
+  baseline workflow.
 - `nnknn_sample_classification.ipynb` is the maintained classification
   notebook entry point.
 - `dqn_cartpole_demo.ipynb` is the maintained RL notebook entry point; it
@@ -30,6 +35,19 @@
   - last/end-of-budget eval mean return: `87.7`
   - interpretation: the fixed budget exposed policy regression after a solved
     checkpoint, so the best-checkpoint protocol was meaningful for this run.
+- The current NEC fast CartPole run completed and improved over the earlier
+  25k-step debug-sized run, but remains unsolved:
+  - run folder: `results/rl/nec_cartpole_20260615_191908_236354/`
+  - selected checkpoint step: `90000`
+  - selected eval mean return: `371.45` over 20 episodes
+  - last/end-of-budget eval mean return: `199.60`
+  - interpretation: NEC learns nontrivial CartPole behavior and benefits from
+    best-checkpoint selection, but still does not cross the `475.0` success
+    threshold; `training_efficiency.budget_interpretation` is
+    `unsolved_or_underfit`.
+- The previous NEC 25k-step debug-sized run selected step `15000` with mean
+  return `292.2`, so the larger 150k-step NEC profile improved the best
+  evaluation but still trails the DQN reference run.
 - A fresh June 1 NN-kNN-only 10-fold rerun confirmed the recorded Iris and
   Zebra representative results exactly. These are current-core functionality
   checks, not exact reproductions of IJCAI-25 results from the older
@@ -41,8 +59,9 @@
   improving scores on the earlier IJCAI-25 classification tasks while keeping
   the maintained IJCAI-26-based NN-kNN retrieval/core implementation.
 - RL work is in a baseline-establishment phase. The next RL step should be to
-  keep the CartPole DQN pipeline stable and then add paper-aligned Atari/ALE
-  tasks such as Pong or Breakout before implementing NEC or NN-kNN-RL.
+  tune/debug the CartPole NEC pipeline against the DQN reference, then add
+  paper-aligned Atari/ALE tasks such as Pong or Breakout before implementing
+  NN-kNN-RL.
 - Do not restore the retired legacy case-weight classification path solely to
   reproduce old numbers. Improvements should come from the current workflow,
   dataset protocol checks, hyperparameter tuning, or appropriate current-core
@@ -84,6 +103,7 @@
   contains `config.json`, `training_metrics.csv`, `loss_metrics.csv`,
   `eval_metrics.csv`, `final_eval_episodes.csv`, `last_eval_episodes.csv`,
   `summary.json`, `manifest.json`, and `checkpoint.pt`.
+- NEC run folders use the same artifact names as DQN run folders.
 - `summary.json` records both the selected best checkpoint evaluation
   (`final_eval`) and the end-of-budget model evaluation (`last_eval`). It also
   records `training_efficiency`, including `best_model_step`,
@@ -98,5 +118,5 @@
 ## Where Durable Guidance Lives
 
 Read `NNKNN_AGENT_GUIDE.md` for model descriptions, workflow entry points,
-RL/DQN protocol details, Table 1 protocol details, output schemas,
+RL/DQN/NEC protocol details, Table 1 protocol details, output schemas,
 restart/resume patterns, and machine-specific caveats.

@@ -64,10 +64,10 @@ Important anchors:
 - `add_to_pair_list(...)` at [model/nn_cdh.py](model/nn_cdh.py#L43)
 - `NNCDHAdapter` at [model/nn_cdh.py](model/nn_cdh.py#L112)
 
-## RL / DQN Workflow Files
+## RL / DQN / NEC Workflow Files
 
-The current RL path is a repo-native, CleanRL-style DQN baseline on
-`CartPole-v1`. It is an engineering baseline before adding NEC or NN-kNN-RL.
+The current RL path includes repo-native DQN and NEC baselines on
+`CartPole-v1`. They are engineering baselines before adding NN-kNN-RL.
 Do not use `Outdated NN-kNN Reinforcement Learning.ipynb` or
 `OutdatedNewCartpole.ipynb` as implementation references.
 
@@ -81,6 +81,14 @@ Important entry points in `model/rl_workflow.py`:
 - `load_dqn_checkpoint(...)`
 - `list_supported_rl_tasks(...)`
 
+Important entry points in `model/nec_workflow.py`:
+
+- `NECConfig`
+- `make_nec_config(...)`
+- `train_nec(...)`
+- `evaluate_nec(...)`
+- `load_nec_checkpoint(...)`
+
 Task metadata lives in `datasets/rl_tasks.py`; currently supported:
 
 - `cartpole` -> `CartPole-v1`
@@ -88,6 +96,7 @@ Task metadata lives in `datasets/rl_tasks.py`; currently supported:
 CLI and notebook surfaces:
 
 - `tools/run_rl_dqn.py` is the source-of-truth CLI.
+- `tools/run_rl_nec.py` is the source-of-truth NEC CLI.
 - `dqn_cartpole_demo.ipynb` is a thin debugging notebook that calls the Python
   workflow functions.
 
@@ -95,9 +104,14 @@ Routine RL checks:
 
 ```bash
 .venv/bin/python codex/smoke_test.py --mode rl
+.venv/bin/python codex/smoke_test.py --mode nec
 .venv/bin/python tools/run_rl_dqn.py cartpole --profile smoke --seed 0
 .venv/bin/python tools/run_rl_dqn.py cartpole --profile fast --seed 0
 .venv/bin/python tools/run_rl_dqn.py cartpole --eval-only --checkpoint <checkpoint.pt>
+.venv/bin/python tools/run_rl_nec.py cartpole --profile smoke --seed 0
+.venv/bin/python tools/run_rl_nec.py cartpole --profile debug --seed 0
+.venv/bin/python tools/run_rl_nec.py cartpole --profile fast --seed 0
+.venv/bin/python tools/run_rl_nec.py cartpole --eval-only --checkpoint <checkpoint.pt>
 ```
 
 RL protocol for DQN, NEC, and NN-kNN-RL comparisons:
@@ -121,6 +135,17 @@ Current CartPole DQN reference result:
 - interpretation: the fixed budget exposed regression after the best model, so
   best-checkpoint selection was useful and the selected step is an efficiency
   signal.
+
+Current CartPole NEC reference result:
+
+- run folder: `results/rl/nec_cartpole_20260615_191908_236354/`
+- selected checkpoint step: `90000`
+- selected eval mean return: `371.45` over 20 episodes
+- last/end-of-budget eval mean return: `199.60`
+- interpretation: the 150k-step NEC `fast` profile improved over the 25k
+  debug-sized run (`292.2` best mean return), but it remains below the `475.0`
+  success threshold and below the DQN reference; treat it as unsolved/underfit
+  before paper-style claims.
 
 ## Classification Workflow Files
 
