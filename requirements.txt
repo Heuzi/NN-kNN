@@ -16,6 +16,7 @@ fonttools==4.61.1
 fsspec==2025.12.0
 gitdb==4.0.12
 GitPython==3.1.45
+gymnasium[classic_control]==1.2.2
 idna==3.11
 imbalanced-learn==0.14.1
 ipykernel==7.1.0
