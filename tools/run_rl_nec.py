@@ -28,6 +28,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default="results/rl", help="Parent folder for timestamped run dirs.")
     parser.add_argument("--device", default=None, help="Optional torch device override, such as cpu or cuda.")
     parser.add_argument("--total-timesteps", type=int, default=None)
+    parser.add_argument("--eval-frequency", type=int, default=None)
+    parser.add_argument("--eval-episode-frequency", type=int, default=None)
     parser.add_argument("--eval-episodes", type=int, default=None)
     parser.add_argument("--eval-seed", type=int, default=None)
     parser.add_argument("--eval-only", action="store_true", help="Evaluate a saved checkpoint without training.")
@@ -40,6 +42,10 @@ def _config_from_args(args: argparse.Namespace) -> NECConfig:
     overrides = {"seed": args.seed}
     if args.total_timesteps is not None:
         overrides["total_timesteps"] = args.total_timesteps
+    if args.eval_frequency is not None:
+        overrides["eval_frequency"] = args.eval_frequency
+    if args.eval_episode_frequency is not None:
+        overrides["eval_episode_frequency"] = args.eval_episode_frequency
     if args.eval_episodes is not None:
         overrides["eval_episodes"] = args.eval_episodes
     if args.eval_seed is not None:
