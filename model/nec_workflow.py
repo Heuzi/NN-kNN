@@ -124,11 +124,22 @@ class NECReplayBuffer:
 class ActionValueDictionary:
     """Exact per-action kNN dictionary with LRU replacement."""
 
-    def __init__(self, capacity: int, embedding_dim: int):
+    def __init__(
+        self,
+        capacity: int,
+        embedding_dim: int,
+        observation_dim: int | None = None,
+    ):
         self.capacity = capacity
         self.embedding_dim = embedding_dim
+        self.observation_dim = observation_dim
         self.embeddings = np.zeros((capacity, embedding_dim), dtype=np.float32)
         self.values = np.zeros(capacity, dtype=np.float32)
+        self.observations = (
+            np.zeros((capacity, observation_dim), dtype=np.float32)
+            if observation_dim is not None
+            else None
+        )
         self.lru = np.zeros(capacity, dtype=np.float64)
         self.size = 0
         self.clock = 0.0
@@ -136,7 +147,7 @@ class ActionValueDictionary:
     def queryable(self, k: int) -> bool:
         return self.size >= k
 
-    def add(self, embedding: np.ndarray, value: float) -> None:
+    def add(self, embedding: np.ndarray, value: float, observation: np.ndarray | None = None) -> None:
         if self.size < self.capacity:
             index = self.size
             self.size += 1
@@ -144,6 +155,12 @@ class ActionValueDictionary:
             index = int(np.argmin(self.lru))
         self.embeddings[index] = embedding
         self.values[index] = value
+        if self.observations is not None:
+            if observation is None:
+                raise ValueError(
+                    "observation is required when the DND was configured to store observations"
+                )
+            self.observations[index] = np.asarray(observation, dtype=np.float32)
         self.lru[index] = self.clock
         self.clock += 1.0
 
@@ -169,8 +186,12 @@ class ActionValueDictionary:
         return {
             "capacity": self.capacity,
             "embedding_dim": self.embedding_dim,
+            "observation_dim": self.observation_dim,
             "embeddings": self.embeddings[: self.size].copy(),
             "values": self.values[: self.size].copy(),
+            "observations": None
+            if self.observations is None
+            else self.observations[: self.size].copy(),
             "lru": self.lru[: self.size].copy(),
             "size": self.size,
             "clock": self.clock,
@@ -178,11 +199,21 @@ class ActionValueDictionary:
 
     @classmethod
     def from_state(cls, state: dict[str, Any]) -> "ActionValueDictionary":
-        dictionary = cls(int(state["capacity"]), int(state["embedding_dim"]))
+        observations = state.get("observations")
+        observation_dim = state.get("observation_dim")
+        if observation_dim is None and observations is not None:
+            observation_dim = int(observations.shape[1])
+        dictionary = cls(
+            int(state["capacity"]),
+            int(state["embedding_dim"]),
+            None if observation_dim is None else int(observation_dim),
+        )
         size = int(state["size"])
         dictionary.size = size
         dictionary.embeddings[:size] = state["embeddings"]
         dictionary.values[:size] = state["values"]
+        if observations is not None and dictionary.observations is not None:
+            dictionary.observations[:size] = observations
         dictionary.lru[:size] = state["lru"]
         dictionary.clock = float(state["clock"])
         return dictionary
@@ -191,14 +222,30 @@ class ActionValueDictionary:
 class DifferentiableNeuralDictionary:
     """Per-action dictionary set used by NEC."""
 
-    def __init__(self, action_dim: int, capacity: int, embedding_dim: int):
+    def __init__(
+        self,
+        action_dim: int,
+        capacity: int,
+        embedding_dim: int,
+        observation_dim: int | None = None,
+    ):
         self.action_dim = action_dim
         self.capacity = capacity
         self.embedding_dim = embedding_dim
-        self.dicts = [ActionValueDictionary(capacity, embedding_dim) for _ in range(action_dim)]
+        self.observation_dim = observation_dim
+        self.dicts = [
+            ActionValueDictionary(capacity, embedding_dim, observation_dim)
+            for _ in range(action_dim)
+        ]
 
-    def add(self, embedding: np.ndarray, action: int, value: float) -> None:
-        self.dicts[int(action)].add(embedding.astype(np.float32), float(value))
+    def add(
+        self,
+        embedding: np.ndarray,
+        action: int,
+        value: float,
+        observation: np.ndarray | None = None,
+    ) -> None:
+        self.dicts[int(action)].add(embedding.astype(np.float32), float(value), observation)
 
     def q_values(
         self,
@@ -242,13 +289,22 @@ class DifferentiableNeuralDictionary:
             "action_dim": self.action_dim,
             "capacity": self.capacity,
             "embedding_dim": self.embedding_dim,
+            "observation_dim": self.observation_dim,
             "dicts": [dictionary.to_state() for dictionary in self.dicts],
         }
 
     @classmethod
     def from_state(cls, state: dict[str, Any]) -> "DifferentiableNeuralDictionary":
-        dnd = cls(int(state["action_dim"]), int(state["capacity"]), int(state["embedding_dim"]))
+        observation_dim = state.get("observation_dim")
+        dnd = cls(
+            int(state["action_dim"]),
+            int(state["capacity"]),
+            int(state["embedding_dim"]),
+            None if observation_dim is None else int(observation_dim),
+        )
         dnd.dicts = [ActionValueDictionary.from_state(item) for item in state["dicts"]]
+        if dnd.observation_dim is None and dnd.dicts and dnd.dicts[0].observation_dim is not None:
+            dnd.observation_dim = dnd.dicts[0].observation_dim
         return dnd
 
 
@@ -496,7 +552,7 @@ def train_nec(
     env = _make_env(spec, seed=cfg.seed)
     obs_dim, action_dim = _validate_env_spaces(env, spec)
     model = NECEmbeddingNetwork(obs_dim, cfg.embedding_dim, hidden_sizes=cfg.hidden_sizes).to(run_device)
-    dnd = DifferentiableNeuralDictionary(action_dim, cfg.dictionary_size, cfg.embedding_dim)
+    dnd = DifferentiableNeuralDictionary(action_dim, cfg.dictionary_size, cfg.embedding_dim, obs_dim)
     optimizer = optim.Adam(model.parameters(), lr=cfg.learning_rate)
     replay_buffer = NECReplayBuffer.create(cfg.replay_size, obs_dim)
 
@@ -608,7 +664,12 @@ def train_nec(
                         return_value,
                         terminal_entry,
                     )
-                    dnd.add(episode_embeddings[idx], episode_actions[idx], return_value)
+                    dnd.add(
+                        episode_embeddings[idx],
+                        episode_actions[idx],
+                        return_value,
+                        episode_observations[idx],
+                    )
 
                 episode_index += 1
                 completed_step = global_step + 1
@@ -888,6 +949,7 @@ def load_nec_checkpoint(
     device: str | torch.device | None = None,
 ) -> dict[str, Any]:
     run_device = _resolve_device_arg(device)
+    checkpoint_path = Path(checkpoint_path)
     checkpoint = torch.load(checkpoint_path, map_location=run_device, weights_only=False)
     config_data = dict(checkpoint["config"])
     config_data["hidden_sizes"] = tuple(config_data["hidden_sizes"])
@@ -906,5 +968,6 @@ def load_nec_checkpoint(
         "config": cfg,
         "task": checkpoint["task"],
         "checkpoint": checkpoint,
+        "checkpoint_path": checkpoint_path,
         "device": run_device,
     }
