@@ -50,6 +50,8 @@ The key practical distinction in the current Table 1 work is:
 - [model/rl_workflow.py](model/rl_workflow.py)
   This is the maintained DQN baseline workflow for CartPole and future
   RL-family extensions.
+- [model/nnknn_rl_workflow.py](model/nnknn_rl_workflow.py)
+  This is the maintained DQN-style NN-kNN-RL workflow for CartPole.
 - [datasets/classification_data.py](datasets/classification_data.py)
   This contains portable classification loaders with train-only preprocessing.
 - [datasets/rl_tasks.py](datasets/rl_tasks.py)
@@ -66,8 +68,8 @@ Important anchors:
 
 ## RL / DQN / NEC Workflow Files
 
-The current RL path includes repo-native DQN and NEC baselines on
-`CartPole-v1`. They are engineering baselines before adding NN-kNN-RL.
+The current RL path includes repo-native DQN, NEC, and DQN-style NN-kNN-RL
+workflows on `CartPole-v1`.
 Do not use `Outdated NN-kNN Reinforcement Learning.ipynb` or
 `OutdatedNewCartpole.ipynb` as implementation references.
 
@@ -89,6 +91,14 @@ Important entry points in `model/nec_workflow.py`:
 - `evaluate_nec(...)`
 - `load_nec_checkpoint(...)`
 
+Important entry points in `model/nnknn_rl_workflow.py`:
+
+- `NNKNNRLConfig`
+- `make_nnknn_rl_config(...)`
+- `train_nnknn_rl(...)`
+- `evaluate_nnknn_rl(...)`
+- `load_nnknn_rl_checkpoint(...)`
+
 Task metadata lives in `datasets/rl_tasks.py`; currently supported:
 
 - `cartpole` -> `CartPole-v1`
@@ -97,14 +107,18 @@ CLI and notebook surfaces:
 
 - `tools/run_rl_dqn.py` is the source-of-truth CLI.
 - `tools/run_rl_nec.py` is the source-of-truth NEC CLI.
+- `tools/run_rl_nnknn.py` is the source-of-truth NN-kNN-RL CLI.
 - `dqn_cartpole_demo.ipynb` is a thin debugging notebook that calls the Python
   workflow functions.
+- `nec_cartpole_demo.ipynb` and `nnknn_cartpole_demo.ipynb` follow the same
+  thin-notebook pattern for NEC and NN-kNN-RL.
 
 Routine RL checks:
 
 ```bash
 .venv/bin/python codex/smoke_test.py --mode rl
 .venv/bin/python codex/smoke_test.py --mode nec
+.venv/bin/python codex/smoke_test.py --mode nnknn_rl
 .venv/bin/python tools/run_rl_dqn.py cartpole --profile smoke --seed 0
 .venv/bin/python tools/run_rl_dqn.py cartpole --profile fast --seed 0
 .venv/bin/python tools/run_rl_dqn.py cartpole --eval-only --checkpoint <checkpoint.pt>
@@ -112,6 +126,9 @@ Routine RL checks:
 .venv/bin/python tools/run_rl_nec.py cartpole --profile debug --seed 0
 .venv/bin/python tools/run_rl_nec.py cartpole --profile fast --seed 0
 .venv/bin/python tools/run_rl_nec.py cartpole --eval-only --checkpoint <checkpoint.pt>
+.venv/bin/python tools/run_rl_nnknn.py cartpole --profile smoke --seed 0
+.venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0
+.venv/bin/python tools/run_rl_nnknn.py cartpole --eval-only --checkpoint <checkpoint.pt>
 ```
 
 RL protocol for DQN, NEC, and NN-kNN-RL comparisons:

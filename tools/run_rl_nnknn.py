@@ -10,18 +10,18 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from model.nec_workflow import (  # noqa: E402
-    NECConfig,
-    evaluate_nec,
-    load_nec_checkpoint,
-    make_nec_config,
-    make_nec_output_dir,
-    train_nec,
+from model.nnknn_rl_workflow import (  # noqa: E402
+    NNKNNRLConfig,
+    evaluate_nnknn_rl,
+    load_nnknn_rl_checkpoint,
+    make_nnknn_rl_config,
+    make_nnknn_rl_output_dir,
+    train_nnknn_rl,
 )
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train or evaluate the repo-native NEC baseline.")
+    parser = argparse.ArgumentParser(description="Train or evaluate the repo-native NN-kNN-RL workflow.")
     parser.add_argument("task", nargs="?", default="cartpole", help="RL task key, such as cartpole.")
     parser.add_argument("--profile", choices=["smoke", "debug", "fast", "gold"], default="fast")
     parser.add_argument("--seed", type=int, default=0)
@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _config_from_args(args: argparse.Namespace) -> NECConfig:
+def _config_from_args(args: argparse.Namespace) -> NNKNNRLConfig:
     overrides = {"seed": args.seed}
     if args.total_timesteps is not None:
         overrides["total_timesteps"] = args.total_timesteps
@@ -50,7 +50,7 @@ def _config_from_args(args: argparse.Namespace) -> NECConfig:
         overrides["eval_episodes"] = args.eval_episodes
     if args.eval_seed is not None:
         overrides["eval_seed"] = args.eval_seed
-    return make_nec_config(args.profile, **overrides)
+    return make_nnknn_rl_config(args.profile, **overrides)
 
 
 def _write_eval_only_summary(outdir: Path, payload: dict) -> None:
@@ -63,21 +63,19 @@ def main() -> None:
     if args.eval_only:
         if not args.checkpoint:
             raise SystemExit("--checkpoint is required with --eval-only")
-        loaded = load_nec_checkpoint(args.checkpoint, device=args.device)
+        loaded = load_nnknn_rl_checkpoint(args.checkpoint, device=args.device)
         cfg = loaded["config"]
         task_name = loaded["task"]["name"]
         episodes = args.eval_episodes if args.eval_episodes is not None else cfg.eval_episodes
         eval_seed = args.eval_seed if args.eval_seed is not None else cfg.eval_seed
-        metrics = evaluate_nec(
+        metrics = evaluate_nnknn_rl(
             task_name,
             loaded["model"],
-            loaded["dnd"],
-            cfg,
             episodes=episodes,
             seed=eval_seed,
             device=loaded["device"],
         )
-        outdir = make_nec_output_dir(task_name, parent=args.output_dir, suffix="eval")
+        outdir = make_nnknn_rl_output_dir(task_name, parent=args.output_dir, suffix="eval")
         payload = {
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
             "task": task_name,
@@ -92,10 +90,10 @@ def main() -> None:
         return
 
     cfg = _config_from_args(args)
-    state = train_nec(
+    state = train_nnknn_rl(
         args.task,
         cfg,
-        output_dir=make_nec_output_dir(args.task, parent=args.output_dir),
+        output_dir=make_nnknn_rl_output_dir(args.task, parent=args.output_dir),
         device=args.device,
         progress=not args.quiet,
     )

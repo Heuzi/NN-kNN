@@ -60,8 +60,8 @@ class NECConfig:
     replay_size: int = 20_000
     dictionary_size: int = 10_000
     gamma: float = 0.99
-    n_step: int = 100
-    k_neighbors: int = 5
+    n_step: int = 50
+    k_neighbors: int = 10
     kernel_delta: float = 1e-3
     batch_size: int = 128
     start_e: float = 1.0
@@ -69,7 +69,8 @@ class NECConfig:
     exploration_fraction: float = 0.5
     learning_starts: int = 1_000
     train_frequency: int = 1
-    eval_frequency: int = 5_000
+    eval_frequency: int = 0
+    eval_episode_frequency: int = 100
     eval_episodes: int = 20
     eval_seed: int = 10_000
     success_threshold: float | None = 475.0
@@ -319,7 +320,8 @@ def make_nec_config(profile: str = "fast", **overrides: Any) -> NECConfig:
             "n_step": 20,
             "k_neighbors": 3,
             "train_frequency": 1,
-            "eval_frequency": 128,
+            "eval_frequency": 0,
+            "eval_episode_frequency": 10,
             "eval_episodes": 2,
             "success_threshold": None,
         },
@@ -332,7 +334,8 @@ def make_nec_config(profile: str = "fast", **overrides: Any) -> NECConfig:
             "batch_size": 32,
             "learning_starts": 256,
             "train_frequency": 4,
-            "eval_frequency": 2_500,
+            "eval_frequency": 0,
+            "eval_episode_frequency": 100,
             "eval_episodes": 20,
             "success_threshold": 475.0,
         },
@@ -342,10 +345,11 @@ def make_nec_config(profile: str = "fast", **overrides: Any) -> NECConfig:
             "learning_rate": 1e-3,
             "replay_size": 20_000,
             "dictionary_size": 10_000,
-            "batch_size": 64,
+            "batch_size": 128,
             "learning_starts": 1_000,
-            "train_frequency": 4,
-            "eval_frequency": 10_000,
+            "train_frequency": 1,
+            "eval_frequency": 0,
+            "eval_episode_frequency": 100,
             "eval_episodes": 20,
             "success_threshold": 475.0,
         },
@@ -358,7 +362,8 @@ def make_nec_config(profile: str = "fast", **overrides: Any) -> NECConfig:
             "batch_size": 64,
             "learning_starts": 1_000,
             "train_frequency": 4,
-            "eval_frequency": 10_000,
+            "eval_frequency": 0,
+            "eval_episode_frequency": 100,
             "eval_episodes": 20,
             "success_threshold": 475.0,
         },
@@ -565,6 +570,11 @@ def train_nec(
     best_eval_step: int | None = None
     best_model_state: dict[str, torch.Tensor] | None = None
     best_dnd_state: dict[str, Any] | None = None
+    candidate_episode_return: float | None = None
+    candidate_model_state: dict[str, torch.Tensor] | None = None
+    candidate_dnd_state: dict[str, Any] | None = None
+    candidate_step: int | None = None
+    candidate_episode: int | None = None
 
     obs, _ = env.reset(seed=cfg.seed)
     episode_observations: list[np.ndarray] = []
@@ -662,9 +672,16 @@ def train_nec(
                     )
 
                 episode_index += 1
+                completed_step = global_step + 1
+                if candidate_episode_return is None or episode_return >= candidate_episode_return:
+                    candidate_episode_return = float(episode_return)
+                    candidate_model_state = _copy_state_dict_to_cpu(model)
+                    candidate_dnd_state = dnd.to_state()
+                    candidate_step = completed_step
+                    candidate_episode = episode_index
                 training_rows.append(
                     {
-                        "global_step": global_step + 1,
+                        "global_step": completed_step,
                         "episode": episode_index,
                         "episode_return": episode_return,
                         "episode_length": episode_length,
@@ -679,11 +696,63 @@ def train_nec(
                 if progress and (episode_index <= 5 or episode_index % 10 == 0):
                     print(
                         "[nec] "
-                        f"step={global_step + 1} episode={episode_index} "
+                        f"step={completed_step} episode={episode_index} "
                         f"return={episode_return:.1f} length={episode_length} "
                         f"epsilon={epsilon:.3f} loss={latest_loss} entries={dnd.total_size()}",
                         flush=True,
                     )
+                if (
+                    cfg.eval_episode_frequency > 0
+                    and episode_index > 0
+                    and episode_index % cfg.eval_episode_frequency == 0
+                    and candidate_model_state is not None
+                    and candidate_dnd_state is not None
+                ):
+                    current_model_state = _copy_state_dict_to_cpu(model)
+                    current_dnd_state = dnd.to_state()
+                    model.load_state_dict(candidate_model_state)
+                    dnd = DifferentiableNeuralDictionary.from_state(candidate_dnd_state)
+                    eval_metrics = evaluate_nec(
+                        spec.name,
+                        model,
+                        dnd,
+                        cfg,
+                        episodes=cfg.eval_episodes,
+                        seed=cfg.eval_seed,
+                        device=run_device,
+                    )
+                    model.load_state_dict(current_model_state)
+                    dnd = DifferentiableNeuralDictionary.from_state(current_dnd_state)
+                    eval_row = {
+                        "global_step": int(candidate_step or completed_step),
+                        "episode": int(candidate_episode or episode_index),
+                        "eval_global_step": completed_step,
+                        "eval_episode": episode_index,
+                        "eval_trigger": "episode",
+                        "candidate_episode_return": candidate_episode_return,
+                        "mean_return": eval_metrics["mean_return"],
+                        "std_return": eval_metrics["std_return"],
+                        "min_return": eval_metrics["min_return"],
+                        "max_return": eval_metrics["max_return"],
+                        "mean_length": eval_metrics["mean_length"],
+                        "episodes": cfg.eval_episodes,
+                        "dictionary_entries": dnd.total_size(),
+                    }
+                    eval_rows.append(eval_row)
+                    if best_eval is None or eval_metrics["mean_return"] > best_eval["mean_return"]:
+                        best_eval = eval_metrics
+                        best_eval_step = int(candidate_step or completed_step)
+                        best_model_state = candidate_model_state
+                        best_dnd_state = candidate_dnd_state
+                    if progress:
+                        print(
+                            "[nec][eval] "
+                            f"step={eval_row['global_step']} episode={eval_row['episode']} "
+                            f"candidate_return={candidate_episode_return:.1f} "
+                            f"mean_return={eval_row['mean_return']:.2f} "
+                            f"max_return={eval_row['max_return']:.2f}",
+                            flush=True,
+                        )
                 obs, _ = env.reset(seed=cfg.seed + episode_index)
                 episode_observations = []
                 episode_embeddings = []
@@ -709,6 +778,8 @@ def train_nec(
                 )
                 eval_row = {
                     "global_step": global_step,
+                    "episode": episode_index,
+                    "eval_trigger": "step",
                     "mean_return": eval_metrics["mean_return"],
                     "std_return": eval_metrics["std_return"],
                     "min_return": eval_metrics["min_return"],

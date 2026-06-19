@@ -14,6 +14,7 @@ retrieved labels for the target task.
 - Classification orchestration: `model/classification_workflow.py`
 - RL/DQN orchestration: `model/rl_workflow.py`
 - RL/NEC orchestration: `model/nec_workflow.py`
+- RL/NN-kNN orchestration: `model/nnknn_rl_workflow.py`
 - Classification loaders: `datasets/classification_data.py`
 - RL task registry: `datasets/rl_tasks.py`
 - Shared NN-kNN core: `model/nnknn_model.py`
@@ -38,6 +39,8 @@ outside the current classification workflow.
   workflow; the DQN implementation lives in Python files.
 - `nec_cartpole_demo.ipynb`: thin debugging surface for the repo-native NEC
   workflow; the NEC implementation lives in Python files.
+- `nnknn_cartpole_demo.ipynb`: thin debugging surface for the repo-native
+  NN-kNN-RL workflow; the RL implementation lives in Python files.
 
 ## RL Baseline Protocol
 
@@ -49,6 +52,8 @@ python tools/run_rl_dqn.py cartpole --profile fast --seed 0
 python tools/run_rl_dqn.py cartpole --eval-only --checkpoint <checkpoint.pt>
 python tools/run_rl_nec.py cartpole --profile fast --seed 0
 python tools/run_rl_nec.py cartpole --eval-only --checkpoint <checkpoint.pt>
+python tools/run_rl_nnknn.py cartpole --profile fast --seed 0
+python tools/run_rl_nnknn.py cartpole --eval-only --checkpoint <checkpoint.pt>
 ```
 
 Current DQN reference run:
@@ -91,6 +96,7 @@ bash codex/setup.sh
 .venv/bin/python codex/smoke_test.py --mode classification
 .venv/bin/python codex/smoke_test.py --mode rl
 .venv/bin/python codex/smoke_test.py --mode nec
+.venv/bin/python codex/smoke_test.py --mode nnknn_rl
 ```
 
 For a small classification benchmark run:
