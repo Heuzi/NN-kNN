@@ -60,8 +60,8 @@ class NECConfig:
     replay_size: int = 20_000
     dictionary_size: int = 10_000
     gamma: float = 0.99
-    n_step: int = 100
-    k_neighbors: int = 5
+    n_step: int = 50
+    k_neighbors: int = 10
     kernel_delta: float = 1e-3
     batch_size: int = 128
     start_e: float = 1.0
