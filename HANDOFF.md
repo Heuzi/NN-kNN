@@ -8,6 +8,11 @@
 - A repo-native RL/NEC baseline now exists for `CartPole-v1`; it uses exact
   per-action kNN dictionaries and the same fixed-budget/best-checkpoint
   reporting protocol as DQN.
+- An experimental DQN-style NN-kNN-RL workflow now exists for `CartPole-v1`;
+  it trains a case-based Q approximator from replay with TD targets and writes
+  the same fixed-budget/best-checkpoint artifacts as DQN and NEC. Warning: this
+  first NN-kNN-RL path is incredibly slow and unstable compared with DQN/NEC.
+  Treat it as a research/debug surface, not as a solved or reliable baseline.
 - Classification uses normalized case activation as class probability mass
   with NLL loss; it does not restore the older class-weight formulation.
 - `model/classification_workflow.py` and `datasets/classification_data.py`
@@ -18,10 +23,15 @@
   CleanRL-style, but repo-native so NN-kNN-RL can be swapped in later.
 - `model/nec_workflow.py` and `tools/run_rl_nec.py` provide the maintained NEC
   baseline workflow.
+- `model/nnknn_rl_workflow.py` and `tools/run_rl_nnknn.py` provide the
+  experimental NN-kNN-RL workflow.
 - `nnknn_sample_classification.ipynb` is the maintained classification
   notebook entry point.
 - `dqn_cartpole_demo.ipynb` is the maintained RL notebook entry point; it
   should call Python workflow functions rather than duplicating DQN logic.
+- `nnknn_cartpole_demo.ipynb` is the maintained NN-kNN-RL notebook entry point;
+  it should call Python workflow functions rather than duplicating training
+  logic.
 - `Outdated NN-kNN Reinforcement Learning.ipynb` and `OutdatedNewCartpole.ipynb`
   are archival only. Do not use them as RL implementation references.
 - Representative checks completed: one-epoch regression and classification
@@ -48,6 +58,14 @@
 - The previous NEC 25k-step debug-sized run selected step `15000` with mean
   return `292.2`, so the larger 150k-step NEC profile improved the best
   evaluation but still trails the DQN reference run.
+- Current NN-kNN-RL smoke runs are functional but not competitive:
+  - run folders: `results/rl/nnknn_rl_cartpole_*`
+  - smoke profile: `256` environment steps, `case_capacity=1000`,
+    `eval_episodes=2`
+  - observed smoke eval mean return: about `73.5`
+  - interpretation: smoke verifies plumbing only. It is not a meaningful
+    performance result, and fast/debug runs should be expected to be slow and
+    unstable until the case-memory update rule is redesigned.
 - A fresh June 1 NN-kNN-only 10-fold rerun confirmed the recorded Iris and
   Zebra representative results exactly. These are current-core functionality
   checks, not exact reproductions of IJCAI-25 results from the older
@@ -58,10 +76,11 @@
 - Classification support is now functional; current work is focused on
   improving scores on the earlier IJCAI-25 classification tasks while keeping
   the maintained IJCAI-26-based NN-kNN retrieval/core implementation.
-- RL work is in a baseline-establishment phase. The next RL step should be to
-  tune/debug the CartPole NEC pipeline against the DQN reference, then add
-  paper-aligned Atari/ALE tasks such as Pong or Breakout before implementing
-  NN-kNN-RL.
+- RL work is in a baseline-establishment/debugging phase. DQN is the reliable
+  CartPole reference, NEC is partially working but underfit, and NN-kNN-RL is
+  now implemented but extremely slow and unstable. The next NN-kNN-RL step
+  should be diagnostics and redesign of case-memory updates, not paper-style
+  comparison.
 - Do not restore the retired legacy case-weight classification path solely to
   reproduce old numbers. Improvements should come from the current workflow,
   dataset protocol checks, hyperparameter tuning, or appropriate current-core
@@ -89,6 +108,11 @@
   best model is the final model and the curve is still rising, increase the
   budget or tune before comparing methods. Use `best_model_step` and
   `first_success_step` as sample-efficiency proxies.
+- For NN-kNN-RL specifically, do not treat a poor fast/debug run as just a
+  hyperparameter issue. The current design appends many replay-derived TD
+  target cases into a fixed circular case memory, which can fill quickly with
+  duplicate or contradictory labels. Expect slow training, high variance, and
+  unstable policy quality until this is changed.
 
 ## Current Local Artifacts
 
@@ -104,6 +128,10 @@
   `eval_metrics.csv`, `final_eval_episodes.csv`, `last_eval_episodes.csv`,
   `summary.json`, `manifest.json`, and `checkpoint.pt`.
 - NEC run folders use the same artifact names as DQN run folders.
+- NN-kNN-RL run folders use the same artifact names as DQN and NEC run folders
+  and add `case_entries` to the saved summary. Recent NN-kNN-RL workflow
+  changes evaluate every `100` completed episodes by default
+  (`eval_episode_frequency=100`) instead of every fixed number of steps.
 - `summary.json` records both the selected best checkpoint evaluation
   (`final_eval`) and the end-of-budget model evaluation (`last_eval`). It also
   records `training_efficiency`, including `best_model_step`,

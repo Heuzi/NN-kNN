@@ -138,12 +138,27 @@ def run_nec_smoke() -> None:
     print(f"mean_return={float(final_eval['mean_return']):.6f}")
 
 
+def run_nnknn_rl_smoke() -> None:
+    from model.nnknn_rl_workflow import make_nnknn_rl_config, train_nnknn_rl
+
+    cfg = make_nnknn_rl_config("smoke", seed=0)
+    state = train_nnknn_rl("cartpole", cfg, progress=False)
+    final_eval = state["final_eval"]
+    if final_eval["episodes"] != cfg.eval_episodes:
+        raise AssertionError("NN-kNN-RL smoke evaluation did not run the configured number of episodes.")
+    if not state["checkpoint_path"].exists():
+        raise AssertionError("NN-kNN-RL smoke did not write a checkpoint.")
+    print("nnknn rl smoke ok")
+    print(f"run_dir={state['run_dir']}")
+    print(f"mean_return={float(final_eval['mean_return']):.6f}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Smoke checks for Codex cloud environments.")
     parser.add_argument(
         "--mode",
         default="imports",
-        choices=("imports", "train", "classification", "rl", "nec"),
+        choices=("imports", "train", "classification", "rl", "nec", "nnknn_rl"),
         help="Choose a lightweight import check or a tiny training run.",
     )
     args = parser.parse_args()
@@ -156,6 +171,8 @@ def main() -> None:
         run_rl_smoke()
     elif args.mode == "nec":
         run_nec_smoke()
+    elif args.mode == "nnknn_rl":
+        run_nnknn_rl_smoke()
     else:
         run_import_smoke()
 
