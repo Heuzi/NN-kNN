@@ -556,8 +556,8 @@ class NN_KNN_Model(nn.Module):
         """
 
         super(NN_KNN_Model, self).__init__()
-        self.cases = cases.to(device)  # Shape: [num_cases, *case_shape]
-        self.labels = labels.to(device)  # Shape: [num_cases, num_classes]
+        self.register_buffer("cases", cases.to(device))  # Shape: [num_cases, *case_shape]
+        self.register_buffer("labels", labels.to(device))  # Shape: [num_cases, num_classes]
         print("cases trainable:", self.cases.requires_grad)
         print("labels trainable:", self.labels.requires_grad)
 
@@ -612,19 +612,17 @@ class NN_KNN_Model(nn.Module):
         self.feature_extractor_lr = kwargs.get('feature_extractor_lr', default_args['feature_extractor_lr'])
         self.glocal_weightor_lr = kwargs.get('glocal_weightor_lr', default_args['glocal_weightor_lr'])
         self.case_net_lr = kwargs.get('case_net_lr', default_args['case_net_lr'])
+        requested_active_count = kwargs.get("active_case_count", None)
+        self.active_case_count = None if requested_active_count is None else int(requested_active_count)
+        if self.active_case_count is not None and not (0 <= self.active_case_count <= len(self.cases)):
+            raise ValueError(
+                f"active_case_count must be between 0 and {len(self.cases)}, got {self.active_case_count}"
+            )
 
 
         # Group cases by class, store their indices
         self.class_to_cases = {}
-        if self.task_type == "classification":
-            for i, label in enumerate(self.labels):
-                class_label = torch.argmax(label).item()  # Extract class label
-                if class_label not in self.class_to_cases:
-                    self.class_to_cases[class_label] = []
-                self.class_to_cases[class_label].append(i)
-        else:
-            # For regression, treat all cases as belonging  to the same "class". A single bucket.
-            self.class_to_cases[0] = list(range(len(self.cases)))
+        self._rebuild_class_to_cases()
 
         case_default_bias = 0
         if self.bias_manual_set:
@@ -638,16 +636,16 @@ class NN_KNN_Model(nn.Module):
 
         # Parameters specific to each case
         # All cases have the same initial range
-        self.biases = nn.Parameter(torch.full((len(cases),), case_default_bias))  # Shape: [num_cases]
+        self.biases = nn.Parameter(torch.full((len(cases),), case_default_bias, device=self.cases.device))  # Shape: [num_cases]
         ### BIG decision, removing case weights
         # All cases have the same initial weight for their corresponding classes
         # self.weights = nn.Parameter(torch.ones(len(cases)))  # Shape: [num_cases]
 
-        self.negative_weights = nn.Parameter(torch.ones(len(cases)))  # Shape: [num_cases]
+        self.negative_weights = nn.Parameter(torch.ones(len(cases), device=self.cases.device))  # Shape: [num_cases]
 
         # Each case initially uses equal portion of all GW weights
         self.glocal_weights = nn.Parameter(
-            torch.softmax(torch.ones(len(cases), self.glocal_weightor_set_num), dim=-1)
+            torch.softmax(torch.ones(len(cases), self.glocal_weightor_set_num, device=self.cases.device), dim=-1)
         )  # Shape: [num_cases, set_dim]
 
         # Precompute feature dimensions if feature extractor exists
@@ -665,6 +663,111 @@ class NN_KNN_Model(nn.Module):
 
         if (kwargs.get('regression_locality', default_args['regression_locality']) and self.task_type == "regression") or kwargs.get('explanation_mode', default_args['explanation_mode']):
             self.top_k_mode = True
+
+    def case_count(self) -> int:
+        if self.active_case_count is None:
+            return len(self.cases)
+        return int(self.active_case_count)
+
+    def case_capacity(self) -> int:
+        return len(self.cases)
+
+    def _active_case_indices(self) -> range:
+        return range(self.case_count())
+
+    def _invalidate_case_cache(self) -> None:
+        self.cached_features = None
+
+    def _rebuild_class_to_cases(self) -> None:
+        self.class_to_cases = {}
+        active_count = self.case_count()
+        if self.task_type == "classification":
+            for i in range(active_count):
+                label = self.labels[i]
+                class_label = torch.argmax(label).item()  # Extract class label
+                if class_label not in self.class_to_cases:
+                    self.class_to_cases[class_label] = []
+                self.class_to_cases[class_label].append(i)
+        else:
+            # For regression, treat all cases as belonging to the same "class". A single bucket.
+            self.class_to_cases[0] = list(range(active_count))
+
+    def set_active_case_count(self, active_case_count: int) -> None:
+        active_case_count = int(active_case_count)
+        if not (0 <= active_case_count <= self.case_capacity()):
+            raise ValueError(
+                f"active_case_count must be between 0 and {self.case_capacity()}, got {active_case_count}"
+            )
+        self.active_case_count = active_case_count
+        self._invalidate_case_cache()
+        self._rebuild_class_to_cases()
+
+    def append_cases(self, cases: torch.Tensor, labels: torch.Tensor) -> int:
+        case_t = torch.as_tensor(cases, dtype=self.cases.dtype, device=self.cases.device)
+        label_t = torch.as_tensor(labels, dtype=self.labels.dtype, device=self.labels.device)
+        if case_t.dim() == self.cases.dim() - 1:
+            case_t = case_t.unsqueeze(0)
+        if label_t.dim() == self.labels.dim() - 1:
+            label_t = label_t.unsqueeze(0)
+        if case_t.shape[1:] != self.cases.shape[1:]:
+            raise ValueError(f"New cases have shape {case_t.shape[1:]}, expected {self.cases.shape[1:]}")
+        if label_t.shape[1:] != self.labels.shape[1:]:
+            raise ValueError(f"New labels have shape {label_t.shape[1:]}, expected {self.labels.shape[1:]}")
+        count = int(case_t.shape[0])
+        start = self.case_count()
+        end = start + count
+        if end > self.case_capacity():
+            raise ValueError(f"Not enough case capacity for {count} new cases")
+        with torch.no_grad():
+            self.cases[start:end].copy_(case_t)
+            self.labels[start:end].copy_(label_t)
+            self.biases[start:end].fill_(self.case_default_bias)
+            self.negative_weights[start:end].fill_(1.0)
+            self.glocal_weights[start:end].copy_(
+                torch.softmax(
+                    torch.ones(count, self.glocal_weightor_set_num, device=self.glocal_weights.device),
+                    dim=-1,
+                )
+            )
+        self.set_active_case_count(end)
+        return count
+
+    def compact_cases(self, keep_indices: torch.Tensor | list[int]) -> int:
+        keep_t = torch.as_tensor(keep_indices, dtype=torch.long, device=self.cases.device).view(-1)
+        active_count = self.case_count()
+        if keep_t.numel() and (int(keep_t.min().item()) < 0 or int(keep_t.max().item()) >= active_count):
+            raise ValueError("keep_indices must refer to active cases")
+        new_count = int(keep_t.numel())
+        with torch.no_grad():
+            kept_cases = self.cases[keep_t].clone()
+            kept_labels = self.labels[keep_t].clone()
+            kept_biases = self.biases[keep_t].clone()
+            kept_negative_weights = self.negative_weights[keep_t].clone()
+            kept_glocal_weights = self.glocal_weights[keep_t].clone()
+            if new_count:
+                self.cases[:new_count].copy_(kept_cases)
+                self.labels[:new_count].copy_(kept_labels)
+                self.biases[:new_count].copy_(kept_biases)
+                self.negative_weights[:new_count].copy_(kept_negative_weights)
+                self.glocal_weights[:new_count].copy_(kept_glocal_weights)
+            if new_count < active_count:
+                self.cases[new_count:active_count].zero_()
+                self.labels[new_count:active_count].zero_()
+                self.biases[new_count:active_count].fill_(self.case_default_bias)
+                self.negative_weights[new_count:active_count].fill_(1.0)
+                self.glocal_weights[new_count:active_count].copy_(
+                    torch.softmax(
+                        torch.ones(
+                            active_count - new_count,
+                            self.glocal_weightor_set_num,
+                            device=self.glocal_weights.device,
+                        ),
+                        dim=-1,
+                    )
+                )
+        removed = active_count - new_count
+        self.set_active_case_count(new_count)
+        return removed
 
     def mirrored_leaky_relu(self, x, negative_slope= 0.01 ):
         """
@@ -806,7 +909,9 @@ class NN_KNN_Model(nn.Module):
             most_activated_activations (torch.Tensor, optional): Activations of the top-k most activated cases.
         """
         batch_size = query.size(0)
-        num_cases = len(self.cases)
+        num_cases = self.case_count()
+        if num_cases <= 0:
+            raise ValueError("NN_KNN_Model.forward requires at least one active case")
         case_indices = torch.arange(num_cases).to(query.device)  # Default: use all case_nets
         # Sampling cases
         if self.sampling_cases_flag:

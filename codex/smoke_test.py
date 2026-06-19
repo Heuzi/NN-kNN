@@ -139,7 +139,42 @@ def run_nec_smoke() -> None:
 
 
 def run_nnknn_rl_smoke() -> None:
-    from model.nnknn_rl_workflow import make_nnknn_rl_config, train_nnknn_rl
+    from model.nnknn_rl_workflow import (
+        NNKNNQNetwork,
+        compute_policy_advantages,
+        compute_returns,
+        load_nnknn_rl_checkpoint,
+        make_nnknn_rl_config,
+        train_nnknn_rl,
+    )
+
+    returns = compute_returns([1.0, 1.0, 1.0], 0.5)
+    if not torch.allclose(returns, torch.tensor([1.75, 1.5, 1.0])):
+        raise AssertionError("NN-kNN-RL reward-to-go helper returned unexpected values.")
+    _ = compute_policy_advantages(returns)
+    try:
+        compute_policy_advantages(returns, method="gae")
+    except NotImplementedError:
+        pass
+    else:
+        raise AssertionError("NN-kNN-RL future advantage methods should fail clearly until implemented.")
+
+    wrapper = NNKNNQNetwork(4, 2, case_capacity=6, top_k=2, min_cases_per_action=1)
+    wrapper.configure_case_maintenance(prune_quantile=1.0, prune_bias_threshold=None)
+    wrapper.add_cases(
+        torch.zeros(6, 4),
+        torch.tensor([0, 0, 0, 1, 1, 1], dtype=torch.long),
+    )
+    probs = wrapper.policy_probs(torch.zeros(2, 4))
+    if probs.shape != (2, 2) or not torch.allclose(
+        probs.sum(dim=1), torch.ones(2, device=probs.device), atol=1e-5
+    ):
+        raise AssertionError("NN-kNN-RL policy wrapper did not return normalized action probabilities.")
+    with torch.no_grad():
+        wrapper.nnknn_model.biases[:6].copy_(torch.tensor([-5.0, -4.0, -3.0, -2.0, -1.0, 0.0]))
+    wrapper.prune_cases()
+    if torch.any(wrapper.action_counts() < 1):
+        raise AssertionError("NN-kNN-RL pruning removed all cases for an action.")
 
     cfg = make_nnknn_rl_config("smoke", seed=0)
     state = train_nnknn_rl("cartpole", cfg, progress=False)
@@ -148,6 +183,11 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("NN-kNN-RL smoke evaluation did not run the configured number of episodes.")
     if not state["checkpoint_path"].exists():
         raise AssertionError("NN-kNN-RL smoke did not write a checkpoint.")
+    loaded = load_nnknn_rl_checkpoint(state["checkpoint_path"])
+    if loaded["checkpoint"].get("advantage_method") != "reward_to_go":
+        raise AssertionError("NN-kNN-RL checkpoint did not preserve the advantage method.")
+    if loaded["model"].case_entries != state["model"].case_entries:
+        raise AssertionError("NN-kNN-RL checkpoint did not preserve active case count.")
     print("nnknn rl smoke ok")
     print(f"run_dir={state['run_dir']}")
     print(f"mean_return={float(final_eval['mean_return']):.6f}")
