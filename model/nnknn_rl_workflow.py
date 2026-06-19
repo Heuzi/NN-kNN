@@ -275,6 +275,7 @@ def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConf
             "eval_frequency": 0,
             "eval_episode_frequency": 100,
             "eval_episodes": 20,
+            "top_k": 10,
             "success_threshold": 475.0,
         },
         "gold": {
@@ -289,6 +290,7 @@ def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConf
             "eval_frequency": 0,
             "eval_episode_frequency": 100,
             "eval_episodes": 20,
+            "top_k": 10,
             "success_threshold": 475.0,
         },
     }
@@ -567,45 +569,6 @@ def train_nnknn_rl(
                         f"epsilon={epsilon:.3f} loss={latest_loss} cases={q_network.case_entries}",
                         flush=True,
                     )
-                if (
-                    cfg.eval_episode_frequency > 0
-                    and episode_index > 0
-                    and episode_index % cfg.eval_episode_frequency == 0
-                ):
-                    completed_step = global_step + 1
-                    eval_metrics = evaluate_nnknn_rl(
-                        spec.name,
-                        q_network,
-                        episodes=cfg.eval_episodes,
-                        seed=cfg.eval_seed,
-                        device=run_device,
-                    )
-                    eval_row = {
-                        "global_step": completed_step,
-                        "episode": episode_index,
-                        "eval_trigger": "episode",
-                        "mean_return": eval_metrics["mean_return"],
-                        "std_return": eval_metrics["std_return"],
-                        "min_return": eval_metrics["min_return"],
-                        "max_return": eval_metrics["max_return"],
-                        "mean_length": eval_metrics["mean_length"],
-                        "episodes": cfg.eval_episodes,
-                        "case_entries": q_network.case_entries,
-                    }
-                    eval_rows.append(eval_row)
-                    if best_eval is None or eval_metrics["mean_return"] > best_eval["mean_return"]:
-                        best_eval = eval_metrics
-                        best_eval_step = completed_step
-                        best_model_state = _model_state(q_network)
-                        best_target_state = _model_state(target_network)
-                    if progress:
-                        print(
-                            "[nnknn-rl][eval] "
-                            f"step={completed_step} episode={episode_index} "
-                            f"mean_return={eval_row['mean_return']:.2f} "
-                            f"max_return={eval_row['max_return']:.2f}",
-                            flush=True,
-                        )
                 obs, _ = env.reset(seed=cfg.seed + episode_index)
                 episode_return = 0.0
                 episode_length = 0
@@ -620,8 +583,6 @@ def train_nnknn_rl(
                 )
                 eval_row = {
                     "global_step": global_step,
-                    "episode": episode_index,
-                    "eval_trigger": "step",
                     "mean_return": eval_metrics["mean_return"],
                     "std_return": eval_metrics["std_return"],
                     "min_return": eval_metrics["min_return"],
