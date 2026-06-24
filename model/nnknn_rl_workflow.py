@@ -501,8 +501,11 @@ def compute_policy_advantages(
     returns = returns.float()
     if returns.numel() == 0:
         return returns
-    scale = returns.std(unbiased=False).clamp_min(float(epsilon))
-    return (returns - returns.mean()) / scale
+
+    centered = returns - returns.mean()
+    scale = centered.abs().mean().clamp_min(float(epsilon))
+    advantages = centered / scale
+    return advantages.clamp(-5.0, 5.0)
 
 
 def _select_action(
