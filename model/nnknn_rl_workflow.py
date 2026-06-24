@@ -547,8 +547,10 @@ def _train_policy_batch(
     for episode in episodes:
         observations.extend(episode["observations"])
         actions.extend(episode["actions"])
+        #TODO: Elliot might need to do reward shaping. SOTA for reward shaping that is standard for cartpole.
         returns.append(compute_returns(episode["rewards"], cfg.policy_gamma, device=device))
         episode_returns.append(float(sum(episode["rewards"])))
+        #TODO:: Elliot, double check reward is different for different steps in one episode.
     if not observations:
         return None
 
@@ -719,6 +721,7 @@ def train_nnknn_rl(
                 greedy=False,
             )
             next_obs, reward, terminated, truncated, _ = env.step(action)
+            ##TODO, Elliot double check this
             add_stats = q_network.add_cases(obs_array, np.asarray([action], dtype=np.int64))
             total_pruned += int(add_stats["pruned"])
             total_replaced += int(add_stats["replaced"])
