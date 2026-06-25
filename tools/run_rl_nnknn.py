@@ -32,6 +32,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-episode-frequency", type=int, default=None)
     parser.add_argument("--eval-episodes", type=int, default=None)
     parser.add_argument("--eval-seed", type=int, default=None)
+    parser.add_argument("--gamma", type=float, default=None)
+    parser.add_argument("--gae-lambda", type=float, default=None)
+    parser.add_argument("--critic-learning-rate", type=float, default=None)
+    parser.add_argument("--critic-update-epochs", type=int, default=None)
     parser.add_argument("--eval-only", action="store_true", help="Evaluate a saved checkpoint without training.")
     parser.add_argument("--checkpoint", default=None, help="Checkpoint path for --eval-only.")
     parser.add_argument("--quiet", action="store_true", help="Disable progress logging during training.")
@@ -50,6 +54,14 @@ def _config_from_args(args: argparse.Namespace) -> NNKNNRLConfig:
         overrides["eval_episodes"] = args.eval_episodes
     if args.eval_seed is not None:
         overrides["eval_seed"] = args.eval_seed
+    if args.gamma is not None:
+        overrides["gamma"] = args.gamma
+    if args.gae_lambda is not None:
+        overrides["gae_lambda"] = args.gae_lambda
+    if args.critic_learning_rate is not None:
+        overrides["critic_learning_rate"] = args.critic_learning_rate
+    if args.critic_update_epochs is not None:
+        overrides["critic_update_epochs"] = args.critic_update_epochs
     return make_nnknn_rl_config(args.profile, **overrides)
 
 

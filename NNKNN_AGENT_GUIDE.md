@@ -51,7 +51,7 @@ The key practical distinction in the current Table 1 work is:
   This is the maintained DQN baseline workflow for CartPole and future
   RL-family extensions.
 - [model/nnknn_rl_workflow.py](model/nnknn_rl_workflow.py)
-  This is the maintained DQN-style NN-kNN-RL workflow for CartPole.
+  This is the maintained NN-kNN actor-critic workflow for CartPole.
 - [datasets/classification_data.py](datasets/classification_data.py)
   This contains portable classification loaders with train-only preprocessing.
 - [datasets/rl_tasks.py](datasets/rl_tasks.py)
@@ -68,7 +68,7 @@ Important anchors:
 
 ## RL / DQN / NEC Workflow Files
 
-The current RL path includes repo-native DQN, NEC, and DQN-style NN-kNN-RL
+The current RL path includes repo-native DQN, NEC, and NN-kNN actor-critic
 workflows on `CartPole-v1`.
 Do not use `Outdated NN-kNN Reinforcement Learning.ipynb` or
 `OutdatedNewCartpole.ipynb` as implementation references.
@@ -93,11 +93,26 @@ Important entry points in `model/nec_workflow.py`:
 
 Important entry points in `model/nnknn_rl_workflow.py`:
 
+- `ALGORITHM_NAME`
 - `NNKNNRLConfig`
+- `ValueNetwork`
+- `compute_gae(...)`
 - `make_nnknn_rl_config(...)`
 - `train_nnknn_rl(...)`
 - `evaluate_nnknn_rl(...)`
 - `load_nnknn_rl_checkpoint(...)`
+
+Current NN-kNN-RL algorithm:
+
+- `ALGORITHM_NAME` is `nnknn_actor_mlp_value_gae`.
+- The actor is an NN-kNN classifier over actions; `policy_probs(...)` returns
+  action probabilities.
+- The critic is a standard MLP `ValueNetwork` that predicts `V(s)`.
+- Actor updates use GAE advantages from the MLP critic. Raw environment reward
+  is the default; `reward_shaping` is off unless explicitly set.
+- Old reward-to-go NN-kNN-RL checkpoints do not load into the actor-critic
+  workflow. Retrain them instead of attempting compatibility shims.
+- NN-kNN regression as the critic is deferred until the MLP critic path works.
 
 Task metadata lives in `datasets/rl_tasks.py`; currently supported:
 
@@ -128,6 +143,7 @@ Routine RL checks:
 .venv/bin/python tools/run_rl_nec.py cartpole --eval-only --checkpoint <checkpoint.pt>
 .venv/bin/python tools/run_rl_nnknn.py cartpole --profile smoke --seed 0
 .venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0
+.venv/bin/python tools/run_rl_nnknn.py cartpole --profile debug --gamma 0.99 --gae-lambda 0.95 --critic-learning-rate 1e-3 --critic-update-epochs 1
 .venv/bin/python tools/run_rl_nnknn.py cartpole --eval-only --checkpoint <checkpoint.pt>
 ```
 
@@ -163,6 +179,15 @@ Current CartPole NEC reference result:
   debug-sized run (`292.2` best mean return), but it remains below the `475.0`
   success threshold and below the DQN reference; treat it as unsolved/underfit
   before paper-style claims.
+
+Current NN-kNN-RL status:
+
+- newest validated smoke artifact:
+  `results/rl/nnknn_rl_cartpole_20260625_161005_956241/`
+- algorithm: `nnknn_actor_mlp_value_gae`
+- smoke eval mean return: `14.0` over 2 episodes
+- interpretation: this validates actor-critic plumbing and checkpoint reload
+  only. It is not a competitive CartPole result.
 
 ## Classification Workflow Files
 
@@ -499,8 +524,9 @@ Legacy or specialized files:
   `run_repeated_regression_model_benchmarks(...)`.
 - For paper-style Table 1 reruns with 5-fold CV and std reporting, use
   `run_table1_kfold(...)` from `tools/table1_nnknn_kfold.py`.
-- For RL/DQN runs, use `tools/run_rl_dqn.py` and inspect `summary.json`,
-  `eval_metrics.csv`, and `training_efficiency` before comparing methods.
+- For RL/DQN/NEC/NN-kNN-RL runs, use the corresponding `tools/run_rl_*.py`
+  script and inspect `summary.json`, `eval_metrics.csv`, and
+  `training_efficiency` before comparing methods.
 - Use `datasets/reg_data.py` as the source of truth for tabular regression
   datasets.
 - Treat `HANDOFF.md` as the current experiment-status document.

@@ -8,10 +8,9 @@
 - A repo-native RL/NEC baseline now exists for `CartPole-v1`; it uses exact
   per-action kNN dictionaries and the same fixed-budget/best-checkpoint
   reporting protocol as DQN.
-- An experimental DQN-style NN-kNN-RL workflow now exists for `CartPole-v1`;
-  it trains a case-based Q approximator from replay with TD targets and writes
-  the same fixed-budget/best-checkpoint artifacts as DQN and NEC. Warning: this
-  first NN-kNN-RL path is incredibly slow and unstable compared with DQN/NEC.
+- An experimental NN-kNN actor-critic workflow now exists for `CartPole-v1`;
+  it keeps NN-kNN as the actor, uses an MLP value critic with GAE advantages,
+  and writes the same fixed-budget/best-checkpoint artifacts as DQN and NEC.
   Treat it as a research/debug surface, not as a solved or reliable baseline.
 - Classification uses normalized case activation as class probability mass
   with NLL loss; it does not restore the older class-weight formulation.
@@ -62,10 +61,12 @@
   - run folders: `results/rl/nnknn_rl_cartpole_*`
   - smoke profile: `256` environment steps, `case_capacity=1000`,
     `eval_episodes=2`
-  - observed smoke eval mean return: about `73.5`
+  - current actor-critic GAE smoke artifact:
+    `results/rl/nnknn_rl_cartpole_20260625_161005_956241/`
+  - observed actor-critic smoke eval mean return: `14.0`
   - interpretation: smoke verifies plumbing only. It is not a meaningful
-    performance result, and fast/debug runs should be expected to be slow and
-    unstable until the case-memory update rule is redesigned.
+    performance result, and fast/debug runs still need tuning before
+    paper-style comparison.
 - A fresh June 1 NN-kNN-only 10-fold rerun confirmed the recorded Iris and
   Zebra representative results exactly. These are current-core functionality
   checks, not exact reproductions of IJCAI-25 results from the older
@@ -77,10 +78,10 @@
   improving scores on the earlier IJCAI-25 classification tasks while keeping
   the maintained IJCAI-26-based NN-kNN retrieval/core implementation.
 - RL work is in a baseline-establishment/debugging phase. DQN is the reliable
-  CartPole reference, NEC is partially working but underfit, and NN-kNN-RL is
-  now implemented but extremely slow and unstable. The next NN-kNN-RL step
-  should be diagnostics and redesign of case-memory updates, not paper-style
-  comparison.
+  CartPole reference, NEC is partially working but underfit, and NN-kNN-RL has
+  just been refactored to actor-critic GAE. The next NN-kNN-RL step should be a
+  debug/fast CartPole run and diagnostics of actor probabilities, value loss,
+  explained variance, and selected-checkpoint behavior.
 - Do not restore the retired legacy case-weight classification path solely to
   reproduce old numbers. Improvements should come from the current workflow,
   dataset protocol checks, hyperparameter tuning, or appropriate current-core
@@ -108,11 +109,10 @@
   best model is the final model and the curve is still rising, increase the
   budget or tune before comparing methods. Use `best_model_step` and
   `first_success_step` as sample-efficiency proxies.
-- For NN-kNN-RL specifically, do not treat a poor fast/debug run as just a
-  hyperparameter issue. The current design appends many replay-derived TD
-  target cases into a fixed circular case memory, which can fill quickly with
-  duplicate or contradictory labels. Expect slow training, high variance, and
-  unstable policy quality until this is changed.
+- For NN-kNN-RL specifically, do not treat a poor smoke/debug run as a final
+  method result. The current design is now an on-policy NN-kNN actor with an
+  MLP value critic and GAE; NN-kNN regression as the critic remains future
+  work after the neural critic is validated.
 
 ## Current Local Artifacts
 
@@ -129,9 +129,11 @@
   `summary.json`, `manifest.json`, and `checkpoint.pt`.
 - NEC run folders use the same artifact names as DQN run folders.
 - NN-kNN-RL run folders use the same artifact names as DQN and NEC run folders
-  and add `case_entries` to the saved summary. Recent NN-kNN-RL workflow
-  changes evaluate every `100` completed episodes by default
-  (`eval_episode_frequency=100`) instead of every fixed number of steps.
+  and add `algorithm`, `gae`, `case_entries`, and action-count fields to the
+  saved summary. Current actor-critic checkpoints record
+  `algorithm="nnknn_actor_mlp_value_gae"` and include both actor and critic
+  state; older reward-to-go NN-kNN-RL checkpoints are legacy and should be
+  retrained rather than loaded.
 - `summary.json` records both the selected best checkpoint evaluation
   (`final_eval`) and the end-of-budget model evaluation (`last_eval`). It also
   records `training_efficiency`, including `best_model_step`,

@@ -140,24 +140,26 @@ def run_nec_smoke() -> None:
 
 def run_nnknn_rl_smoke() -> None:
     from model.nnknn_rl_workflow import (
+        ALGORITHM_NAME,
         NNKNNQNetwork,
-        compute_policy_advantages,
-        compute_returns,
+        compute_gae,
         load_nnknn_rl_checkpoint,
         make_nnknn_rl_config,
         train_nnknn_rl,
     )
 
-    returns = compute_returns([1.0, 1.0, 1.0], 0.5)
-    if not torch.allclose(returns, torch.tensor([1.75, 1.5, 1.0])):
-        raise AssertionError("NN-kNN-RL reward-to-go helper returned unexpected values.")
-    _ = compute_policy_advantages(returns)
-    try:
-        compute_policy_advantages(returns, method="gae")
-    except NotImplementedError:
-        pass
-    else:
-        raise AssertionError("NN-kNN-RL future advantage methods should fail clearly until implemented.")
+    advantages, value_targets = compute_gae(
+        rewards=[1.0, 1.0, 1.0],
+        values=[0.5, 0.5, 0.5],
+        next_values=[0.5, 0.5, 0.0],
+        terminated=[False, False, True],
+        gamma=0.9,
+        gae_lambda=0.8,
+    )
+    if not torch.allclose(advantages, torch.tensor([1.8932, 1.31, 0.5]), atol=1e-4):
+        raise AssertionError("NN-kNN-RL GAE helper returned unexpected advantages.")
+    if not torch.allclose(value_targets, torch.tensor([2.3932, 1.81, 1.0]), atol=1e-4):
+        raise AssertionError("NN-kNN-RL GAE helper returned unexpected value targets.")
 
     wrapper = NNKNNQNetwork(4, 2, case_capacity=6, top_k=2, min_cases_per_action=1)
     wrapper.configure_case_maintenance(prune_quantile=1.0, prune_bias_threshold=None)
@@ -177,6 +179,13 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("NN-kNN-RL pruning removed all cases for an action.")
 
     cfg = make_nnknn_rl_config("smoke", seed=0)
+    for removed_field in ("advantage_method", "value_function", "bootstrap_n_steps", "vtrace"):
+        if hasattr(cfg, removed_field):
+            raise AssertionError(f"NN-kNN-RL config still exposes removed field {removed_field}.")
+    if cfg.gae_lambda != 0.95:
+        raise AssertionError("NN-kNN-RL should default to GAE lambda 0.95.")
+    if cfg.reward_shaping is not None:
+        raise AssertionError("NN-kNN-RL should default to raw environment rewards.")
     state = train_nnknn_rl("cartpole", cfg, progress=False)
     final_eval = state["final_eval"]
     if final_eval["episodes"] != cfg.eval_episodes:
@@ -184,10 +193,14 @@ def run_nnknn_rl_smoke() -> None:
     if not state["checkpoint_path"].exists():
         raise AssertionError("NN-kNN-RL smoke did not write a checkpoint.")
     loaded = load_nnknn_rl_checkpoint(state["checkpoint_path"])
-    if loaded["checkpoint"].get("advantage_method") != "reward_to_go":
-        raise AssertionError("NN-kNN-RL checkpoint did not preserve the advantage method.")
+    if loaded["checkpoint"].get("algorithm") != ALGORITHM_NAME:
+        raise AssertionError("NN-kNN-RL checkpoint did not preserve the actor-critic algorithm marker.")
+    if "actor_state" not in loaded["checkpoint"] or "critic_state_dict" not in loaded["checkpoint"]:
+        raise AssertionError("NN-kNN-RL checkpoint did not preserve actor and critic state.")
     if loaded["model"].case_entries != state["model"].case_entries:
         raise AssertionError("NN-kNN-RL checkpoint did not preserve active case count.")
+    if "value_model" not in loaded:
+        raise AssertionError("NN-kNN-RL checkpoint reload did not return the value critic.")
     print("nnknn rl smoke ok")
     print(f"run_dir={state['run_dir']}")
     print(f"mean_return={float(final_eval['mean_return']):.6f}")

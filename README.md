@@ -45,7 +45,7 @@ outside the current classification workflow.
 ## RL Baseline Protocol
 
 The current RL baselines are a CleanRL-style DQN and a repo-native NEC on
-`CartPole-v1`:
+`CartPole-v1`, plus an experimental NN-kNN actor-critic workflow:
 
 ```bash
 python tools/run_rl_dqn.py cartpole --profile fast --seed 0
@@ -53,8 +53,14 @@ python tools/run_rl_dqn.py cartpole --eval-only --checkpoint <checkpoint.pt>
 python tools/run_rl_nec.py cartpole --profile fast --seed 0
 python tools/run_rl_nec.py cartpole --eval-only --checkpoint <checkpoint.pt>
 python tools/run_rl_nnknn.py cartpole --profile fast --seed 0
+python tools/run_rl_nnknn.py cartpole --profile debug --gamma 0.99 --gae-lambda 0.95 --critic-learning-rate 1e-3 --critic-update-epochs 1
 python tools/run_rl_nnknn.py cartpole --eval-only --checkpoint <checkpoint.pt>
 ```
+
+The NN-kNN-RL workflow currently uses NN-kNN as the actor, a standard MLP value
+critic, and GAE advantages. Checkpoints record
+`algorithm="nnknn_actor_mlp_value_gae"`; older reward-to-go NN-kNN-RL
+checkpoints should be retrained.
 
 Current DQN reference run:
 
@@ -72,7 +78,7 @@ Current NEC reference run:
 - interpretation: NEC improved over the earlier 25k-step debug-sized run but
   remains below the `475.0` success threshold and below DQN.
 
-For DQN, NEC, and future NN-kNN-RL comparisons, prefer a fixed environment-step
+For DQN, NEC, and NN-kNN-RL comparisons, prefer a fixed environment-step
 budget with periodic evaluation and best-checkpoint selection. Do not treat the
 best checkpoint alone as proof that the budget was adequate. A fixed budget is
 most informative when the model has reached a good policy and later regressed or
@@ -86,6 +92,10 @@ threshold, the training fraction used, the best-vs-last return gap, and a budget
 interpretation such as `regressed_after_best`, `final_is_best_check_for_underfit`,
 or `unsolved_or_underfit`. Use these fields as sample-efficiency proxies across
 DQN, NEC, and NN-kNN-RL.
+
+Current NN-kNN-RL status: the actor-critic GAE smoke path validated at
+`results/rl/nnknn_rl_cartpole_20260625_161005_956241/` with mean return `14.0`
+over 2 smoke-eval episodes. This verifies plumbing only, not benchmark quality.
 
 ## Quick Checks
 
