@@ -48,6 +48,7 @@ class NNKNNRLConfig:
     entropy_coef: float = 0.01
     advantage_epsilon: float = 1e-8
     advantage_method: str = "reward_to_go"
+    reward_shaping: str | None = "cartpole_potential"
     value_function: str | None = None
     gae_lambda: float | None = None
     bootstrap_n_steps: int | None = None
@@ -485,6 +486,71 @@ def compute_returns(rewards: list[float] | torch.Tensor, gamma: float, *, device
     return returns
 
 
+def shape_cartpole_rewards(
+    observations: list[np.ndarray],
+    next_observations: list[np.ndarray],
+    terminated: list[bool],
+    rewards: list[float],
+    gamma: float,
+    *,
+    device: torch.device | None = None,
+) -> torch.Tensor:
+    rewards_t = torch.as_tensor(rewards, dtype=torch.float32, device=device)
+    if rewards_t.numel() == 0:
+        return rewards_t
+
+    obs_t = torch.as_tensor(np.asarray(observations, dtype=np.float32), dtype=torch.float32, device=device)
+    next_obs_t = torch.as_tensor(np.asarray(next_observations, dtype=np.float32), dtype=torch.float32, device=device)
+    if (
+        obs_t.ndim != 2
+        or next_obs_t.ndim != 2
+        or obs_t.shape[0] != rewards_t.numel()
+        or next_obs_t.shape[0] != rewards_t.numel()
+        or obs_t.shape[1] < 3
+        or next_obs_t.shape[1] < 3
+    ):
+        raise ValueError("CartPole reward shaping requires one observation per reward with at least 3 features")
+
+    x_threshold = 2.4
+    theta_threshold = 12.0 * np.pi / 180.0
+    x = (obs_t[:, 0] / x_threshold).abs().clamp_max(1.0)
+    theta = (obs_t[:, 2] / theta_threshold).abs().clamp_max(1.0)
+    next_x = (next_obs_t[:, 0] / x_threshold).abs().clamp_max(1.0)
+    next_theta = (next_obs_t[:, 2] / theta_threshold).abs().clamp_max(1.0)
+    potential = -(x.square() + theta.square())
+    next_potential = -(next_x.square() + next_theta.square())
+    terminated_t = torch.as_tensor(terminated, dtype=torch.bool, device=device)
+    if terminated_t.numel() == next_potential.numel():
+        next_potential = next_potential.masked_fill(terminated_t, 0.0)
+    return rewards_t + float(gamma) * next_potential - potential
+
+
+def episode_policy_rewards(
+    episode: dict[str, Any],
+    cfg: NNKNNRLConfig,
+    *,
+    device: torch.device,
+) -> torch.Tensor:
+    """Return the per-step rewards used for policy updates.
+
+    Environment rewards are stored unchanged during rollout and summed for
+    episode returns. Policy updates can optionally use CartPole potential-based
+    shaping so each step receives the raw reward plus the change in state
+    potential.
+    """
+
+    if cfg.reward_shaping == "cartpole_potential":
+        return shape_cartpole_rewards(
+            episode["observations"],
+            episode["next_observations"],
+            episode["terminated"],
+            episode["rewards"],
+            cfg.policy_gamma,
+            device=device,
+        )
+    return torch.as_tensor(episode["rewards"], dtype=torch.float32, device=device)
+
+
 def compute_policy_advantages(
     returns: torch.Tensor,
     *,
@@ -544,13 +610,17 @@ def _train_policy_batch(
     actions: list[int] = []
     returns: list[torch.Tensor] = []
     episode_returns: list[float] = []
+    reward_variation_flags: list[torch.Tensor] = []
+    reward_checked_episodes = 0
     for episode in episodes:
         observations.extend(episode["observations"])
         actions.extend(episode["actions"])
-        #TODO: Elliot might need to do reward shaping. SOTA for reward shaping that is standard for cartpole.
-        returns.append(compute_returns(episode["rewards"], cfg.policy_gamma, device=device))
+        policy_rewards = episode_policy_rewards(episode, cfg, device=device)
+        if policy_rewards.numel() > 1:
+            reward_checked_episodes += 1
+            reward_variation_flags.append((policy_rewards != policy_rewards[0]).any())
+        returns.append(compute_returns(policy_rewards, cfg.policy_gamma, device=device))
         episode_returns.append(float(sum(episode["rewards"])))
-        #TODO:: Elliot, double check reward is different for different steps in one episode.
     if not observations:
         return None
 
@@ -580,6 +650,9 @@ def _train_policy_batch(
     optimizer.step()
 
     stats = model.case_bias_stats()
+    reward_varying_episodes = (
+        int(torch.stack(reward_variation_flags).sum().detach().cpu().item()) if reward_variation_flags else 0
+    )
     return {
         "global_step": global_step,
         "episodes": len(episodes),
@@ -591,6 +664,8 @@ def _train_policy_batch(
         "mean_reward_to_go": float(returns_t.mean().detach().cpu().item()),
         "mean_advantage": float(advantages.mean().detach().cpu().item()),
         "mean_episode_return": float(np.mean(episode_returns)) if episode_returns else 0.0,
+        "reward_varying_episodes": reward_varying_episodes,
+        "reward_checked_episodes": reward_checked_episodes,
         "case_entries": model.case_entries,
         "action_counts": json.dumps(model.action_counts().detach().cpu().tolist()),
         **stats,
@@ -702,8 +777,10 @@ def train_nnknn_rl(
 
     obs, _ = env.reset(seed=cfg.seed)
     episode_observations: list[np.ndarray] = []
+    episode_next_observations: list[np.ndarray] = []
     episode_actions: list[int] = []
     episode_rewards: list[float] = []
+    episode_terminated: list[bool] = []
     episode_return = 0.0
     episode_length = 0
     episode_index = 0
@@ -727,8 +804,10 @@ def train_nnknn_rl(
             total_replaced += int(add_stats["replaced"])
 
             episode_observations.append(obs_array)
+            episode_next_observations.append(np.asarray(next_obs, dtype=np.float32))
             episode_actions.append(action)
             episode_rewards.append(float(reward))
+            episode_terminated.append(bool(terminated))
             obs = next_obs
             episode_return += float(reward)
             episode_length += 1
@@ -754,8 +833,10 @@ def train_nnknn_rl(
                 pending_update_episodes.append(
                     {
                         "observations": episode_observations,
+                        "next_observations": episode_next_observations,
                         "actions": episode_actions,
                         "rewards": episode_rewards,
+                        "terminated": episode_terminated,
                     }
                 )
                 latest_loss: float | None = None
@@ -836,8 +917,10 @@ def train_nnknn_rl(
 
                 obs, _ = env.reset(seed=cfg.seed + episode_index)
                 episode_observations = []
+                episode_next_observations = []
                 episode_actions = []
                 episode_rewards = []
+                episode_terminated = []
                 episode_return = 0.0
                 episode_length = 0
 
