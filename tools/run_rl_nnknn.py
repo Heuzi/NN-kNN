@@ -34,6 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-seed", type=int, default=None)
     parser.add_argument("--gamma", type=float, default=None)
     parser.add_argument("--gae-lambda", type=float, default=None)
+    parser.add_argument("--critic-type", choices=["mlp", "nnknn"], default=None)
     parser.add_argument("--critic-learning-rate", type=float, default=None)
     parser.add_argument("--critic-update-epochs", type=int, default=None)
     parser.add_argument("--eval-only", action="store_true", help="Evaluate a saved checkpoint without training.")
@@ -58,6 +59,8 @@ def _config_from_args(args: argparse.Namespace) -> NNKNNRLConfig:
         overrides["gamma"] = args.gamma
     if args.gae_lambda is not None:
         overrides["gae_lambda"] = args.gae_lambda
+    if args.critic_type is not None:
+        overrides["critic_type"] = args.critic_type
     if args.critic_learning_rate is not None:
         overrides["critic_learning_rate"] = args.critic_learning_rate
     if args.critic_update_epochs is not None:

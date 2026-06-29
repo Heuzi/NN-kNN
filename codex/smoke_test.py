@@ -186,6 +186,8 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("NN-kNN-RL should default to GAE lambda 0.95.")
     if cfg.reward_shaping is not None:
         raise AssertionError("NN-kNN-RL should default to raw environment rewards.")
+    if cfg.critic_type != "mlp":
+        raise AssertionError("NN-kNN-RL should default to the MLP value critic.")
     state = train_nnknn_rl("cartpole", cfg, progress=False)
     final_eval = state["final_eval"]
     if final_eval["episodes"] != cfg.eval_episodes:
@@ -201,8 +203,21 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("NN-kNN-RL checkpoint did not preserve active case count.")
     if "value_model" not in loaded:
         raise AssertionError("NN-kNN-RL checkpoint reload did not return the value critic.")
+
+    nnknn_cfg = make_nnknn_rl_config("smoke", seed=1, critic_type="nnknn")
+    nnknn_state = train_nnknn_rl("cartpole", nnknn_cfg, progress=False)
+    if not nnknn_state["checkpoint_path"].exists():
+        raise AssertionError("NN-kNN critic smoke did not write a checkpoint.")
+    nnknn_loaded = load_nnknn_rl_checkpoint(nnknn_state["checkpoint_path"])
+    if nnknn_loaded["config"].critic_type != "nnknn":
+        raise AssertionError("NN-kNN critic checkpoint reload did not preserve critic_type.")
+    if "value_model" not in nnknn_loaded:
+        raise AssertionError("NN-kNN critic checkpoint reload did not return the value critic.")
+    if getattr(nnknn_loaded["value_model"], "case_entries", 0) <= 0:
+        raise AssertionError("NN-kNN critic checkpoint did not preserve critic value cases.")
     print("nnknn rl smoke ok")
     print(f"run_dir={state['run_dir']}")
+    print(f"nnknn_critic_run_dir={nnknn_state['run_dir']}")
     print(f"mean_return={float(final_eval['mean_return']):.6f}")
 
 

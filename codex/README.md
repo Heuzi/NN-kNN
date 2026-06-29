@@ -31,12 +31,14 @@ RL baseline commands:
 - `.venv/bin/python tools/run_rl_nec.py cartpole --profile fast --seed 0`
 - `.venv/bin/python tools/run_rl_nnknn.py cartpole --profile smoke --seed 0`
 - `.venv/bin/python tools/run_rl_nnknn.py cartpole --profile debug --gamma 0.99 --gae-lambda 0.95 --critic-learning-rate 1e-3 --critic-update-epochs 1`
+- `.venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --critic-type nnknn`
 
 RL runs write timestamped artifacts under `results/rl/`. Inspect
 `summary.json`, especially `training_efficiency`, before comparing DQN, NEC,
-or NN-kNN-RL results. Current NN-kNN-RL uses an NN-kNN actor with an MLP value
-critic and GAE advantages; checkpoints record
-`algorithm="nnknn_actor_mlp_value_gae"`.
+or NN-kNN-RL results. Current NN-kNN-RL uses an NN-kNN actor with selectable
+MLP or NN-kNN value critics and GAE advantages; checkpoints record
+`algorithm="nnknn_actor_mlp_value_gae"` for compatibility. Use `critic_type`
+in config or summary output to distinguish MLP and NN-kNN critics.
 
 Current CartPole references:
 
@@ -48,3 +50,7 @@ Current CartPole references:
 - NN-kNN-RL smoke:
   `results/rl/nnknn_rl_cartpole_20260625_161005_956241/`, mean return `14.0`
   over 2 smoke-eval episodes; this validates plumbing only.
+- NN-kNN-RL fast with NN-kNN critic:
+  `results/rl/nnknn_rl_cartpole_20260626_150805_689987/`, selected eval mean
+  return `369.5` over 20 episodes; this remains below the `475.0` success
+  threshold.

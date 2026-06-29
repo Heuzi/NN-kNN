@@ -53,14 +53,16 @@ python tools/run_rl_dqn.py cartpole --eval-only --checkpoint <checkpoint.pt>
 python tools/run_rl_nec.py cartpole --profile fast --seed 0
 python tools/run_rl_nec.py cartpole --eval-only --checkpoint <checkpoint.pt>
 python tools/run_rl_nnknn.py cartpole --profile fast --seed 0
+python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --critic-type nnknn
 python tools/run_rl_nnknn.py cartpole --profile debug --gamma 0.99 --gae-lambda 0.95 --critic-learning-rate 1e-3 --critic-update-epochs 1
 python tools/run_rl_nnknn.py cartpole --eval-only --checkpoint <checkpoint.pt>
 ```
 
-The NN-kNN-RL workflow currently uses NN-kNN as the actor, a standard MLP value
-critic, and GAE advantages. Checkpoints record
-`algorithm="nnknn_actor_mlp_value_gae"`; older reward-to-go NN-kNN-RL
-checkpoints should be retrained.
+The NN-kNN-RL workflow currently uses NN-kNN as the actor, selectable MLP or
+NN-kNN value critics, and GAE advantages. Checkpoints record
+`algorithm="nnknn_actor_mlp_value_gae"` for compatibility; use
+`critic_type` in the config or summary to distinguish MLP and NN-kNN critics.
+Older reward-to-go NN-kNN-RL checkpoints should be retrained.
 
 Current DQN reference run:
 
@@ -96,6 +98,10 @@ DQN, NEC, and NN-kNN-RL.
 Current NN-kNN-RL status: the actor-critic GAE smoke path validated at
 `results/rl/nnknn_rl_cartpole_20260625_161005_956241/` with mean return `14.0`
 over 2 smoke-eval episodes. This verifies plumbing only, not benchmark quality.
+The current fast NN-kNN-critic comparison run is
+`results/rl/nnknn_rl_cartpole_20260626_150805_689987/` with selected eval mean
+return `369.5` over 20 episodes; it remains below the `475.0` success
+threshold and should be treated as `unsolved_or_underfit`.
 
 ## Quick Checks
 
