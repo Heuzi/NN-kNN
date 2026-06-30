@@ -6,7 +6,7 @@
 - For regression work, prefer the helpers in `model/regression_workflow.py` instead of calling low-level training code directly.
 - Regression configs must explicitly set `task_type="regression"`. The notebook does this already; ad hoc scripts should too.
 - For RL baseline work, prefer `model/rl_workflow.py`, `model/nec_workflow.py`, `model/nnknn_rl_workflow.py`, `datasets/rl_tasks.py`, `tools/run_rl_dqn.py`, `tools/run_rl_nec.py`, and `tools/run_rl_nnknn.py` instead of notebook-only implementations.
-- Current NN-kNN-RL is an on-policy actor-critic workflow: NN-kNN is the actor, a standard MLP predicts `V(s)`, and GAE supplies actor advantages. NN-kNN regression as critic is future work.
+- Current NN-kNN-RL is an on-policy actor-critic workflow: NN-kNN is the actor, the value critic is selectable between MLP and NN-kNN regression, and GAE supplies actor advantages.
 - Treat notebooks named `Outdated...` as archival only. Do not use them as implementation references for RL work.
 - For DQN, NEC, and NN-kNN-RL comparisons, use fixed environment-step budgets with periodic evaluation and best-checkpoint selection. Interpret `training_efficiency` before making paper-style claims; if the best model is the final model or the threshold is never reached, treat the run as possible underfit/unsolved.
 - Use synthetic datasets for quick validation unless a task specifically requires the larger real datasets in `datasets/`.

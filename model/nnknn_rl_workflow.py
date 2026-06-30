@@ -38,8 +38,11 @@ class NNKNNRLConfig:
     total_timesteps: int = 150_000
     learning_rate: float = 5e-4
     critic_learning_rate: float = 1e-3
+    critic_type: str = "mlp"
     critic_hidden_sizes: tuple[int, ...] = (128, 128)
     critic_update_epochs: int = 1
+    critic_nnknn_config: dict[str, Any] = field(default_factory=dict)
+    critic_case_capacity: int | None = None
     case_capacity: int = 10_000
     max_grad_norm: float = 10.0
     min_case_entries: int = 32
@@ -67,7 +70,7 @@ class NNKNNRLConfig:
     case_prune_quantile: float = 0.05
     case_prune_bias_threshold: float | None = None
     min_cases_per_action: int = 8
-    source_reference: str = "NN-kNN actor with MLP value critic and GAE advantages"
+    source_reference: str = "NN-kNN actor with selectable value critic and GAE advantages"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -354,6 +357,162 @@ class ValueNetwork(nn.Module):
         return values.squeeze(-1)
 
 
+class NNKNNValueNetwork(nn.Module):
+    """NN-kNN regression critic that predicts V(s)."""
+
+    def __init__(
+        self,
+        obs_dim: int,
+        *,
+        case_capacity: int,
+        tau: float = 1.0,
+        top_k: int = 10,
+        case_default_bias: float = 0.0,
+        nnknn_config: dict[str, Any] | None = None,
+        use_glocal_weightor: bool = True,
+        glocal_fw_set_num: int = 1,
+    ):
+        super().__init__()
+        self.obs_dim = int(obs_dim)
+        self.case_capacity = int(case_capacity)
+        self.tau = float(tau)
+        self.top_k = int(top_k)
+        self.case_default_bias = float(case_default_bias)
+        self.use_glocal_weightor = bool(use_glocal_weightor)
+        self.glocal_fw_set_num = int(glocal_fw_set_num)
+        self._prune_quantile = 0.0
+        self._prune_bias_threshold: float | None = None
+
+        cases = torch.zeros(self.case_capacity, self.obs_dim, dtype=torch.float32)
+        labels = torch.zeros(self.case_capacity, 1, dtype=torch.float32)
+        glocal_weightor = (
+            GlocalFeatureWeight(self.obs_dim, self.glocal_fw_set_num) if self.use_glocal_weightor else None
+        )
+        model_config = {
+            "task_type": "regression",
+            "normalize_over_cases": True,
+            "case_score_mode": "bias_minus_distance",
+            "case_normalizer": "softmax",
+            "pre_topk_mask": True,
+            "top_k": self.top_k,
+            "tau": self.tau,
+            "bias_manual_set": True,
+            "bias_manual_value": self.case_default_bias,
+            "ignore_identical_in_training": False,
+            "explanation_mode": False,
+            "active_case_count": 0,
+            "glocal_fw_set_num": self.glocal_fw_set_num,
+        }
+        model_config.update(nnknn_config or {})
+        model_config["task_type"] = "regression"
+        model_config["normalize_over_cases"] = True
+        model_config["case_score_mode"] = "bias_minus_distance"
+        model_config["case_normalizer"] = "softmax"
+        model_config["pre_topk_mask"] = True
+        model_config["top_k"] = self.top_k
+        model_config["tau"] = self.tau
+        model_config["bias_manual_set"] = True
+        model_config["bias_manual_value"] = self.case_default_bias
+        model_config["ignore_identical_in_training"] = False
+        model_config["glocal_fw_set_num"] = self.glocal_fw_set_num
+        model_config["active_case_count"] = 0
+        self.nnknn_config = dict(model_config)
+        self.nnknn_model = NN_KNN_Model(
+            cases,
+            labels,
+            feature_extractor=None,
+            glocal_weightor=glocal_weightor,
+            **model_config,
+        )
+        self.nnknn_model.to(self.nnknn_model.cases.device)
+
+    @property
+    def case_entries(self) -> int:
+        return self.nnknn_model.case_count()
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        if observations.dim() == 1:
+            observations = observations.unsqueeze(0)
+        observations = observations.to(next(self.parameters()).device, dtype=torch.float32)
+        if self.case_entries <= 0:
+            return torch.zeros(observations.shape[0], dtype=observations.dtype, device=observations.device)
+        final_predictions, _predicted, *_ = self.nnknn_model(observations)
+        return final_predictions.view(observations.shape[0], -1)[:, 0]
+
+    def add_cases(self, observations: torch.Tensor | np.ndarray, values: torch.Tensor | np.ndarray) -> dict[str, int]:
+        obs_t = torch.as_tensor(observations, dtype=torch.float32, device=self.nnknn_model.cases.device)
+        values_t = torch.as_tensor(values, dtype=torch.float32, device=self.nnknn_model.labels.device).view(-1, 1)
+        if obs_t.dim() == 1:
+            obs_t = obs_t.unsqueeze(0)
+        if obs_t.shape[0] != values_t.shape[0]:
+            raise ValueError("observations and values must have the same batch size")
+        added = 0
+        replaced = 0
+        pruned = 0
+        for idx in range(obs_t.shape[0]):
+            if self.case_entries >= self.case_capacity:
+                pruned += self.prune_cases(force=True)
+            if self.case_entries >= self.case_capacity:
+                replace_idx = self._lowest_case_index()
+                if replace_idx is None:
+                    continue
+                keep_indices = [i for i in range(self.case_entries) if i != replace_idx]
+                self.nnknn_model.compact_cases(keep_indices)
+                replaced += 1
+            self.nnknn_model.append_cases(obs_t[idx].unsqueeze(0), values_t[idx].view(1, 1))
+            added += 1
+        return {"added": added, "pruned": pruned, "replaced": replaced}
+
+    def _lowest_case_index(self) -> int | None:
+        if self.case_entries <= 0:
+            return None
+        biases = self.nnknn_model.biases[: self.case_entries].detach()
+        return int(torch.argmin(biases).item())
+
+    def prune_cases(self, *, force: bool = False) -> int:
+        active_count = self.case_entries
+        if active_count <= 0:
+            return 0
+        biases = self.nnknn_model.biases[:active_count].detach()
+        thresholds: list[torch.Tensor] = []
+        if self._prune_quantile > 0.0:
+            thresholds.append(torch.quantile(biases, min(max(self._prune_quantile, 0.0), 1.0)))
+        if self._prune_bias_threshold is not None:
+            thresholds.append(torch.as_tensor(self._prune_bias_threshold, device=biases.device, dtype=biases.dtype))
+        if thresholds:
+            threshold = torch.stack(thresholds).max()
+            remove_candidates = torch.nonzero(biases < threshold, as_tuple=False).view(-1)
+        elif force:
+            remove_candidates = torch.argsort(biases)[:1]
+        else:
+            return 0
+        if remove_candidates.numel() == 0:
+            return 0
+        remove_set = {int(idx.item()) for idx in remove_candidates}
+        keep_indices = [idx for idx in range(active_count) if idx not in remove_set]
+        return self.nnknn_model.compact_cases(keep_indices)
+
+    def configure_case_maintenance(self, *, prune_quantile: float, prune_bias_threshold: float | None) -> None:
+        self._prune_quantile = float(prune_quantile)
+        self._prune_bias_threshold = None if prune_bias_threshold is None else float(prune_bias_threshold)
+
+    def state_dict(self, *args: Any, **kwargs: Any) -> dict[str, torch.Tensor]:
+        state = super().state_dict(*args, **kwargs)
+        state["_critic_case_entries"] = torch.tensor(int(self.case_entries), dtype=torch.long)
+        return state
+
+    def load_state_dict(self, state_dict: dict[str, torch.Tensor], strict: bool = True):
+        state_copy = dict(state_dict)
+        case_entries_t = state_copy.pop("_critic_case_entries", None)
+        result = super().load_state_dict(state_copy, strict=strict)
+        if case_entries_t is not None:
+            self.nnknn_model.set_active_case_count(int(case_entries_t.item()))
+        return result
+
+
+ValueCritic = ValueNetwork | NNKNNValueNetwork
+
+
 def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConfig:
     profiles: dict[str, dict[str, Any]] = {
         "smoke": {
@@ -425,6 +584,10 @@ def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConf
     if normalized not in profiles:
         raise ValueError(f"Unknown NN-kNN-RL profile '{profile}'. Choose one of: {', '.join(sorted(profiles))}")
     data = {**profiles[normalized], **overrides}
+    critic_type = str(data.get("critic_type", "mlp")).strip().lower()
+    if critic_type not in {"mlp", "nnknn"}:
+        raise ValueError("critic_type must be either 'mlp' or 'nnknn'")
+    data["critic_type"] = critic_type
     return NNKNNRLConfig(**data)
 
 
@@ -500,8 +663,27 @@ def _build_model(obs_dim: int, action_dim: int, cfg: NNKNNRLConfig, device: torc
     return model
 
 
-def _build_value_model(obs_dim: int, cfg: NNKNNRLConfig, device: torch.device) -> ValueNetwork:
-    return ValueNetwork(obs_dim, tuple(cfg.critic_hidden_sizes)).to(device)
+def _build_value_model(obs_dim: int, cfg: NNKNNRLConfig, device: torch.device) -> ValueCritic:
+    critic_type = cfg.critic_type.strip().lower()
+    if critic_type == "mlp":
+        return ValueNetwork(obs_dim, tuple(cfg.critic_hidden_sizes)).to(device)
+    if critic_type == "nnknn":
+        model = NNKNNValueNetwork(
+            obs_dim,
+            case_capacity=cfg.critic_case_capacity or cfg.case_capacity,
+            tau=cfg.tau,
+            top_k=cfg.top_k,
+            case_default_bias=cfg.case_default_bias,
+            nnknn_config=cfg.critic_nnknn_config,
+            use_glocal_weightor=cfg.use_glocal_weightor,
+            glocal_fw_set_num=cfg.glocal_fw_set_num,
+        ).to(device)
+        model.configure_case_maintenance(
+            prune_quantile=cfg.case_prune_quantile,
+            prune_bias_threshold=cfg.case_prune_bias_threshold,
+        )
+        return model
+    raise ValueError("critic_type must be either 'mlp' or 'nnknn'")
 
 
 def _copy_state_dict_to_cpu(module: nn.Module) -> dict[str, torch.Tensor]:
@@ -650,9 +832,9 @@ def _select_action(
 
 def _train_actor_critic_batch(
     actor: NNKNNQNetwork,
-    value_model: ValueNetwork,
+    value_model: ValueCritic,
     actor_optimizer: optim.Optimizer,
-    critic_optimizer: optim.Optimizer,
+    critic_optimizer: optim.Optimizer | None,
     episodes: list[dict[str, Any]],
     cfg: NNKNNRLConfig,
     *,
@@ -706,20 +888,26 @@ def _train_actor_critic_batch(
             clip=cfg.advantage_clip,
         )
 
-    value_model.train()
     critic_loss = torch.zeros((), dtype=torch.float32, device=device)
-    value_predictions = value_model(obs_t)
-    for _epoch in range(max(1, int(cfg.critic_update_epochs))):
-        value_predictions = value_model(obs_t)
-        critic_loss = F.mse_loss(value_predictions, value_targets.detach())
-        critic_optimizer.zero_grad()
-        (float(cfg.value_loss_coef) * critic_loss).backward()
-        nn.utils.clip_grad_norm_(value_model.parameters(), cfg.max_grad_norm)
-        critic_optimizer.step()
+    if isinstance(value_model, NNKNNValueNetwork):
+        value_model.add_cases(obs_t, value_targets.detach())
+    else:
+        if critic_optimizer is None:
+            raise ValueError("critic_optimizer is required for the MLP critic")
+        value_model.train()
+        for _epoch in range(max(1, int(cfg.critic_update_epochs))):
+            value_predictions = value_model(obs_t)
+            critic_loss = F.mse_loss(value_predictions, value_targets.detach())
+            critic_optimizer.zero_grad()
+            (float(cfg.value_loss_coef) * critic_loss).backward()
+            nn.utils.clip_grad_norm_(value_model.parameters(), cfg.max_grad_norm)
+            critic_optimizer.step()
 
     value_model.eval()
     with torch.no_grad():
         post_value_predictions = value_model(obs_t)
+        if isinstance(value_model, NNKNNValueNetwork):
+            critic_loss = F.mse_loss(post_value_predictions, value_targets.detach())
 
     actor.train()
     probs = actor.policy_probs(obs_t)
@@ -762,6 +950,8 @@ def _train_actor_critic_batch(
         "reward_varying_episodes": reward_varying_episodes,
         "reward_checked_episodes": reward_checked_episodes,
         "case_entries": actor.case_entries,
+        "critic_type": cfg.critic_type,
+        "critic_case_entries": value_model.case_entries if isinstance(value_model, NNKNNValueNetwork) else None,
         "action_counts": json.dumps(actor.action_counts().detach().cpu().tolist()),
         **stats,
     }
@@ -843,7 +1033,7 @@ def train_nnknn_rl(
     device: str | torch.device | None = None,
     progress: bool = True,
 ) -> dict[str, Any]:
-    """Train the NN-kNN actor with an MLP value critic and GAE advantages."""
+    """Train the NN-kNN actor with a selectable value critic and GAE advantages."""
 
     spec = get_rl_task_spec(task_name)
     cfg = config or make_nnknn_rl_config(spec.default_profile)
@@ -855,7 +1045,11 @@ def train_nnknn_rl(
     q_network = _build_model(obs_dim, action_dim, cfg, run_device)
     value_network = _build_value_model(obs_dim, cfg, run_device)
     actor_optimizer = optim.Adam(q_network.parameters(), lr=cfg.learning_rate)
-    critic_optimizer = optim.Adam(value_network.parameters(), lr=cfg.critic_learning_rate)
+    critic_optimizer = (
+        optim.Adam(value_network.parameters(), lr=cfg.critic_learning_rate)
+        if isinstance(value_network, ValueNetwork)
+        else None
+    )
 
     run_dir = Path(output_dir) if output_dir is not None else make_nnknn_rl_output_dir(spec.name)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -897,8 +1091,10 @@ def train_nnknn_rl(
                 greedy=False,
             )
             next_obs, reward, terminated, truncated, _ = env.step(action)
-            ##TODO, Elliot double check this
-            add_stats = q_network.add_cases(obs_array, np.asarray([action], dtype=np.int64))
+            action_case = np.asarray([int(action)], dtype=np.int64)
+            add_stats = q_network.add_cases(obs_array[np.newaxis, :], action_case)
+            if add_stats["added"] != 1:
+                raise RuntimeError("NN-kNN actor failed to store the selected state-action case.")
             total_pruned += int(add_stats["pruned"])
             total_replaced += int(add_stats["replaced"])
 
@@ -1112,6 +1308,7 @@ def train_nnknn_rl(
     )
     checkpoint = {
         "algorithm": ALGORITHM_NAME,
+        "critic_type": cfg.critic_type,
         "actor_state": selected_actor_state,
         "critic_state_dict": selected_critic_state,
         "task": spec.to_dict(),
@@ -1161,6 +1358,7 @@ def train_nnknn_rl(
         "success_threshold": cfg.success_threshold,
         "passed": passed,
         "algorithm": ALGORITHM_NAME,
+        "critic_type": cfg.critic_type,
         "gae": {
             "gamma": cfg.gamma,
             "gae_lambda": cfg.gae_lambda,
@@ -1172,6 +1370,7 @@ def train_nnknn_rl(
         "selected_source": selected_source,
         "training_efficiency": training_efficiency,
         "case_entries": q_network.case_entries,
+        "critic_case_entries": value_network.case_entries if isinstance(value_network, NNKNNValueNetwork) else None,
         "action_counts": q_network.action_counts().detach().cpu().tolist(),
         "cases_pruned": total_pruned,
         "cases_replaced": total_replaced,
@@ -1241,7 +1440,10 @@ def load_nnknn_rl_checkpoint(
             f"Expected {ALGORITHM_NAME!r}; retrain with the actor-critic GAE workflow."
         )
     config_data = dict(checkpoint["config"])
+    config_data["critic_type"] = str(config_data.get("critic_type", checkpoint.get("critic_type", "mlp"))).lower()
     config_data["critic_hidden_sizes"] = tuple(config_data.get("critic_hidden_sizes", (128, 128)))
+    config_data.setdefault("critic_nnknn_config", {})
+    config_data.setdefault("critic_case_capacity", None)
     cfg = NNKNNRLConfig(**config_data)
     model = _build_model(int(checkpoint["obs_dim"]), int(checkpoint["action_dim"]), cfg, run_device)
     value_model = _build_value_model(int(checkpoint["obs_dim"]), cfg, run_device)

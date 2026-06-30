@@ -107,12 +107,17 @@ Current NN-kNN-RL algorithm:
 - `ALGORITHM_NAME` is `nnknn_actor_mlp_value_gae`.
 - The actor is an NN-kNN classifier over actions; `policy_probs(...)` returns
   action probabilities.
-- The critic is a standard MLP `ValueNetwork` that predicts `V(s)`.
-- Actor updates use GAE advantages from the MLP critic. Raw environment reward
-  is the default; `reward_shaping` is off unless explicitly set.
+- The critic is selectable with `critic_type="mlp"` or `critic_type="nnknn"`;
+  the default MLP `ValueNetwork` preserves existing behavior.
+- The algorithm name is retained for checkpoint compatibility; use
+  `critic_type` in the config or summary to distinguish MLP and NN-kNN critics.
+- Actor updates use GAE advantages from the selected value critic. Raw
+  environment reward is the default; `reward_shaping` is off unless explicitly
+  set.
 - Old reward-to-go NN-kNN-RL checkpoints do not load into the actor-critic
   workflow. Retrain them instead of attempting compatibility shims.
-- NN-kNN regression as the critic is deferred until the MLP critic path works.
+- NN-kNN regression as the critic is available for direct comparison with the
+  MLP critic.
 
 Task metadata lives in `datasets/rl_tasks.py`; currently supported:
 
@@ -143,6 +148,7 @@ Routine RL checks:
 .venv/bin/python tools/run_rl_nec.py cartpole --eval-only --checkpoint <checkpoint.pt>
 .venv/bin/python tools/run_rl_nnknn.py cartpole --profile smoke --seed 0
 .venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0
+.venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --critic-type nnknn
 .venv/bin/python tools/run_rl_nnknn.py cartpole --profile debug --gamma 0.99 --gae-lambda 0.95 --critic-learning-rate 1e-3 --critic-update-epochs 1
 .venv/bin/python tools/run_rl_nnknn.py cartpole --eval-only --checkpoint <checkpoint.pt>
 ```
@@ -188,6 +194,12 @@ Current NN-kNN-RL status:
 - smoke eval mean return: `14.0` over 2 episodes
 - interpretation: this validates actor-critic plumbing and checkpoint reload
   only. It is not a competitive CartPole result.
+- current fast NN-kNN-critic comparison artifact:
+  `results/rl/nnknn_rl_cartpole_20260626_150805_689987/`
+- critic: `critic_type="nnknn"`
+- selected eval mean return: `369.5` over 20 episodes
+- interpretation: this remains below the `475.0` success threshold and should
+  be treated as `unsolved_or_underfit`.
 
 ## Classification Workflow Files
 
@@ -488,6 +500,9 @@ Primary notebooks:
 - [dqn_cartpole_demo.ipynb](dqn_cartpole_demo.ipynb)
   for DQN CartPole inspection while keeping implementation logic in
   `model/rl_workflow.py`.
+- [nnknn_cartpole_demo.ipynb](nnknn_cartpole_demo.ipynb)
+  for NN-kNN-RL CartPole inspection while keeping implementation logic in
+  `model/nnknn_rl_workflow.py`.
 
 The notebooks are still useful for interactive debugging and single-run
 inspection, but serious repeated reporting now belongs in the workflow/helper
