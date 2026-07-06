@@ -141,8 +141,10 @@ def run_nec_smoke() -> None:
 def run_nnknn_rl_smoke() -> None:
     from model.nnknn_rl_workflow import (
         ALGORITHM_NAME,
+        MLPPolicyNetwork,
         NNKNNQNetwork,
         compute_gae,
+        evaluate_nnknn_rl,
         load_nnknn_rl_checkpoint,
         make_nnknn_rl_config,
         train_nnknn_rl,
@@ -188,6 +190,14 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("NN-kNN-RL should default to raw environment rewards.")
     if cfg.critic_type != "mlp":
         raise AssertionError("NN-kNN-RL should default to the MLP value critic.")
+    if cfg.actor_type != "nnknn":
+        raise AssertionError("NN-kNN-RL should default to the NN-kNN actor.")
+
+    mlp_wrapper = MLPPolicyNetwork(4, 2, hidden_sizes=(8,))
+    mlp_probs = mlp_wrapper.policy_probs(torch.zeros(3, 4))
+    if mlp_probs.shape != (3, 2) or not torch.allclose(mlp_probs.sum(dim=1), torch.ones(3), atol=1e-5):
+        raise AssertionError("MLP actor did not return normalized action probabilities.")
+
     state = train_nnknn_rl("cartpole", cfg, progress=False)
     final_eval = state["final_eval"]
     if final_eval["episodes"] != cfg.eval_episodes:
@@ -197,12 +207,23 @@ def run_nnknn_rl_smoke() -> None:
     loaded = load_nnknn_rl_checkpoint(state["checkpoint_path"])
     if loaded["checkpoint"].get("algorithm") != ALGORITHM_NAME:
         raise AssertionError("NN-kNN-RL checkpoint did not preserve the actor-critic algorithm marker.")
+    if loaded["config"].actor_type != "nnknn":
+        raise AssertionError("NN-kNN actor checkpoint reload did not preserve actor_type.")
     if "actor_state" not in loaded["checkpoint"] or "critic_state_dict" not in loaded["checkpoint"]:
         raise AssertionError("NN-kNN-RL checkpoint did not preserve actor and critic state.")
     if loaded["model"].case_entries != state["model"].case_entries:
         raise AssertionError("NN-kNN-RL checkpoint did not preserve active case count.")
     if "value_model" not in loaded:
         raise AssertionError("NN-kNN-RL checkpoint reload did not return the value critic.")
+    legacy_checkpoint = dict(torch.load(state["checkpoint_path"], map_location="cpu", weights_only=False))
+    legacy_checkpoint["config"] = dict(legacy_checkpoint["config"])
+    legacy_checkpoint["config"].pop("actor_type", None)
+    legacy_checkpoint.pop("actor_type", None)
+    legacy_path = state["run_dir"] / "legacy_no_actor_type_checkpoint.pt"
+    torch.save(legacy_checkpoint, legacy_path)
+    legacy_loaded = load_nnknn_rl_checkpoint(legacy_path)
+    if legacy_loaded["config"].actor_type != "nnknn":
+        raise AssertionError("Legacy checkpoint without actor_type should reload as NN-kNN actor.")
 
     nnknn_cfg = make_nnknn_rl_config("smoke", seed=1, critic_type="nnknn")
     nnknn_state = train_nnknn_rl("cartpole", nnknn_cfg, progress=False)
@@ -215,9 +236,30 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("NN-kNN critic checkpoint reload did not return the value critic.")
     if getattr(nnknn_loaded["value_model"], "case_entries", 0) <= 0:
         raise AssertionError("NN-kNN critic checkpoint did not preserve critic value cases.")
+
+    mlp_cfg = make_nnknn_rl_config("smoke", seed=2, actor_type="mlp", critic_type="mlp")
+    mlp_state = train_nnknn_rl("cartpole", mlp_cfg, progress=False)
+    mlp_loaded = load_nnknn_rl_checkpoint(mlp_state["checkpoint_path"])
+    if mlp_loaded["config"].actor_type != "mlp" or mlp_loaded["config"].critic_type != "mlp":
+        raise AssertionError("MLP actor + MLP critic checkpoint reload did not preserve actor/critic types.")
+    if mlp_state["summary"]["case_entries"] is not None or mlp_state["summary"]["action_counts"] is not None:
+        raise AssertionError("MLP actor summary should not report NN-kNN actor cases.")
+    mlp_eval = evaluate_nnknn_rl("cartpole", mlp_loaded["model"], episodes=mlp_cfg.eval_episodes, seed=mlp_cfg.eval_seed)
+    if mlp_eval["episodes"] != mlp_cfg.eval_episodes:
+        raise AssertionError("MLP actor checkpoint did not evaluate with the configured episode count.")
+
+    mlp_nnknn_cfg = make_nnknn_rl_config("smoke", seed=3, actor_type="mlp", critic_type="nnknn")
+    mlp_nnknn_state = train_nnknn_rl("cartpole", mlp_nnknn_cfg, progress=False)
+    mlp_nnknn_loaded = load_nnknn_rl_checkpoint(mlp_nnknn_state["checkpoint_path"])
+    if mlp_nnknn_loaded["config"].actor_type != "mlp" or mlp_nnknn_loaded["config"].critic_type != "nnknn":
+        raise AssertionError("MLP actor + NN-kNN critic checkpoint reload did not preserve actor/critic types.")
+    if getattr(mlp_nnknn_loaded["value_model"], "case_entries", 0) <= 0:
+        raise AssertionError("MLP actor + NN-kNN critic checkpoint did not preserve critic value cases.")
     print("nnknn rl smoke ok")
     print(f"run_dir={state['run_dir']}")
     print(f"nnknn_critic_run_dir={nnknn_state['run_dir']}")
+    print(f"mlp_actor_run_dir={mlp_state['run_dir']}")
+    print(f"mlp_actor_nnknn_critic_run_dir={mlp_nnknn_state['run_dir']}")
     print(f"mean_return={float(final_eval['mean_return']):.6f}")
 
 
