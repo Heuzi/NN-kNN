@@ -142,7 +142,7 @@ def run_nnknn_rl_smoke() -> None:
     from model.nnknn_rl_workflow import (
         ALGORITHM_NAME,
         MLPPolicyNetwork,
-        NNKNNQNetwork,
+        NNKNNPolicyNetwork,
         compute_gae,
         evaluate_nnknn_rl,
         load_nnknn_rl_checkpoint,
@@ -163,7 +163,7 @@ def run_nnknn_rl_smoke() -> None:
     if not torch.allclose(value_targets, torch.tensor([2.3932, 1.81, 1.0]), atol=1e-4):
         raise AssertionError("NN-kNN-RL GAE helper returned unexpected value targets.")
 
-    wrapper = NNKNNQNetwork(4, 2, case_capacity=6, top_k=2, min_cases_per_action=1)
+    wrapper = NNKNNPolicyNetwork(4, 2, case_capacity=6, top_k=2, min_cases_per_action=1)
     wrapper.configure_case_maintenance(prune_quantile=1.0, prune_bias_threshold=None)
     wrapper.add_cases(
         torch.zeros(6, 4),

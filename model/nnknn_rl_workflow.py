@@ -79,8 +79,8 @@ class NNKNNRLConfig:
         return asdict(self)
 
 
-class NNKNNQNetwork(nn.Module):
-    """Actor wrapper around NN_KNN_Model for discrete-action RL.
+class NNKNNPolicyNetwork(nn.Module):
+    """NN-kNN policy actor for discrete-action actor-critic RL.
 
     The inner NN-kNN model stores cases as state -> one-hot(action). Its
     classification output is interpreted as pi(a | s), not as a Q-value.
@@ -203,11 +203,6 @@ class NNKNNQNetwork(nn.Module):
         return torch.where(denom > 0, probs / denom.clamp_min(1e-12), uniform)
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        return self.policy_probs(observations)
-
-    def q_values(self, observations: torch.Tensor) -> torch.Tensor:
-        """Compatibility alias: returns action probabilities, not Q-values."""
-
         return self.policy_probs(observations)
 
     def add_cases(self, observations: torch.Tensor | np.ndarray, actions: torch.Tensor | np.ndarray) -> dict[str, int]:
@@ -374,11 +369,6 @@ class MLPPolicyNetwork(nn.Module):
         return F.softmax(logits, dim=1)
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        return self.policy_probs(observations)
-
-    def q_values(self, observations: torch.Tensor) -> torch.Tensor:
-        """Compatibility alias: returns action probabilities, not Q-values."""
-
         return self.policy_probs(observations)
 
 
@@ -560,7 +550,7 @@ class NNKNNValueNetwork(nn.Module):
         return result
 
 
-PolicyActor = NNKNNQNetwork | MLPPolicyNetwork
+PolicyActor = NNKNNPolicyNetwork | MLPPolicyNetwork
 ValueCritic = ValueNetwork | NNKNNValueNetwork
 
 
@@ -692,14 +682,14 @@ def _model_state(model: PolicyActor) -> dict[str, Any]:
     state: dict[str, Any] = {
         "state_dict": {key: value.detach().cpu().clone() for key, value in model.state_dict().items()},
     }
-    if isinstance(model, NNKNNQNetwork):
+    if isinstance(model, NNKNNPolicyNetwork):
         state["case_state"] = model.case_state()
     return state
 
 
 def _load_model_state(model: PolicyActor, state: dict[str, Any]) -> None:
     model.load_state_dict(state["state_dict"])
-    if isinstance(model, NNKNNQNetwork):
+    if isinstance(model, NNKNNPolicyNetwork):
         model.load_case_state(state.get("case_state", {}))
 
 
@@ -708,7 +698,7 @@ def _build_actor_model(obs_dim: int, action_dim: int, cfg: NNKNNRLConfig, device
     if actor_type == "mlp":
         return MLPPolicyNetwork(obs_dim, action_dim, tuple(cfg.actor_hidden_sizes)).to(device)
     if actor_type == "nnknn":
-        model = NNKNNQNetwork(
+        model = NNKNNPolicyNetwork(
             obs_dim,
             action_dim,
             case_capacity=cfg.case_capacity,
@@ -756,11 +746,11 @@ def _copy_state_dict_to_cpu(module: nn.Module) -> dict[str, torch.Tensor]:
 
 
 def _actor_case_entries(actor: PolicyActor) -> int | None:
-    return int(actor.case_entries) if isinstance(actor, NNKNNQNetwork) else None
+    return int(actor.case_entries) if isinstance(actor, NNKNNPolicyNetwork) else None
 
 
 def _actor_action_counts(actor: PolicyActor) -> list[int] | None:
-    return actor.action_counts().detach().cpu().tolist() if isinstance(actor, NNKNNQNetwork) else None
+    return actor.action_counts().detach().cpu().tolist() if isinstance(actor, NNKNNPolicyNetwork) else None
 
 
 def _actor_action_counts_json(actor: PolicyActor) -> str | None:
@@ -769,13 +759,13 @@ def _actor_action_counts_json(actor: PolicyActor) -> str | None:
 
 
 def _actor_case_bias_stats(actor: PolicyActor) -> dict[str, float | None]:
-    if isinstance(actor, NNKNNQNetwork):
+    if isinstance(actor, NNKNNPolicyNetwork):
         return actor.case_bias_stats()
     return {"bias_min": None, "bias_mean": None, "bias_max": None}
 
 
 def _actor_bias_loss(actor: PolicyActor, device: torch.device) -> torch.Tensor:
-    if not isinstance(actor, NNKNNQNetwork):
+    if not isinstance(actor, NNKNNPolicyNetwork):
         return torch.zeros((), dtype=torch.float32, device=device)
     active_biases = actor.nnknn_model.biases[: actor.case_entries]
     return active_biases.pow(2).mean() if active_biases.numel() else torch.zeros((), device=device)
@@ -1157,9 +1147,9 @@ def train_nnknn_rl(
 
     env = _make_env(spec, seed=cfg.seed)
     obs_dim, action_dim = _validate_env_spaces(env, spec)
-    q_network = _build_actor_model(obs_dim, action_dim, cfg, run_device)
+    actor = _build_actor_model(obs_dim, action_dim, cfg, run_device)
     value_network = _build_value_model(obs_dim, cfg, run_device)
-    actor_optimizer = optim.Adam(q_network.parameters(), lr=cfg.learning_rate)
+    actor_optimizer = optim.Adam(actor.parameters(), lr=cfg.learning_rate)
     critic_optimizer = (
         optim.Adam(value_network.parameters(), lr=cfg.critic_learning_rate)
         if isinstance(value_network, ValueNetwork)
@@ -1198,7 +1188,7 @@ def train_nnknn_rl(
         for global_step in range(cfg.total_timesteps):
             obs_array = np.asarray(obs, dtype=np.float32)
             action, action_probs = _select_action(
-                q_network,
+                actor,
                 obs_array,
                 env=env,
                 device=run_device,
@@ -1206,9 +1196,9 @@ def train_nnknn_rl(
                 greedy=False,
             )
             next_obs, reward, terminated, truncated, _ = env.step(action)
-            if isinstance(q_network, NNKNNQNetwork):
+            if isinstance(actor, NNKNNPolicyNetwork):
                 action_case = np.asarray([int(action)], dtype=np.int64)
-                add_stats = q_network.add_cases(obs_array[np.newaxis, :], action_case)
+                add_stats = actor.add_cases(obs_array[np.newaxis, :], action_case)
                 if add_stats["added"] != 1:
                     raise RuntimeError("NN-kNN actor failed to store the selected state-action case.")
                 total_pruned += int(add_stats["pruned"])
@@ -1227,16 +1217,16 @@ def train_nnknn_rl(
 
             completed_step = global_step + 1
             if cfg.case_maintenance_frequency > 0 and completed_step % cfg.case_maintenance_frequency == 0:
-                pruned = q_network.prune_cases() if isinstance(q_network, NNKNNQNetwork) else 0
+                pruned = actor.prune_cases() if isinstance(actor, NNKNNPolicyNetwork) else 0
                 total_pruned += pruned
-                if pruned and isinstance(q_network, NNKNNQNetwork):
+                if pruned and isinstance(actor, NNKNNPolicyNetwork):
                     maintenance_rows.append(
                         {
                             "global_step": completed_step,
                             "cases_pruned": pruned,
-                            "case_entries": _actor_case_entries(q_network),
-                            "action_counts": _actor_action_counts_json(q_network),
-                            **_actor_case_bias_stats(q_network),
+                            "case_entries": _actor_case_entries(actor),
+                            "action_counts": _actor_action_counts_json(actor),
+                            **_actor_case_bias_stats(actor),
                         }
                     )
 
@@ -1255,7 +1245,7 @@ def train_nnknn_rl(
                 latest_loss: float | None = None
                 if len(pending_update_episodes) >= cfg.policy_update_episodes:
                     loss_row = _train_actor_critic_batch(
-                        q_network,
+                        actor,
                         value_network,
                         actor_optimizer,
                         critic_optimizer,
@@ -1270,7 +1260,7 @@ def train_nnknn_rl(
                         latest_loss = float(loss_row["loss"])
                     pending_update_episodes = []
 
-                stats = _actor_case_bias_stats(q_network)
+                stats = _actor_case_bias_stats(actor)
                 training_rows.append(
                     {
                         "global_step": completed_step,
@@ -1279,11 +1269,11 @@ def train_nnknn_rl(
                         "episode_length": episode_length,
                         "loss": latest_loss,
                         "actor_type": cfg.actor_type,
-                        "case_entries": _actor_case_entries(q_network),
+                        "case_entries": _actor_case_entries(actor),
                         "cases_pruned": total_pruned,
                         "cases_replaced": total_replaced,
                         "action_probs": json.dumps(action_probs),
-                        "action_counts": _actor_action_counts_json(q_network),
+                        "action_counts": _actor_action_counts_json(actor),
                         **stats,
                     }
                 )
@@ -1292,7 +1282,7 @@ def train_nnknn_rl(
                         "[nnknn-rl] "
                         f"step={completed_step} episode={episode_index} "
                         f"return={episode_return:.1f} length={episode_length} "
-                        f"loss={latest_loss} cases={_actor_case_entries(q_network)}",
+                        f"loss={latest_loss} cases={_actor_case_entries(actor)}",
                         flush=True,
                     )
 
@@ -1303,7 +1293,7 @@ def train_nnknn_rl(
                 ):
                     eval_metrics = evaluate_nnknn_rl(
                         spec.name,
-                        q_network,
+                        actor,
                         episodes=cfg.eval_episodes,
                         seed=cfg.eval_seed,
                         device=run_device,
@@ -1318,13 +1308,13 @@ def train_nnknn_rl(
                         "mean_length": eval_metrics["mean_length"],
                         "episodes": cfg.eval_episodes,
                         "actor_type": cfg.actor_type,
-                        "case_entries": _actor_case_entries(q_network),
+                        "case_entries": _actor_case_entries(actor),
                     }
                     eval_rows.append(eval_row)
                     if best_eval is None or eval_metrics["mean_return"] > best_eval["mean_return"]:
                         best_eval = eval_metrics
                         best_eval_step = completed_step
-                        best_actor_state = _model_state(q_network)
+                        best_actor_state = _model_state(actor)
                         best_critic_state = _copy_state_dict_to_cpu(value_network)
                     if progress:
                         print(
@@ -1347,7 +1337,7 @@ def train_nnknn_rl(
             if cfg.eval_frequency > 0 and global_step > 0 and global_step % cfg.eval_frequency == 0:
                 eval_metrics = evaluate_nnknn_rl(
                     spec.name,
-                    q_network,
+                    actor,
                     episodes=cfg.eval_episodes,
                     seed=cfg.eval_seed,
                     device=run_device,
@@ -1362,18 +1352,18 @@ def train_nnknn_rl(
                     "mean_length": eval_metrics["mean_length"],
                     "episodes": cfg.eval_episodes,
                     "actor_type": cfg.actor_type,
-                    "case_entries": _actor_case_entries(q_network),
+                    "case_entries": _actor_case_entries(actor),
                 }
                 eval_rows.append(eval_row)
                 if best_eval is None or eval_metrics["mean_return"] > best_eval["mean_return"]:
                     best_eval = eval_metrics
                     best_eval_step = global_step
-                    best_actor_state = _model_state(q_network)
+                    best_actor_state = _model_state(actor)
                     best_critic_state = _copy_state_dict_to_cpu(value_network)
 
         if pending_update_episodes:
             loss_row = _train_actor_critic_batch(
-                q_network,
+                actor,
                 value_network,
                 actor_optimizer,
                 critic_optimizer,
@@ -1390,7 +1380,7 @@ def train_nnknn_rl(
 
     last_eval = evaluate_nnknn_rl(
         spec.name,
-        q_network,
+        actor,
         episodes=cfg.eval_episodes,
         seed=cfg.eval_seed,
         device=run_device,
@@ -1399,15 +1389,15 @@ def train_nnknn_rl(
         selected_eval = last_eval
         selected_step = cfg.total_timesteps
         selected_source = "final"
-        selected_actor_state = _model_state(q_network)
+        selected_actor_state = _model_state(actor)
         selected_critic_state = _copy_state_dict_to_cpu(value_network)
     else:
         selected_eval = best_eval
         selected_step = int(best_eval_step or 0)
         selected_source = "best_eval"
-        selected_actor_state = best_actor_state or _model_state(q_network)
+        selected_actor_state = best_actor_state or _model_state(actor)
         selected_critic_state = best_critic_state or _copy_state_dict_to_cpu(value_network)
-        _load_model_state(q_network, selected_actor_state)
+        _load_model_state(actor, selected_actor_state)
         value_network.load_state_dict(selected_critic_state)
 
     passed = True if cfg.success_threshold is None else selected_eval["mean_return"] >= cfg.success_threshold
@@ -1447,8 +1437,8 @@ def train_nnknn_rl(
         "selected_step": selected_step,
         "selected_source": selected_source,
         "training_efficiency": training_efficiency,
-        "case_entries": _actor_case_entries(q_network),
-        "action_counts": _actor_action_counts(q_network),
+        "case_entries": _actor_case_entries(actor),
+        "action_counts": _actor_action_counts(actor),
         "passed": passed,
     }
     torch.save(checkpoint, checkpoint_path)
@@ -1492,9 +1482,9 @@ def train_nnknn_rl(
         "selected_step": selected_step,
         "selected_source": selected_source,
         "training_efficiency": training_efficiency,
-        "case_entries": _actor_case_entries(q_network),
+        "case_entries": _actor_case_entries(actor),
         "critic_case_entries": value_network.case_entries if isinstance(value_network, NNKNNValueNetwork) else None,
-        "action_counts": _actor_action_counts(q_network),
+        "action_counts": _actor_action_counts(actor),
         "cases_pruned": total_pruned,
         "cases_replaced": total_replaced,
         "checkpoint_path": str(checkpoint_path),
@@ -1531,7 +1521,7 @@ def train_nnknn_rl(
             flush=True,
         )
     return {
-        "model": q_network,
+        "model": actor,
         "value_model": value_network,
         "target_model": None,
         "task": spec,

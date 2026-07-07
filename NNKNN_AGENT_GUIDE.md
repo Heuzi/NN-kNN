@@ -96,7 +96,7 @@ Important entry points in `model/nnknn_rl_workflow.py`:
 - `ALGORITHM_NAME`
 - `NNKNNRLConfig`
 - `MLPPolicyNetwork`
-- `NNKNNQNetwork`
+- `NNKNNPolicyNetwork`
 - `ValueNetwork`
 - `compute_gae(...)`
 - `make_nnknn_rl_config(...)`
