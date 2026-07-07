@@ -97,7 +97,9 @@ Important entry points in `model/nnknn_rl_workflow.py`:
 - `NNKNNRLConfig`
 - `MLPPolicyNetwork`
 - `NNKNNPolicyNetwork`
+- `SharedNNKNNActorCriticNetwork`
 - `ValueNetwork`
+- `NNKNNValueNetwork`
 - `compute_gae(...)`
 - `make_nnknn_rl_config(...)`
 - `train_nnknn_rl(...)`
@@ -113,6 +115,12 @@ Current NN-kNN-RL algorithm:
   baseline actor-critic comparisons.
 - The critic is selectable with `critic_type="mlp"` or `critic_type="nnknn"`;
   the default MLP `ValueNetwork` preserves existing behavior.
+- When both `actor_type="nnknn"` and `critic_type="nnknn"`, the workflow uses
+  one `SharedNNKNNActorCriticNetwork`: one case base and retrieval backbone with
+  separate policy/action labels and scalar value labels.
+- When only the critic is NN-kNN, `NNKNNValueNetwork` remains a standalone value
+  critic and is optimized with the value loss after value-target cases are
+  inserted.
 - The algorithm name is retained for checkpoint compatibility; use
   `actor_type` and `critic_type` in the config or summary to distinguish
   comparison variants.

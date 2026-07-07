@@ -68,6 +68,26 @@ value critics, and uses GAE advantages. Checkpoints record
 comparison variants.
 Older reward-to-go NN-kNN-RL checkpoints should be retrained.
 
+### NN-kNN Actor-Critic Structure
+
+The NN-kNN actor-critic path is still experimental, but its structure is now:
+
+- An NN-kNN actor should be an optimizable policy network even when the critic
+  is an MLP.
+- An NN-kNN critic should be an optimizable value network even when the actor is
+  an MLP. It appends value-target cases and also trains its NN-kNN retrieval
+  parameters with the value loss.
+- When both actor and critic are NN-kNN, they use one shared NN-kNN
+  actor-critic model with one case base and one retrieval backbone. The shared
+  model has separate policy and value label stores, so action probabilities and
+  scalar value estimates remain distinct heads over the same retrieved cases.
+- When only one side is NN-kNN, that standalone actor or critic should still
+  train its NN-kNN parameters directly through the relevant actor or value loss.
+
+The shared NN-kNN actor-critic reuses the case base, similarity computation,
+case biases, glocal case weights, and glocal feature weighting. Separate MLP
+actor/critic variants remain available for ablations.
+
 Current DQN fast run:
 
 - `results/rl/dqn_cartpole_20260702_135146_537913/`

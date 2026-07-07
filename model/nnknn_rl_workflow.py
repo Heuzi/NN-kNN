@@ -15,7 +15,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from datasets.rl_tasks import get_rl_task_spec
-from model.nnknn_model import GlocalFeatureWeight, NN_KNN_Model
+from model.nnknn_model import GlocalFeatureWeight, NN_KNN_Model, normalize_cases
 from model.rl_workflow import (
     _build_training_efficiency,
     _first_threshold_step,
@@ -217,11 +217,13 @@ class NNKNNPolicyNetwork(nn.Module):
         available = self.case_capacity - self.case_entries
         if obs_t.shape[0] <= available:
             labels = F.one_hot(actions_t, num_classes=self.action_dim).to(dtype=torch.float32)
+            start = self.case_entries
             added = self.nnknn_model.append_cases(obs_t, labels)
-            return {"added": added, "pruned": 0, "replaced": 0}
+            return {"added": added, "pruned": 0, "replaced": 0, "start": start, "end": start + added}
         added = 0
         replaced = 0
         pruned = 0
+        first_added_index: int | None = None
         for idx in range(obs_t.shape[0]):
             if self.case_entries >= self.case_capacity:
                 pruned += self.prune_cases(force=True)
@@ -233,9 +235,13 @@ class NNKNNPolicyNetwork(nn.Module):
                 self.nnknn_model.compact_cases(keep_indices)
                 replaced += 1
             label = F.one_hot(actions_t[idx], num_classes=self.action_dim).to(dtype=torch.float32).unsqueeze(0)
+            start = self.case_entries
             self.nnknn_model.append_cases(obs_t[idx].unsqueeze(0), label)
+            if first_added_index is None:
+                first_added_index = start
             added += 1
-        return {"added": added, "pruned": pruned, "replaced": replaced}
+        start = self.case_entries - added if first_added_index is None else first_added_index
+        return {"added": added, "pruned": pruned, "replaced": replaced, "start": start, "end": start + added}
 
     def _lowest_replaceable_case_index(self) -> int | None:
         if self.case_entries <= 0:
@@ -484,11 +490,13 @@ class NNKNNValueNetwork(nn.Module):
             raise ValueError("observations and values must have the same batch size")
         available = self.case_capacity - self.case_entries
         if obs_t.shape[0] <= available:
+            start = self.case_entries
             added = self.nnknn_model.append_cases(obs_t, values_t)
-            return {"added": added, "pruned": 0, "replaced": 0}
+            return {"added": added, "pruned": 0, "replaced": 0, "start": start, "end": start + added}
         added = 0
         replaced = 0
         pruned = 0
+        first_added_index: int | None = None
         for idx in range(obs_t.shape[0]):
             if self.case_entries >= self.case_capacity:
                 pruned += self.prune_cases(force=True)
@@ -499,9 +507,13 @@ class NNKNNValueNetwork(nn.Module):
                 keep_indices = [i for i in range(self.case_entries) if i != replace_idx]
                 self.nnknn_model.compact_cases(keep_indices)
                 replaced += 1
+            start = self.case_entries
             self.nnknn_model.append_cases(obs_t[idx].unsqueeze(0), values_t[idx].view(1, 1))
+            if first_added_index is None:
+                first_added_index = start
             added += 1
-        return {"added": added, "pruned": pruned, "replaced": replaced}
+        start = self.case_entries - added if first_added_index is None else first_added_index
+        return {"added": added, "pruned": pruned, "replaced": replaced, "start": start, "end": start + added}
 
     def _lowest_case_index(self) -> int | None:
         if self.case_entries <= 0:
@@ -550,8 +562,301 @@ class NNKNNValueNetwork(nn.Module):
         return result
 
 
-PolicyActor = NNKNNPolicyNetwork | MLPPolicyNetwork
-ValueCritic = ValueNetwork | NNKNNValueNetwork
+class SharedNNKNNActorCriticNetwork(nn.Module):
+    """Shared NN-kNN retrieval model with separate policy and value label heads."""
+
+    def __init__(
+        self,
+        obs_dim: int,
+        action_dim: int,
+        *,
+        case_capacity: int,
+        tau: float = 1.0,
+        top_k: int = 10,
+        case_default_bias: float = 0.0,
+        min_cases_per_action: int = 1,
+        nnknn_config: dict[str, Any] | None = None,
+        use_glocal_weightor: bool = True,
+        glocal_fw_set_num: int = 1,
+    ):
+        super().__init__()
+        self.obs_dim = int(obs_dim)
+        self.action_dim = int(action_dim)
+        self.case_capacity = int(case_capacity)
+        self.min_cases_per_action = int(min_cases_per_action)
+        self.tau = float(tau)
+        self.top_k = int(top_k)
+        self.case_default_bias = float(case_default_bias)
+        self.use_glocal_weightor = bool(use_glocal_weightor)
+        self.glocal_fw_set_num = int(glocal_fw_set_num)
+        self._active_case_count = 0
+        self._prune_quantile = 0.0
+        self._prune_bias_threshold: float | None = None
+
+        self.register_buffer("cases", torch.zeros(self.case_capacity, self.obs_dim, dtype=torch.float32))
+        self.register_buffer("action_labels", torch.zeros(self.case_capacity, self.action_dim, dtype=torch.float32))
+        self.register_buffer("value_labels", torch.zeros(self.case_capacity, dtype=torch.float32))
+        self.biases = nn.Parameter(torch.full((self.case_capacity,), self.case_default_bias, dtype=torch.float32))
+        self.glocal_weights = nn.Parameter(
+            torch.softmax(torch.ones(self.case_capacity, self.glocal_fw_set_num, dtype=torch.float32), dim=-1)
+        )
+        self.glocal_weightor = (
+            GlocalFeatureWeight(self.obs_dim, self.glocal_fw_set_num) if self.use_glocal_weightor else None
+        )
+        self.nnknn_config = dict(nnknn_config or {})
+        self.case_normalizer = str(self.nnknn_config.get("case_normalizer", "softmax"))
+        self.case_score_mode = str(self.nnknn_config.get("case_score_mode", "bias_minus_distance"))
+        if self.case_score_mode not in {"bias_minus_distance", "neg_distance", "hard_knn"}:
+            raise ValueError("Shared NN-kNN actor-critic supports bias_minus_distance, neg_distance, or hard_knn")
+        self.pre_topk_mask = bool(self.nnknn_config.get("pre_topk_mask", True))
+
+    @property
+    def case_entries(self) -> int:
+        return int(self._active_case_count)
+
+    def case_state(self) -> dict[str, Any]:
+        return {
+            "case_entries": int(self.case_entries),
+            "action_counts": self.action_counts().detach().cpu().tolist(),
+        }
+
+    def load_case_state(self, state: dict[str, Any]) -> None:
+        self._active_case_count = int(state.get("case_entries", self._active_case_count))
+
+    def action_tensor(self) -> torch.Tensor:
+        if self.case_entries <= 0:
+            return torch.zeros(0, dtype=torch.long, device=self.action_labels.device)
+        return self.action_labels[: self.case_entries].argmax(dim=1)
+
+    def action_counts(self) -> torch.Tensor:
+        actions = self.action_tensor()
+        return torch.bincount(actions, minlength=self.action_dim)
+
+    def is_policy_ready(self, min_case_entries: int = 1) -> bool:
+        if self.case_entries < int(min_case_entries):
+            return False
+        return bool(torch.all(self.action_counts() > 0).detach().cpu().item())
+
+    def _case_weights(self, observations: torch.Tensor) -> torch.Tensor:
+        if observations.dim() == 1:
+            observations = observations.unsqueeze(0)
+        observations = observations.to(self.cases.device, dtype=torch.float32)
+        active_count = self.case_entries
+        if active_count <= 0:
+            raise ValueError("Shared NN-kNN actor-critic requires at least one active case")
+        case_features = self.cases[:active_count]
+        query_expanded = observations.unsqueeze(1).expand(-1, active_count, -1)
+        case_expanded = case_features.unsqueeze(0).expand(observations.shape[0], -1, -1)
+        elementwise_distance = (query_expanded - case_expanded) ** 2
+        if self.glocal_weightor is not None:
+            glocal_weights = self.glocal_weights[:active_count]
+            elementwise_distance = self.glocal_weightor(elementwise_distance, glocal_weights)
+        distances = torch.sqrt(torch.relu(elementwise_distance.sum(dim=-1)))
+        if self.case_score_mode == "hard_knn":
+            k_eff = min(int(self.top_k), active_count)
+            _, top_idx = torch.topk(-distances, k=k_eff, dim=1)
+            weights = torch.zeros_like(distances)
+            weights.scatter_(1, top_idx, 1.0 / float(k_eff))
+            return weights
+        scores = -distances if self.case_score_mode == "neg_distance" else self.biases[:active_count].unsqueeze(0) - distances
+        if self.pre_topk_mask:
+            k_eff = min(int(self.top_k), active_count)
+            top_vals, top_idx = torch.topk(scores, k=k_eff, dim=1)
+            fill_val = float("-inf") if self.case_normalizer == "softmax" else -1e9
+            masked_scores = torch.full_like(scores, fill_val)
+            scores = masked_scores.scatter(1, top_idx, top_vals)
+        return normalize_cases(scores, normalizer=self.case_normalizer, tau=self.tau, dim=1)
+
+    def policy_probs(self, observations: torch.Tensor) -> torch.Tensor:
+        if observations.dim() == 1:
+            observations = observations.unsqueeze(0)
+        observations = observations.to(self.cases.device, dtype=torch.float32)
+        batch_size = observations.shape[0]
+        if self.case_entries <= 0:
+            return torch.full(
+                (batch_size, self.action_dim),
+                1.0 / float(self.action_dim),
+                dtype=observations.dtype,
+                device=observations.device,
+            )
+        weights = self._case_weights(observations)
+        probs = torch.matmul(weights, self.action_labels[: self.case_entries].to(weights.dtype)).clamp_min(0.0)
+        denom = probs.sum(dim=1, keepdim=True)
+        uniform = torch.full_like(probs, 1.0 / float(self.action_dim))
+        return torch.where(denom > 0, probs / denom.clamp_min(1e-12), uniform)
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        if observations.dim() == 1:
+            observations = observations.unsqueeze(0)
+        observations = observations.to(self.cases.device, dtype=torch.float32)
+        if self.case_entries <= 0:
+            return torch.zeros(observations.shape[0], dtype=observations.dtype, device=observations.device)
+        weights = self._case_weights(observations)
+        return torch.matmul(weights, self.value_labels[: self.case_entries].to(weights.dtype))
+
+    def add_cases(self, observations: torch.Tensor | np.ndarray, actions: torch.Tensor | np.ndarray) -> dict[str, int]:
+        obs_t = torch.as_tensor(observations, dtype=torch.float32, device=self.cases.device)
+        actions_t = torch.as_tensor(actions, dtype=torch.long, device=self.action_labels.device).view(-1)
+        if obs_t.dim() == 1:
+            obs_t = obs_t.unsqueeze(0)
+        if obs_t.shape[0] != actions_t.shape[0]:
+            raise ValueError("observations and actions must have the same batch size")
+        if torch.any(actions_t < 0) or torch.any(actions_t >= self.action_dim):
+            raise ValueError(f"actions must be integer ids in [0, {self.action_dim})")
+        added = 0
+        replaced = 0
+        pruned = 0
+        first_added_index: int | None = None
+        with torch.no_grad():
+            for idx in range(obs_t.shape[0]):
+                if self.case_entries >= self.case_capacity:
+                    pruned += self.prune_cases(force=True)
+                if self.case_entries >= self.case_capacity:
+                    replace_idx = self._lowest_replaceable_case_index()
+                    if replace_idx is None:
+                        continue
+                    keep_indices = [i for i in range(self.case_entries) if i != replace_idx]
+                    self.compact_cases(keep_indices)
+                    replaced += 1
+                insert_idx = self.case_entries
+                self.cases[insert_idx].copy_(obs_t[idx])
+                self.action_labels[insert_idx].copy_(
+                    F.one_hot(actions_t[idx], num_classes=self.action_dim).to(dtype=torch.float32)
+                )
+                self.value_labels[insert_idx].zero_()
+                self.biases[insert_idx].fill_(self.case_default_bias)
+                self.glocal_weights[insert_idx].copy_(
+                    torch.softmax(torch.ones(self.glocal_fw_set_num, device=self.glocal_weights.device), dim=-1)
+                )
+                self._active_case_count += 1
+                if first_added_index is None:
+                    first_added_index = insert_idx
+                added += 1
+        start = self.case_entries - added if first_added_index is None else first_added_index
+        return {"added": added, "pruned": pruned, "replaced": replaced, "start": start, "end": start + added}
+
+    def update_value_labels(self, case_indices: torch.Tensor | list[int], values: torch.Tensor) -> None:
+        indices_t = torch.as_tensor(case_indices, dtype=torch.long, device=self.value_labels.device).view(-1)
+        values_t = torch.as_tensor(values, dtype=torch.float32, device=self.value_labels.device).view(-1)
+        if indices_t.numel() != values_t.numel():
+            raise ValueError("case_indices and values must have the same length")
+        if indices_t.numel() == 0:
+            return
+        valid = (indices_t >= 0) & (indices_t < self.case_entries)
+        if not bool(torch.all(valid).detach().cpu().item()):
+            raise ValueError("case_indices contain inactive or out-of-range entries")
+        with torch.no_grad():
+            self.value_labels[indices_t] = values_t
+
+    def _lowest_replaceable_case_index(self) -> int | None:
+        if self.case_entries <= 0:
+            return None
+        actions = self.action_tensor()
+        counts = self.action_counts()
+        biases = self.biases[: self.case_entries].detach()
+        sorted_indices = torch.argsort(biases)
+        for idx_t in sorted_indices:
+            idx = int(idx_t.item())
+            action = int(actions[idx].item())
+            if int(counts[action].item()) > self.min_cases_per_action:
+                return idx
+        return None
+
+    def compact_cases(self, keep_indices: torch.Tensor | list[int]) -> int:
+        active_count = self.case_entries
+        keep_t = torch.as_tensor(keep_indices, dtype=torch.long, device=self.cases.device).view(-1)
+        if keep_t.numel() and (int(keep_t.min().item()) < 0 or int(keep_t.max().item()) >= active_count):
+            raise ValueError("keep_indices must refer to active cases")
+        new_count = int(keep_t.numel())
+        with torch.no_grad():
+            if new_count:
+                self.cases[:new_count].copy_(self.cases[keep_t].clone())
+                self.action_labels[:new_count].copy_(self.action_labels[keep_t].clone())
+                self.value_labels[:new_count].copy_(self.value_labels[keep_t].clone())
+                self.biases[:new_count].copy_(self.biases[keep_t].clone())
+                self.glocal_weights[:new_count].copy_(self.glocal_weights[keep_t].clone())
+            if new_count < active_count:
+                self.cases[new_count:active_count].zero_()
+                self.action_labels[new_count:active_count].zero_()
+                self.value_labels[new_count:active_count].zero_()
+                self.biases[new_count:active_count].fill_(self.case_default_bias)
+                self.glocal_weights[new_count:active_count].copy_(
+                    torch.softmax(
+                        torch.ones(active_count - new_count, self.glocal_fw_set_num, device=self.glocal_weights.device),
+                        dim=-1,
+                    )
+                )
+            self._active_case_count = new_count
+        return active_count - new_count
+
+    def prune_cases(self, *, force: bool = False) -> int:
+        active_count = self.case_entries
+        if active_count <= 0:
+            return 0
+        biases = self.biases[:active_count].detach()
+        thresholds: list[torch.Tensor] = []
+        if self._prune_quantile > 0.0:
+            thresholds.append(torch.quantile(biases, min(max(self._prune_quantile, 0.0), 1.0)))
+        if self._prune_bias_threshold is not None:
+            thresholds.append(torch.as_tensor(self._prune_bias_threshold, device=biases.device, dtype=biases.dtype))
+        if thresholds:
+            threshold = torch.stack(thresholds).max()
+            remove_candidates = torch.nonzero(biases < threshold, as_tuple=False).view(-1)
+        elif force:
+            remove_candidates = torch.argsort(biases)[:1]
+        else:
+            return 0
+        if remove_candidates.numel() == 0:
+            return 0
+        actions = self.action_tensor()
+        counts = self.action_counts().clone()
+        candidate_order = remove_candidates[torch.argsort(biases[remove_candidates])]
+        remove: list[int] = []
+        for idx_t in candidate_order:
+            idx = int(idx_t.item())
+            action = int(actions[idx].item())
+            if int(counts[action].item()) <= self.min_cases_per_action:
+                continue
+            remove.append(idx)
+            counts[action] -= 1
+            if force and not thresholds:
+                break
+        if not remove:
+            return 0
+        remove_set = set(remove)
+        keep_indices = [idx for idx in range(active_count) if idx not in remove_set]
+        return self.compact_cases(keep_indices)
+
+    def configure_case_maintenance(self, *, prune_quantile: float, prune_bias_threshold: float | None) -> None:
+        self._prune_quantile = float(prune_quantile)
+        self._prune_bias_threshold = None if prune_bias_threshold is None else float(prune_bias_threshold)
+
+    def case_bias_stats(self) -> dict[str, float | None]:
+        if self.case_entries <= 0:
+            return {"bias_min": None, "bias_mean": None, "bias_max": None}
+        biases = self.biases[: self.case_entries].detach()
+        return {
+            "bias_min": float(biases.min().cpu().item()),
+            "bias_mean": float(biases.mean().cpu().item()),
+            "bias_max": float(biases.max().cpu().item()),
+        }
+
+    def state_dict(self, *args: Any, **kwargs: Any) -> dict[str, torch.Tensor]:
+        state = super().state_dict(*args, **kwargs)
+        state["_shared_case_entries"] = torch.tensor(int(self.case_entries), dtype=torch.long)
+        return state
+
+    def load_state_dict(self, state_dict: dict[str, torch.Tensor], strict: bool = True):
+        state_copy = dict(state_dict)
+        case_entries_t = state_copy.pop("_shared_case_entries", None)
+        result = super().load_state_dict(state_copy, strict=strict)
+        if case_entries_t is not None:
+            self._active_case_count = int(case_entries_t.item())
+        return result
+
+
+PolicyActor = NNKNNPolicyNetwork | MLPPolicyNetwork | SharedNNKNNActorCriticNetwork
+ValueCritic = ValueNetwork | NNKNNValueNetwork | SharedNNKNNActorCriticNetwork
 
 
 def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConfig:
@@ -682,14 +987,14 @@ def _model_state(model: PolicyActor) -> dict[str, Any]:
     state: dict[str, Any] = {
         "state_dict": {key: value.detach().cpu().clone() for key, value in model.state_dict().items()},
     }
-    if isinstance(model, NNKNNPolicyNetwork):
+    if _is_nnknn_policy_actor(model):
         state["case_state"] = model.case_state()
     return state
 
 
 def _load_model_state(model: PolicyActor, state: dict[str, Any]) -> None:
     model.load_state_dict(state["state_dict"])
-    if isinstance(model, NNKNNPolicyNetwork):
+    if _is_nnknn_policy_actor(model):
         model.load_case_state(state.get("case_state", {}))
 
 
@@ -741,16 +1046,47 @@ def _build_value_model(obs_dim: int, cfg: NNKNNRLConfig, device: torch.device) -
     raise ValueError("critic_type must be either 'mlp' or 'nnknn'")
 
 
+def _build_actor_critic_models(
+    obs_dim: int,
+    action_dim: int,
+    cfg: NNKNNRLConfig,
+    device: torch.device,
+) -> tuple[PolicyActor, ValueCritic]:
+    if cfg.actor_type.strip().lower() == "nnknn" and cfg.critic_type.strip().lower() == "nnknn":
+        model = SharedNNKNNActorCriticNetwork(
+            obs_dim,
+            action_dim,
+            case_capacity=cfg.case_capacity,
+            tau=cfg.tau,
+            top_k=cfg.top_k,
+            case_default_bias=cfg.case_default_bias,
+            min_cases_per_action=cfg.min_cases_per_action,
+            nnknn_config={**cfg.nnknn_config, **cfg.critic_nnknn_config},
+            use_glocal_weightor=cfg.use_glocal_weightor,
+            glocal_fw_set_num=cfg.glocal_fw_set_num,
+        ).to(device)
+        model.configure_case_maintenance(
+            prune_quantile=cfg.case_prune_quantile,
+            prune_bias_threshold=cfg.case_prune_bias_threshold,
+        )
+        return model, model
+    return _build_actor_model(obs_dim, action_dim, cfg, device), _build_value_model(obs_dim, cfg, device)
+
+
 def _copy_state_dict_to_cpu(module: nn.Module) -> dict[str, torch.Tensor]:
     return {key: value.detach().cpu().clone() for key, value in module.state_dict().items()}
 
 
+def _is_nnknn_policy_actor(actor: PolicyActor) -> bool:
+    return isinstance(actor, (NNKNNPolicyNetwork, SharedNNKNNActorCriticNetwork))
+
+
 def _actor_case_entries(actor: PolicyActor) -> int | None:
-    return int(actor.case_entries) if isinstance(actor, NNKNNPolicyNetwork) else None
+    return int(actor.case_entries) if _is_nnknn_policy_actor(actor) else None
 
 
 def _actor_action_counts(actor: PolicyActor) -> list[int] | None:
-    return actor.action_counts().detach().cpu().tolist() if isinstance(actor, NNKNNPolicyNetwork) else None
+    return actor.action_counts().detach().cpu().tolist() if _is_nnknn_policy_actor(actor) else None
 
 
 def _actor_action_counts_json(actor: PolicyActor) -> str | None:
@@ -759,12 +1095,15 @@ def _actor_action_counts_json(actor: PolicyActor) -> str | None:
 
 
 def _actor_case_bias_stats(actor: PolicyActor) -> dict[str, float | None]:
-    if isinstance(actor, NNKNNPolicyNetwork):
+    if _is_nnknn_policy_actor(actor):
         return actor.case_bias_stats()
     return {"bias_min": None, "bias_mean": None, "bias_max": None}
 
 
 def _actor_bias_loss(actor: PolicyActor, device: torch.device) -> torch.Tensor:
+    if isinstance(actor, SharedNNKNNActorCriticNetwork):
+        active_biases = actor.biases[: actor.case_entries]
+        return active_biases.pow(2).mean() if active_biases.numel() else torch.zeros((), device=device)
     if not isinstance(actor, NNKNNPolicyNetwork):
         return torch.zeros((), dtype=torch.float32, device=device)
     active_biases = actor.nnknn_model.biases[: actor.case_entries]
@@ -938,6 +1277,7 @@ def _train_actor_critic_batch(
     observations: list[np.ndarray] = []
     next_observations: list[np.ndarray] = []
     actions: list[int] = []
+    case_indices: list[int] = []
     rewards: list[torch.Tensor] = []
     terminated: list[bool] = []
     episode_returns: list[float] = []
@@ -947,6 +1287,7 @@ def _train_actor_critic_batch(
         observations.extend(episode["observations"])
         next_observations.extend(episode["next_observations"])
         actions.extend(episode["actions"])
+        case_indices.extend(int(idx) for idx in episode.get("case_indices", []))
         policy_rewards = episode_policy_rewards(episode, cfg, device=device)
         if policy_rewards.numel() > 1:
             reward_checked_episodes += 1
@@ -962,6 +1303,7 @@ def _train_actor_critic_batch(
     actions_t = torch.as_tensor(actions, dtype=torch.long, device=device)
     rewards_t = torch.cat(rewards).to(device)
     terminated_t = torch.as_tensor(terminated, dtype=torch.bool, device=device)
+    case_indices_t = torch.as_tensor(case_indices, dtype=torch.long, device=device) if case_indices else None
 
     value_model.eval()
     with torch.no_grad():
@@ -984,8 +1326,25 @@ def _train_actor_critic_batch(
         )
 
     critic_loss = torch.zeros((), dtype=torch.float32, device=device)
-    if isinstance(value_model, NNKNNValueNetwork):
+    shared_actor_critic = actor is value_model and isinstance(actor, SharedNNKNNActorCriticNetwork)
+    if shared_actor_critic:
+        if case_indices_t is None or case_indices_t.numel() != obs_t.shape[0]:
+            raise ValueError("Shared NN-kNN actor-critic updates require one case index per sample")
+        value_model.update_value_labels(case_indices_t, value_targets.detach())
+        value_model.train()
+        critic_loss = F.mse_loss(value_model(obs_t), value_targets.detach())
+    elif isinstance(value_model, NNKNNValueNetwork):
         value_model.add_cases(obs_t, value_targets.detach())
+        if critic_optimizer is None:
+            raise ValueError("critic_optimizer is required for the NN-kNN critic")
+        value_model.train()
+        for _epoch in range(max(1, int(cfg.critic_update_epochs))):
+            value_predictions = value_model(obs_t)
+            critic_loss = F.mse_loss(value_predictions, value_targets.detach())
+            critic_optimizer.zero_grad()
+            (float(cfg.value_loss_coef) * critic_loss).backward()
+            nn.utils.clip_grad_norm_(value_model.parameters(), cfg.max_grad_norm)
+            critic_optimizer.step()
     else:
         if critic_optimizer is None:
             raise ValueError("critic_optimizer is required for the MLP critic")
@@ -1024,7 +1383,11 @@ def _train_actor_critic_batch(
     actor_loss = policy_loss - cfg.entropy_coef * entropy + cfg.case_bias_l2 * bias_loss
 
     actor_optimizer.zero_grad()
-    actor_loss.backward()
+    if shared_actor_critic:
+        total_train_loss = actor_loss + float(cfg.value_loss_coef) * critic_loss
+        total_train_loss.backward()
+    else:
+        actor_loss.backward()
     nn.utils.clip_grad_norm_(actor.parameters(), cfg.max_grad_norm)
     actor_optimizer.step()
 
@@ -1056,7 +1419,11 @@ def _train_actor_critic_batch(
         "actor_type": cfg.actor_type,
         "case_entries": _actor_case_entries(actor),
         "critic_type": cfg.critic_type,
-        "critic_case_entries": value_model.case_entries if isinstance(value_model, NNKNNValueNetwork) else None,
+        "critic_case_entries": (
+            value_model.case_entries
+            if isinstance(value_model, (NNKNNValueNetwork, SharedNNKNNActorCriticNetwork))
+            else None
+        ),
         "action_counts": _actor_action_counts_json(actor),
         **stats,
     }
@@ -1147,12 +1514,11 @@ def train_nnknn_rl(
 
     env = _make_env(spec, seed=cfg.seed)
     obs_dim, action_dim = _validate_env_spaces(env, spec)
-    actor = _build_actor_model(obs_dim, action_dim, cfg, run_device)
-    value_network = _build_value_model(obs_dim, cfg, run_device)
+    actor, value_network = _build_actor_critic_models(obs_dim, action_dim, cfg, run_device)
     actor_optimizer = optim.Adam(actor.parameters(), lr=cfg.learning_rate)
     critic_optimizer = (
         optim.Adam(value_network.parameters(), lr=cfg.critic_learning_rate)
-        if isinstance(value_network, ValueNetwork)
+        if isinstance(value_network, (ValueNetwork, NNKNNValueNetwork))
         else None
     )
 
@@ -1176,6 +1542,7 @@ def train_nnknn_rl(
     episode_observations: list[np.ndarray] = []
     episode_next_observations: list[np.ndarray] = []
     episode_actions: list[int] = []
+    episode_case_indices: list[int] = []
     episode_rewards: list[float] = []
     episode_terminated: list[bool] = []
     episode_truncated: list[bool] = []
@@ -1196,11 +1563,12 @@ def train_nnknn_rl(
                 greedy=False,
             )
             next_obs, reward, terminated, truncated, _ = env.step(action)
-            if isinstance(actor, NNKNNPolicyNetwork):
+            if _is_nnknn_policy_actor(actor):
                 action_case = np.asarray([int(action)], dtype=np.int64)
                 add_stats = actor.add_cases(obs_array[np.newaxis, :], action_case)
                 if add_stats["added"] != 1:
                     raise RuntimeError("NN-kNN actor failed to store the selected state-action case.")
+                episode_case_indices.append(int(add_stats["start"]))
                 total_pruned += int(add_stats["pruned"])
                 total_replaced += int(add_stats["replaced"])
 
@@ -1216,7 +1584,11 @@ def train_nnknn_rl(
             episode_done = bool(terminated or truncated)
 
             completed_step = global_step + 1
-            if cfg.case_maintenance_frequency > 0 and completed_step % cfg.case_maintenance_frequency == 0:
+            if (
+                cfg.case_maintenance_frequency > 0
+                and completed_step % cfg.case_maintenance_frequency == 0
+                and not isinstance(actor, SharedNNKNNActorCriticNetwork)
+            ):
                 pruned = actor.prune_cases() if isinstance(actor, NNKNNPolicyNetwork) else 0
                 total_pruned += pruned
                 if pruned and isinstance(actor, NNKNNPolicyNetwork):
@@ -1237,6 +1609,7 @@ def train_nnknn_rl(
                         "observations": episode_observations,
                         "next_observations": episode_next_observations,
                         "actions": episode_actions,
+                        "case_indices": episode_case_indices,
                         "rewards": episode_rewards,
                         "terminated": episode_terminated,
                         "truncated": episode_truncated,
@@ -1328,6 +1701,7 @@ def train_nnknn_rl(
                 episode_observations = []
                 episode_next_observations = []
                 episode_actions = []
+                episode_case_indices = []
                 episode_rewards = []
                 episode_terminated = []
                 episode_truncated = []
@@ -1483,7 +1857,11 @@ def train_nnknn_rl(
         "selected_source": selected_source,
         "training_efficiency": training_efficiency,
         "case_entries": _actor_case_entries(actor),
-        "critic_case_entries": value_network.case_entries if isinstance(value_network, NNKNNValueNetwork) else None,
+        "critic_case_entries": (
+            value_network.case_entries
+            if isinstance(value_network, (NNKNNValueNetwork, SharedNNKNNActorCriticNetwork))
+            else None
+        ),
         "action_counts": _actor_action_counts(actor),
         "cases_pruned": total_pruned,
         "cases_replaced": total_replaced,
@@ -1560,8 +1938,12 @@ def load_nnknn_rl_checkpoint(
     config_data.setdefault("critic_nnknn_config", {})
     config_data.setdefault("critic_case_capacity", None)
     cfg = NNKNNRLConfig(**config_data)
-    model = _build_actor_model(int(checkpoint["obs_dim"]), int(checkpoint["action_dim"]), cfg, run_device)
-    value_model = _build_value_model(int(checkpoint["obs_dim"]), cfg, run_device)
+    model, value_model = _build_actor_critic_models(
+        int(checkpoint["obs_dim"]),
+        int(checkpoint["action_dim"]),
+        cfg,
+        run_device,
+    )
     _load_model_state(model, checkpoint["actor_state"])
     value_model.load_state_dict(checkpoint["critic_state_dict"])
     model.eval()

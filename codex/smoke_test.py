@@ -143,6 +143,7 @@ def run_nnknn_rl_smoke() -> None:
         ALGORITHM_NAME,
         MLPPolicyNetwork,
         NNKNNPolicyNetwork,
+        SharedNNKNNActorCriticNetwork,
         compute_gae,
         evaluate_nnknn_rl,
         load_nnknn_rl_checkpoint,
@@ -229,6 +230,10 @@ def run_nnknn_rl_smoke() -> None:
     nnknn_state = train_nnknn_rl("cartpole", nnknn_cfg, progress=False)
     if not nnknn_state["checkpoint_path"].exists():
         raise AssertionError("NN-kNN critic smoke did not write a checkpoint.")
+    if not isinstance(nnknn_state["model"], SharedNNKNNActorCriticNetwork):
+        raise AssertionError("NN-kNN actor + NN-kNN critic should use the shared actor-critic model.")
+    if nnknn_state["model"] is not nnknn_state["value_model"]:
+        raise AssertionError("Shared NN-kNN actor-critic should be returned as both actor and critic.")
     nnknn_loaded = load_nnknn_rl_checkpoint(nnknn_state["checkpoint_path"])
     if nnknn_loaded["config"].critic_type != "nnknn":
         raise AssertionError("NN-kNN critic checkpoint reload did not preserve critic_type.")
