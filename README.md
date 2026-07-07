@@ -54,31 +54,39 @@ python tools/run_rl_nec.py cartpole --profile fast --seed 0
 python tools/run_rl_nec.py cartpole --eval-only --checkpoint <checkpoint.pt>
 python tools/run_rl_nnknn.py cartpole --profile fast --seed 0
 python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --critic-type nnknn
+python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --actor-type mlp --critic-type mlp
+python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --actor-type mlp --critic-type nnknn
 python tools/run_rl_nnknn.py cartpole --profile debug --gamma 0.99 --gae-lambda 0.95 --critic-learning-rate 1e-3 --critic-update-epochs 1
 python tools/run_rl_nnknn.py cartpole --eval-only --checkpoint <checkpoint.pt>
 ```
 
-The NN-kNN-RL workflow currently uses NN-kNN as the actor, selectable MLP or
-NN-kNN value critics, and GAE advantages. Checkpoints record
+The actor-critic workflow defaults to NN-kNN as the actor, supports
+`actor_type="mlp"` for MLP-actor baselines, supports selectable MLP or NN-kNN
+value critics, and uses GAE advantages. Checkpoints record
 `algorithm="nnknn_actor_mlp_value_gae"` for compatibility; use
-`critic_type` in the config or summary to distinguish MLP and NN-kNN critics.
+`actor_type` and `critic_type` in the config or summary to distinguish
+comparison variants.
 Older reward-to-go NN-kNN-RL checkpoints should be retrained.
 
-Current DQN reference run:
+Current DQN fast run:
 
-- `results/rl/dqn_cartpole_20260615_145845_570666/`
-- selected checkpoint step: `125000`
-- selected eval mean return: `500.0` over 20 episodes
-- last/end-of-budget eval mean return: `87.7`
+- `results/rl/dqn_cartpole_20260702_135146_537913/`
+- selected checkpoint step: `110000`
+- selected eval mean return: `110.85` over 20 episodes
+- last/end-of-budget eval mean return: `89.45`
+- interpretation: this run did not reach the `475.0` success threshold, so
+  treat it as `unsolved_or_underfit` rather than a solved DQN reference.
 
 Current NEC reference run:
 
-- `results/rl/nec_cartpole_20260615_191908_236354/`
-- selected checkpoint step: `90000`
-- selected eval mean return: `371.45` over 20 episodes
-- last/end-of-budget eval mean return: `199.60`
-- interpretation: NEC improved over the earlier 25k-step debug-sized run but
-  remains below the `475.0` success threshold and below DQN.
+- `results/rl/nec_cartpole_20260703_173129_688189/`
+- selected checkpoint step: `150000`
+- selected eval mean return: `450.55` over 20 episodes
+- last/end-of-budget eval mean return: `450.55`
+- interpretation: NEC improved substantially over the earlier debug-sized run
+  and reaches individual 500-return episodes, but the mean remains below the
+  `475.0` success threshold; treat it as `unsolved_or_underfit` or possible
+  under-budget before paper-style claims.
 
 For DQN, NEC, and NN-kNN-RL comparisons, prefer a fixed environment-step
 budget with periodic evaluation and best-checkpoint selection. Do not treat the

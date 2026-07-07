@@ -32,21 +32,26 @@ RL baseline commands:
 - `.venv/bin/python tools/run_rl_nnknn.py cartpole --profile smoke --seed 0`
 - `.venv/bin/python tools/run_rl_nnknn.py cartpole --profile debug --gamma 0.99 --gae-lambda 0.95 --critic-learning-rate 1e-3 --critic-update-epochs 1`
 - `.venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --critic-type nnknn`
+- `.venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --actor-type mlp --critic-type mlp`
+- `.venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --actor-type mlp --critic-type nnknn`
 
 RL runs write timestamped artifacts under `results/rl/`. Inspect
 `summary.json`, especially `training_efficiency`, before comparing DQN, NEC,
-or NN-kNN-RL results. Current NN-kNN-RL uses an NN-kNN actor with selectable
-MLP or NN-kNN value critics and GAE advantages; checkpoints record
-`algorithm="nnknn_actor_mlp_value_gae"` for compatibility. Use `critic_type`
-in config or summary output to distinguish MLP and NN-kNN critics.
+or NN-kNN-RL results. Current NN-kNN-RL defaults to an NN-kNN actor, supports
+MLP-actor comparison baselines, supports selectable MLP or NN-kNN value
+critics, and uses GAE advantages; checkpoints record
+`algorithm="nnknn_actor_mlp_value_gae"` for compatibility. Use `actor_type`
+and `critic_type` in config or summary output to distinguish comparison
+variants.
 
 Current CartPole references:
 
-- DQN fast: `results/rl/dqn_cartpole_20260615_145845_570666/`, selected eval
-  mean return `500.0` at step `125000`.
-- NEC fast: `results/rl/nec_cartpole_20260615_191908_236354/`, selected eval
-  mean return `371.45` at step `90000`; this is nontrivial but still below the
-  `475.0` success threshold.
+- DQN fast: `results/rl/dqn_cartpole_20260702_135146_537913/`, selected eval
+  mean return `110.85` at step `110000`; this did not reproduce the older
+  solved checkpoint and should be treated as `unsolved_or_underfit`.
+- NEC fast: `results/rl/nec_cartpole_20260703_173129_688189/`, selected eval
+  mean return `450.55` at step `150000`; this reaches individual 500-return
+  episodes but remains below the `475.0` success threshold.
 - NN-kNN-RL smoke:
   `results/rl/nnknn_rl_cartpole_20260625_161005_956241/`, mean return `14.0`
   over 2 smoke-eval episodes; this validates plumbing only.
