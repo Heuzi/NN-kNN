@@ -95,6 +95,8 @@ Important entry points in `model/nnknn_rl_workflow.py`:
 
 - `ALGORITHM_NAME`
 - `NNKNNRLConfig`
+- `MLPPolicyNetwork`
+- `NNKNNQNetwork`
 - `ValueNetwork`
 - `compute_gae(...)`
 - `make_nnknn_rl_config(...)`
@@ -105,19 +107,22 @@ Important entry points in `model/nnknn_rl_workflow.py`:
 Current NN-kNN-RL algorithm:
 
 - `ALGORITHM_NAME` is `nnknn_actor_mlp_value_gae`.
-- The actor is an NN-kNN classifier over actions; `policy_probs(...)` returns
-  action probabilities.
+- The actor is selectable with `actor_type="nnknn"` or `actor_type="mlp"`;
+  `policy_probs(...)` returns action probabilities for both.
+- The default NN-kNN actor preserves existing behavior. The MLP actor is for
+  baseline actor-critic comparisons.
 - The critic is selectable with `critic_type="mlp"` or `critic_type="nnknn"`;
   the default MLP `ValueNetwork` preserves existing behavior.
 - The algorithm name is retained for checkpoint compatibility; use
-  `critic_type` in the config or summary to distinguish MLP and NN-kNN critics.
+  `actor_type` and `critic_type` in the config or summary to distinguish
+  comparison variants.
 - Actor updates use GAE advantages from the selected value critic. Raw
   environment reward is the default; `reward_shaping` is off unless explicitly
   set.
 - Old reward-to-go NN-kNN-RL checkpoints do not load into the actor-critic
   workflow. Retrain them instead of attempting compatibility shims.
-- NN-kNN regression as the critic is available for direct comparison with the
-  MLP critic.
+- NN-kNN regression as the critic and an MLP actor are available for direct
+  actor/critic ablation comparisons.
 
 Task metadata lives in `datasets/rl_tasks.py`; currently supported:
 
@@ -149,6 +154,8 @@ Routine RL checks:
 .venv/bin/python tools/run_rl_nnknn.py cartpole --profile smoke --seed 0
 .venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0
 .venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --critic-type nnknn
+.venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --actor-type mlp --critic-type mlp
+.venv/bin/python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --actor-type mlp --critic-type nnknn
 .venv/bin/python tools/run_rl_nnknn.py cartpole --profile debug --gamma 0.99 --gae-lambda 0.95 --critic-learning-rate 1e-3 --critic-update-epochs 1
 .venv/bin/python tools/run_rl_nnknn.py cartpole --eval-only --checkpoint <checkpoint.pt>
 ```
@@ -165,26 +172,29 @@ RL protocol for DQN, NEC, and NN-kNN-RL comparisons:
   the final model and the curve is still rising, increase the budget or tune
   before making paper-style comparisons.
 
-Current CartPole DQN reference result:
+Current CartPole DQN fast result:
 
-- run folder: `results/rl/dqn_cartpole_20260615_145845_570666/`
-- selected checkpoint step: `125000`
-- selected eval mean return: `500.0` over 20 episodes
-- last/end-of-budget eval mean return: `87.7`
-- interpretation: the fixed budget exposed regression after the best model, so
-  best-checkpoint selection was useful and the selected step is an efficiency
-  signal.
+- run folder: `results/rl/dqn_cartpole_20260702_135146_537913/`
+- selected checkpoint step: `110000`
+- selected eval mean return: `110.85` over 20 episodes
+- last/end-of-budget eval mean return: `89.45`
+- interpretation: the latest fast DQN artifact did not reach the `475.0`
+  success threshold. Treat it as `unsolved_or_underfit`; do not use it as a
+  solved CartPole reference without further reproduction/debugging.
 
 Current CartPole NEC reference result:
 
-- run folder: `results/rl/nec_cartpole_20260615_191908_236354/`
-- selected checkpoint step: `90000`
-- selected eval mean return: `371.45` over 20 episodes
-- last/end-of-budget eval mean return: `199.60`
-- interpretation: the 150k-step NEC `fast` profile improved over the 25k
-  debug-sized run (`292.2` best mean return), but it remains below the `475.0`
-  success threshold and below the DQN reference; treat it as unsolved/underfit
-  before paper-style claims.
+- run folder: `results/rl/nec_cartpole_20260703_173129_688189/`
+- selected checkpoint step: `150000`
+- selected eval mean return: `450.55` over 20 episodes
+- last/end-of-budget eval mean return: `450.55`
+- dictionary entries: `20000`
+- interpretation: the 150k-step NEC `fast` profile now substantially improves
+  over the earlier debug-sized run (`281.2` best mean return) and includes
+  individual 500-return episodes, but the mean remains below the `475.0`
+  success threshold. Because the selected checkpoint is the final model, treat
+  it as `unsolved_or_underfit` or possible under-budget before paper-style
+  claims.
 
 Current NN-kNN-RL status:
 
