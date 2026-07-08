@@ -127,16 +127,22 @@ Current NN-kNN-RL algorithm:
 Task metadata lives in `datasets/rl_tasks.py`; currently supported:
 
 - `cartpole` -> `CartPole-v1`
+- `pong` -> `ALE/Pong-v5` for DQN Atari demos
+- `breakout` -> `ALE/Breakout-v5` for DQN Atari demos
 
 CLI and notebook surfaces:
 
 - `tools/run_rl_dqn.py` is the source-of-truth CLI.
 - `tools/run_rl_nec.py` is the source-of-truth NEC CLI.
 - `tools/run_rl_nnknn.py` is the source-of-truth NN-kNN-RL CLI.
-- `dqn_cartpole_demo.ipynb` is a thin debugging notebook that calls the Python
+- `demos/dqn_cartpole_demo.ipynb` is a thin debugging notebook that calls the Python
   workflow functions.
-- `nec_cartpole_demo.ipynb` and `nnknn_cartpole_demo.ipynb` follow the same
+- `demos/nec_cartpole_demo.ipynb` and `demos/nnknn_cartpole_demo.ipynb` follow the same
   thin-notebook pattern for NEC and NN-kNN-RL.
+- `demos/dqn_atari_pong_demo.ipynb` and
+  `demos/dqn_atari_breakout_demo.ipynb` are DQN-only Atari demo notebooks.
+  NEC and NN-kNN-RL Atari demos should wait until those workflows support
+  image observations.
 
 Routine RL checks:
 
@@ -147,6 +153,8 @@ Routine RL checks:
 .venv/bin/python tools/run_rl_dqn.py cartpole --profile smoke --seed 0
 .venv/bin/python tools/run_rl_dqn.py cartpole --profile fast --seed 0
 .venv/bin/python tools/run_rl_dqn.py cartpole --eval-only --checkpoint <checkpoint.pt>
+.venv/bin/python tools/run_rl_dqn.py pong --profile smoke --seed 0
+.venv/bin/python tools/run_rl_dqn.py breakout --profile smoke --seed 0
 .venv/bin/python tools/run_rl_nec.py cartpole --profile smoke --seed 0
 .venv/bin/python tools/run_rl_nec.py cartpole --profile debug --seed 0
 .venv/bin/python tools/run_rl_nec.py cartpole --profile fast --seed 0
@@ -174,6 +182,16 @@ RL protocol for DQN, NEC, and NN-kNN-RL comparisons:
 
 Current CartPole DQN fast result:
 
+- saved `demos/dqn_cartpole_demo.ipynb` output:
+  `results/rl/dqn_cartpole_20260701_183004_199116/`
+- selected checkpoint step: `135000`
+- selected eval mean return: `152.70` over 20 episodes
+- last/end-of-budget eval mean return: `118.75`
+- interpretation: this saved notebook output did not reach the `475.0`
+  success threshold. Treat it as `unsolved_or_underfit`.
+
+Current CartPole DQN artifact reference:
+
 - run folder: `results/rl/dqn_cartpole_20260702_135146_537913/`
 - selected checkpoint step: `110000`
 - selected eval mean return: `110.85` over 20 episodes
@@ -196,6 +214,18 @@ Current CartPole NEC reference result:
   it as `unsolved_or_underfit` or possible under-budget before paper-style
   claims.
 
+Current DQN Atari notebook status:
+
+- Pong gold notebook output:
+  `results/rl/dqn_pong_20260708_133010_927252/`
+- selected checkpoint step: `1000000`
+- selected eval mean return: `-21.0` over 10 episodes
+- interpretation: Atari Pong is runnable through the CNN DQN path, but this
+  output is an unsolved learning/debug result.
+- Breakout smoke output:
+  `results/rl/dqn_breakout_20260707_203426_373636/`, mean return `1.0` over
+  1 episode; plumbing only.
+
 Current NN-kNN-RL status:
 
 - newest validated smoke artifact:
@@ -205,9 +235,9 @@ Current NN-kNN-RL status:
 - interpretation: this validates actor-critic plumbing and checkpoint reload
   only. It is not a competitive CartPole result.
 - current fast NN-kNN-critic comparison artifact:
-  `results/rl/nnknn_rl_cartpole_20260626_150805_689987/`
+  `results/rl/nnknn_rl_cartpole_20260629_130136_701190/`
 - critic: `critic_type="nnknn"`
-- selected eval mean return: `369.5` over 20 episodes
+- selected eval mean return: `432.35` over 20 episodes
 - interpretation: this remains below the `475.0` success threshold and should
   be treated as `unsolved_or_underfit`.
 
@@ -252,7 +282,7 @@ The benchmark CLI creates a fresh timestamped folder under `results/` with
 tabular and image benchmark sections opt-in so its default path stays quick.
 
 For manual small-data classification debugging, use
-[nnknn_sample_classification.ipynb](nnknn_sample_classification.ipynb). Run the
+[demos/nnknn_sample_classification.ipynb](demos/nnknn_sample_classification.ipynb). Run the
 single-experiment sanity section first and change the dataset passed to
 `run_single_nnknn_classification_experiment(...)`:
 
@@ -503,14 +533,14 @@ Important status note:
 
 Primary notebooks:
 
-- [nnknn_sample_classification.ipynb](nnknn_sample_classification.ipynb)
+- [demos/nnknn_sample_classification.ipynb](demos/nnknn_sample_classification.ipynb)
   for classification single-run inspection and opt-in benchmark checks.
-- [nnknn_sample_regression.ipynb](nnknn_sample_regression.ipynb)
+- [demos/nnknn_sample_regression.ipynb](demos/nnknn_sample_regression.ipynb)
   for regression single-run inspection and workflow calls.
-- [dqn_cartpole_demo.ipynb](dqn_cartpole_demo.ipynb)
+- [demos/dqn_cartpole_demo.ipynb](demos/dqn_cartpole_demo.ipynb)
   for DQN CartPole inspection while keeping implementation logic in
   `model/rl_workflow.py`.
-- [nnknn_cartpole_demo.ipynb](nnknn_cartpole_demo.ipynb)
+- [demos/nnknn_cartpole_demo.ipynb](demos/nnknn_cartpole_demo.ipynb)
   for NN-kNN-RL CartPole inspection while keeping implementation logic in
   `model/nnknn_rl_workflow.py`.
 
@@ -545,7 +575,7 @@ Legacy or specialized files:
   6. Evaluate/visualize
   7. Run explanation blocks on the trained model if desired
 - For notebook batch table work, use the batch runner cell in
-  `nnknn_sample_regression.ipynb`; it calls
+  `demos/nnknn_sample_regression.ipynb`; it calls
   `run_repeated_regression_model_benchmarks(...)`.
 - For paper-style Table 1 reruns with 5-fold CV and std reporting, use
   `run_table1_kfold(...)` from `tools/table1_nnknn_kfold.py`.
@@ -565,7 +595,9 @@ Legacy or specialized files:
 - Long experiments write progress to `stdout.log` and errors to `stderr.log`
   under timestamped folders in `results/`.
 - `MLKR` depends on `metric-learn` and `scikit-learn`.
-- RL/DQN depends on `gymnasium[classic_control]`.
+- RL/DQN depends on `gymnasium[classic_control]`; Atari DQN demos also need
+  `gymnasium[atari]`, `autorom`, `autorom.accept-rom-license`, and
+  accepted/installed ALE ROMs via `AutoROM --accept-license`.
 - RL outputs are timestamped under `results/rl/`.
 - `bike_sharing` depends on `ucimlrepo`; verify the active environment before
   launching a full Table 1 run that includes it.

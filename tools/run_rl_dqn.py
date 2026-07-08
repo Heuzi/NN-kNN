@@ -23,7 +23,7 @@ from model.rl_workflow import (  # noqa: E402
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train or evaluate the repo-native DQN baseline.")
     parser.add_argument("task", nargs="?", default="cartpole", help="RL task key, such as cartpole.")
-    parser.add_argument("--profile", choices=["smoke", "fast", "gold"], default="fast")
+    parser.add_argument("--profile", choices=["smoke", "debug", "fast", "gold"], default="fast")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--output-dir", default="results/rl", help="Parent folder for timestamped run dirs.")
     parser.add_argument("--device", default=None, help="Optional torch device override, such as cpu or cuda.")
@@ -44,7 +44,7 @@ def _config_from_args(args: argparse.Namespace) -> DQNConfig:
         overrides["eval_episodes"] = args.eval_episodes
     if args.eval_seed is not None:
         overrides["eval_seed"] = args.eval_seed
-    return make_dqn_config(args.profile, **overrides)
+    return make_dqn_config(args.profile, task_name=args.task, **overrides)
 
 
 def _write_eval_only_summary(outdir: Path, payload: dict) -> None:

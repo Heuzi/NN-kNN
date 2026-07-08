@@ -32,15 +32,19 @@ outside the current classification workflow.
 
 ## Notebooks
 
-- `nnknn_sample_classification.ipynb`: maintained classification workflow,
+- `demos/nnknn_sample_classification.ipynb`: maintained classification workflow,
   explanations, representative baselines, and optional image subset runs.
-- `nnknn_sample_regression.ipynb`: maintained regression workflow.
-- `dqn_cartpole_demo.ipynb`: thin debugging surface for the repo-native DQN
+- `demos/nnknn_sample_regression.ipynb`: maintained regression workflow.
+- `demos/dqn_cartpole_demo.ipynb`: thin debugging surface for the repo-native DQN
   workflow; the DQN implementation lives in Python files.
-- `nec_cartpole_demo.ipynb`: thin debugging surface for the repo-native NEC
+- `demos/nec_cartpole_demo.ipynb`: thin debugging surface for the repo-native NEC
   workflow; the NEC implementation lives in Python files.
-- `nnknn_cartpole_demo.ipynb`: thin debugging surface for the repo-native
+- `demos/nnknn_cartpole_demo.ipynb`: thin debugging surface for the repo-native
   NN-kNN-RL workflow; the RL implementation lives in Python files.
+- `demos/dqn_atari_pong_demo.ipynb` and
+  `demos/dqn_atari_breakout_demo.ipynb`: thin DQN Atari demo surfaces. Atari
+  support is currently DQN-only; NEC and NN-kNN-RL still target flat CartPole
+  observations until image-observation workflows are added.
 
 ## RL Baseline Protocol
 
@@ -50,6 +54,8 @@ The current RL baselines are a CleanRL-style DQN and a repo-native NEC on
 ```bash
 python tools/run_rl_dqn.py cartpole --profile fast --seed 0
 python tools/run_rl_dqn.py cartpole --eval-only --checkpoint <checkpoint.pt>
+python tools/run_rl_dqn.py pong --profile smoke --seed 0
+python tools/run_rl_dqn.py breakout --profile smoke --seed 0
 python tools/run_rl_nec.py cartpole --profile fast --seed 0
 python tools/run_rl_nec.py cartpole --eval-only --checkpoint <checkpoint.pt>
 python tools/run_rl_nnknn.py cartpole --profile fast --seed 0
@@ -68,7 +74,17 @@ value critics, and uses GAE advantages. Checkpoints record
 comparison variants.
 Older reward-to-go NN-kNN-RL checkpoints should be retrained.
 
-Current DQN fast run:
+Current DQN CartPole notebook output:
+
+- `demos/dqn_cartpole_demo.ipynb`
+- saved run folder: `results/rl/dqn_cartpole_20260701_183004_199116/`
+- selected checkpoint step: `135000`
+- selected eval mean return: `152.70` over 20 episodes
+- last/end-of-budget eval mean return: `118.75`
+- interpretation: the success threshold was never reached, so treat this saved
+  notebook output as `unsolved_or_underfit`, not a solved DQN reference.
+
+Current DQN CartPole artifact reference:
 
 - `results/rl/dqn_cartpole_20260702_135146_537913/`
 - selected checkpoint step: `110000`
@@ -87,6 +103,17 @@ Current NEC reference run:
   and reaches individual 500-return episodes, but the mean remains below the
   `475.0` success threshold; treat it as `unsolved_or_underfit` or possible
   under-budget before paper-style claims.
+
+Current DQN Atari notebook status:
+
+- `demos/dqn_atari_pong_demo.ipynb`: gold profile output from
+  `results/rl/dqn_pong_20260708_133010_927252/` selected the final checkpoint
+  at `1,000,000` steps and still evaluated at mean return `-21.0` over 10
+  episodes. Treat this as Atari pipeline functionality plus an unsolved Pong
+  learning/debug result.
+- `demos/dqn_atari_breakout_demo.ipynb`: smoke profile output from
+  `results/rl/dqn_breakout_20260707_203426_373636/` evaluated at mean return
+  `1.0` over 1 episode. Treat this as plumbing only, not benchmark quality.
 
 For DQN, NEC, and NN-kNN-RL comparisons, prefer a fixed environment-step
 budget with periodic evaluation and best-checkpoint selection. Do not treat the
@@ -107,8 +134,8 @@ Current NN-kNN-RL status: the actor-critic GAE smoke path validated at
 `results/rl/nnknn_rl_cartpole_20260625_161005_956241/` with mean return `14.0`
 over 2 smoke-eval episodes. This verifies plumbing only, not benchmark quality.
 The current fast NN-kNN-critic comparison run is
-`results/rl/nnknn_rl_cartpole_20260626_150805_689987/` with selected eval mean
-return `369.5` over 20 episodes; it remains below the `475.0` success
+`results/rl/nnknn_rl_cartpole_20260629_130136_701190/` with selected eval
+mean return `432.35` over 20 episodes; it remains below the `475.0` success
 threshold and should be treated as `unsolved_or_underfit`.
 
 ## Quick Checks
