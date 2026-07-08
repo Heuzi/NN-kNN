@@ -93,9 +93,18 @@
   reproduction/debugging before serving as the solved CartPole reference; NEC is
   near-solved but still below threshold, and NN-kNN-RL has
   been refactored to actor-critic GAE with selectable NN-kNN or MLP actors and
-  selectable MLP or NN-kNN regression value critics. The next NN-kNN-RL step
-  should be tuning and diagnostics of actor probabilities, critic value loss,
-  explained variance, and
+  selectable MLP or NN-kNN regression value critics. The major NN-kNN-RL focus
+  now is the actor/critic model structure:
+  - an NN-kNN actor should be an optimizable policy network even when the
+    critic is an MLP
+  - an NN-kNN critic should be an optimizable value network even when the actor
+    is an MLP; it should append value-target cases and train its NN-kNN
+    retrieval parameters with the value loss
+  - when both actor and critic are NN-kNN, they should use one shared NN-kNN
+    actor-critic model with one case base and one retrieval backbone, while
+    keeping separate policy and value label stores
+  Tuning and diagnostics should support those goals, especially actor
+  probabilities, critic value loss, explained variance, and
   selected-checkpoint behavior.
 - Do not restore the retired legacy case-weight classification path solely to
   reproduce old numbers. Improvements should come from the current workflow,
