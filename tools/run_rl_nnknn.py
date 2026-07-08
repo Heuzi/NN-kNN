@@ -38,6 +38,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--critic-type", choices=["mlp", "nnknn"], default=None)
     parser.add_argument("--critic-learning-rate", type=float, default=None)
     parser.add_argument("--critic-update-epochs", type=int, default=None)
+    parser.add_argument("--shared-target-value-mode", choices=["none", "hard", "ema"], default=None)
+    parser.add_argument("--shared-target-sync-interval", type=int, default=None)
+    parser.add_argument("--shared-target-ema-tau", type=float, default=None)
     parser.add_argument("--eval-only", action="store_true", help="Evaluate a saved checkpoint without training.")
     parser.add_argument("--checkpoint", default=None, help="Checkpoint path for --eval-only.")
     parser.add_argument("--quiet", action="store_true", help="Disable progress logging during training.")
@@ -68,6 +71,12 @@ def _config_from_args(args: argparse.Namespace) -> NNKNNRLConfig:
         overrides["critic_learning_rate"] = args.critic_learning_rate
     if args.critic_update_epochs is not None:
         overrides["critic_update_epochs"] = args.critic_update_epochs
+    if args.shared_target_value_mode is not None:
+        overrides["shared_target_value_mode"] = args.shared_target_value_mode
+    if args.shared_target_sync_interval is not None:
+        overrides["shared_target_sync_interval"] = args.shared_target_sync_interval
+    if args.shared_target_ema_tau is not None:
+        overrides["shared_target_ema_tau"] = args.shared_target_ema_tau
     return make_nnknn_rl_config(args.profile, **overrides)
 
 

@@ -73,6 +73,9 @@ class NNKNNRLConfig:
     case_prune_quantile: float = 0.05
     case_prune_bias_threshold: float | None = None
     min_cases_per_action: int = 8
+    shared_target_value_mode: str = "hard"
+    shared_target_sync_interval: int = 1
+    shared_target_ema_tau: float = 0.05
     source_reference: str = "NN-kNN actor with selectable value critic and GAE advantages"
 
     def to_dict(self) -> dict[str, Any]:
@@ -596,6 +599,8 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
         self.register_buffer("cases", torch.zeros(self.case_capacity, self.obs_dim, dtype=torch.float32))
         self.register_buffer("action_labels", torch.zeros(self.case_capacity, self.action_dim, dtype=torch.float32))
         self.register_buffer("value_labels", torch.zeros(self.case_capacity, dtype=torch.float32))
+        self.register_buffer("case_ids", torch.full((self.case_capacity,), -1, dtype=torch.long))
+        self.register_buffer("next_case_id", torch.zeros((), dtype=torch.long))
         self.biases = nn.Parameter(torch.full((self.case_capacity,), self.case_default_bias, dtype=torch.float32))
         self.glocal_weights = nn.Parameter(
             torch.softmax(torch.ones(self.case_capacity, self.glocal_fw_set_num, dtype=torch.float32), dim=-1)
@@ -636,6 +641,14 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
         if self.case_entries < int(min_case_entries):
             return False
         return bool(torch.all(self.action_counts() > 0).detach().cpu().item())
+
+    def _protected_case_id_set(self, protected_case_ids: torch.Tensor | list[int] | None) -> set[int]:
+        if protected_case_ids is None:
+            return set()
+        if isinstance(protected_case_ids, set):
+            return {int(case_id) for case_id in protected_case_ids if int(case_id) >= 0}
+        protected_ids_t = torch.as_tensor(protected_case_ids, dtype=torch.long).view(-1)
+        return {int(case_id) for case_id in protected_ids_t.detach().cpu().tolist() if int(case_id) >= 0}
 
     def _case_weights(self, observations: torch.Tensor) -> torch.Tensor:
         if observations.dim() == 1:
@@ -694,7 +707,13 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
         weights = self._case_weights(observations)
         return torch.matmul(weights, self.value_labels[: self.case_entries].to(weights.dtype))
 
-    def add_cases(self, observations: torch.Tensor | np.ndarray, actions: torch.Tensor | np.ndarray) -> dict[str, int]:
+    def add_cases(
+        self,
+        observations: torch.Tensor | np.ndarray,
+        actions: torch.Tensor | np.ndarray,
+        *,
+        protected_case_ids: torch.Tensor | list[int] | None = None,
+    ) -> dict[str, Any]:
         obs_t = torch.as_tensor(observations, dtype=torch.float32, device=self.cases.device)
         actions_t = torch.as_tensor(actions, dtype=torch.long, device=self.action_labels.device).view(-1)
         if obs_t.dim() == 1:
@@ -703,60 +722,82 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
             raise ValueError("observations and actions must have the same batch size")
         if torch.any(actions_t < 0) or torch.any(actions_t >= self.action_dim):
             raise ValueError(f"actions must be integer ids in [0, {self.action_dim})")
+        protected_ids = self._protected_case_id_set(protected_case_ids)
         added = 0
         replaced = 0
         pruned = 0
         first_added_index: int | None = None
+        assigned_case_ids: list[int] = []
         with torch.no_grad():
             for idx in range(obs_t.shape[0]):
                 if self.case_entries >= self.case_capacity:
-                    pruned += self.prune_cases(force=True)
+                    pruned += self.prune_cases(force=True, protected_case_ids=protected_ids)
                 if self.case_entries >= self.case_capacity:
-                    replace_idx = self._lowest_replaceable_case_index()
+                    replace_idx = self._lowest_replaceable_case_index(protected_case_ids=protected_ids)
                     if replace_idx is None:
                         continue
                     keep_indices = [i for i in range(self.case_entries) if i != replace_idx]
                     self.compact_cases(keep_indices)
                     replaced += 1
                 insert_idx = self.case_entries
+                case_id = int(self.next_case_id.item())
                 self.cases[insert_idx].copy_(obs_t[idx])
                 self.action_labels[insert_idx].copy_(
                     F.one_hot(actions_t[idx], num_classes=self.action_dim).to(dtype=torch.float32)
                 )
                 self.value_labels[insert_idx].zero_()
+                self.case_ids[insert_idx].fill_(case_id)
                 self.biases[insert_idx].fill_(self.case_default_bias)
                 self.glocal_weights[insert_idx].copy_(
                     torch.softmax(torch.ones(self.glocal_fw_set_num, device=self.glocal_weights.device), dim=-1)
                 )
                 self._active_case_count += 1
+                self.next_case_id.add_(1)
                 if first_added_index is None:
                     first_added_index = insert_idx
+                assigned_case_ids.append(case_id)
                 added += 1
         start = self.case_entries - added if first_added_index is None else first_added_index
-        return {"added": added, "pruned": pruned, "replaced": replaced, "start": start, "end": start + added}
+        return {
+            "added": added,
+            "pruned": pruned,
+            "replaced": replaced,
+            "start": start,
+            "end": start + added,
+            "case_ids": assigned_case_ids,
+        }
 
-    def update_value_labels(self, case_indices: torch.Tensor | list[int], values: torch.Tensor) -> None:
-        indices_t = torch.as_tensor(case_indices, dtype=torch.long, device=self.value_labels.device).view(-1)
+    def update_value_labels(self, case_ids: torch.Tensor | list[int], values: torch.Tensor) -> None:
+        case_ids_t = torch.as_tensor(case_ids, dtype=torch.long, device=self.value_labels.device).view(-1)
         values_t = torch.as_tensor(values, dtype=torch.float32, device=self.value_labels.device).view(-1)
-        if indices_t.numel() != values_t.numel():
-            raise ValueError("case_indices and values must have the same length")
-        if indices_t.numel() == 0:
+        if case_ids_t.numel() != values_t.numel():
+            raise ValueError("case_ids and values must have the same length")
+        if case_ids_t.numel() == 0:
             return
-        valid = (indices_t >= 0) & (indices_t < self.case_entries)
+        active_case_ids = self.case_ids[: self.case_entries]
+        if active_case_ids.numel() == 0:
+            raise ValueError("Shared NN-kNN actor-critic has no active cases to label")
+        positions = torch.searchsorted(active_case_ids, case_ids_t)
+        clamped_positions = positions.clamp(max=max(active_case_ids.numel() - 1, 0))
+        valid = (positions < active_case_ids.numel()) & (active_case_ids[clamped_positions] == case_ids_t)
         if not bool(torch.all(valid).detach().cpu().item()):
-            raise ValueError("case_indices contain inactive or out-of-range entries")
+            raise ValueError("case_ids contain inactive or unknown shared NN-kNN cases")
         with torch.no_grad():
-            self.value_labels[indices_t] = values_t
+            self.value_labels[positions] = values_t
 
-    def _lowest_replaceable_case_index(self) -> int | None:
+    def _lowest_replaceable_case_index(self, *, protected_case_ids: torch.Tensor | list[int] | None = None) -> int | None:
         if self.case_entries <= 0:
             return None
         actions = self.action_tensor()
         counts = self.action_counts()
         biases = self.biases[: self.case_entries].detach()
+        active_case_ids = self.case_ids[: self.case_entries].detach()
+        protected_ids = self._protected_case_id_set(protected_case_ids)
         sorted_indices = torch.argsort(biases)
         for idx_t in sorted_indices:
             idx = int(idx_t.item())
+            if int(active_case_ids[idx].item()) in protected_ids:
+                continue
             action = int(actions[idx].item())
             if int(counts[action].item()) > self.min_cases_per_action:
                 return idx
@@ -773,12 +814,14 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
                 self.cases[:new_count].copy_(self.cases[keep_t].clone())
                 self.action_labels[:new_count].copy_(self.action_labels[keep_t].clone())
                 self.value_labels[:new_count].copy_(self.value_labels[keep_t].clone())
+                self.case_ids[:new_count].copy_(self.case_ids[keep_t].clone())
                 self.biases[:new_count].copy_(self.biases[keep_t].clone())
                 self.glocal_weights[:new_count].copy_(self.glocal_weights[keep_t].clone())
             if new_count < active_count:
                 self.cases[new_count:active_count].zero_()
                 self.action_labels[new_count:active_count].zero_()
                 self.value_labels[new_count:active_count].zero_()
+                self.case_ids[new_count:active_count].fill_(-1)
                 self.biases[new_count:active_count].fill_(self.case_default_bias)
                 self.glocal_weights[new_count:active_count].copy_(
                     torch.softmax(
@@ -789,11 +832,13 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
             self._active_case_count = new_count
         return active_count - new_count
 
-    def prune_cases(self, *, force: bool = False) -> int:
+    def prune_cases(self, *, force: bool = False, protected_case_ids: torch.Tensor | list[int] | None = None) -> int:
         active_count = self.case_entries
         if active_count <= 0:
             return 0
         biases = self.biases[:active_count].detach()
+        active_case_ids = self.case_ids[:active_count].detach()
+        protected_ids = self._protected_case_id_set(protected_case_ids)
         thresholds: list[torch.Tensor] = []
         if self._prune_quantile > 0.0:
             thresholds.append(torch.quantile(biases, min(max(self._prune_quantile, 0.0), 1.0)))
@@ -814,6 +859,8 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
         remove: list[int] = []
         for idx_t in candidate_order:
             idx = int(idx_t.item())
+            if int(active_case_ids[idx].item()) in protected_ids:
+                continue
             action = int(actions[idx].item())
             if int(counts[action].item()) <= self.min_cases_per_action:
                 continue
@@ -940,6 +987,18 @@ def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConf
         raise ValueError("critic_type must be either 'mlp' or 'nnknn'")
     data["critic_type"] = critic_type
     data["critic_hidden_sizes"] = tuple(data.get("critic_hidden_sizes", (128, 128)))
+    shared_target_value_mode = str(data.get("shared_target_value_mode", "hard")).strip().lower()
+    if shared_target_value_mode not in {"none", "hard", "ema"}:
+        raise ValueError("shared_target_value_mode must be one of: none, hard, ema")
+    data["shared_target_value_mode"] = shared_target_value_mode
+    shared_target_sync_interval = int(data.get("shared_target_sync_interval", 1))
+    if shared_target_sync_interval <= 0:
+        raise ValueError("shared_target_sync_interval must be a positive integer")
+    data["shared_target_sync_interval"] = shared_target_sync_interval
+    shared_target_ema_tau = float(data.get("shared_target_ema_tau", 0.05))
+    if not (0.0 < shared_target_ema_tau <= 1.0):
+        raise ValueError("shared_target_ema_tau must be in (0, 1]")
+    data["shared_target_ema_tau"] = shared_target_ema_tau
     return NNKNNRLConfig(**data)
 
 
@@ -998,6 +1057,31 @@ def _load_model_state(model: PolicyActor, state: dict[str, Any]) -> None:
         model.load_case_state(state.get("case_state", {}))
 
 
+def _build_shared_actor_critic_model(
+    obs_dim: int,
+    action_dim: int,
+    cfg: NNKNNRLConfig,
+    device: torch.device,
+) -> SharedNNKNNActorCriticNetwork:
+    model = SharedNNKNNActorCriticNetwork(
+        obs_dim,
+        action_dim,
+        case_capacity=cfg.case_capacity,
+        tau=cfg.tau,
+        top_k=cfg.top_k,
+        case_default_bias=cfg.case_default_bias,
+        min_cases_per_action=cfg.min_cases_per_action,
+        nnknn_config={**cfg.nnknn_config, **cfg.critic_nnknn_config},
+        use_glocal_weightor=cfg.use_glocal_weightor,
+        glocal_fw_set_num=cfg.glocal_fw_set_num,
+    ).to(device)
+    model.configure_case_maintenance(
+        prune_quantile=cfg.case_prune_quantile,
+        prune_bias_threshold=cfg.case_prune_bias_threshold,
+    )
+    return model
+
+
 def _build_actor_model(obs_dim: int, action_dim: int, cfg: NNKNNRLConfig, device: torch.device) -> PolicyActor:
     actor_type = cfg.actor_type.strip().lower()
     if actor_type == "mlp":
@@ -1053,28 +1137,54 @@ def _build_actor_critic_models(
     device: torch.device,
 ) -> tuple[PolicyActor, ValueCritic]:
     if cfg.actor_type.strip().lower() == "nnknn" and cfg.critic_type.strip().lower() == "nnknn":
-        model = SharedNNKNNActorCriticNetwork(
-            obs_dim,
-            action_dim,
-            case_capacity=cfg.case_capacity,
-            tau=cfg.tau,
-            top_k=cfg.top_k,
-            case_default_bias=cfg.case_default_bias,
-            min_cases_per_action=cfg.min_cases_per_action,
-            nnknn_config={**cfg.nnknn_config, **cfg.critic_nnknn_config},
-            use_glocal_weightor=cfg.use_glocal_weightor,
-            glocal_fw_set_num=cfg.glocal_fw_set_num,
-        ).to(device)
-        model.configure_case_maintenance(
-            prune_quantile=cfg.case_prune_quantile,
-            prune_bias_threshold=cfg.case_prune_bias_threshold,
-        )
+        model = _build_shared_actor_critic_model(obs_dim, action_dim, cfg, device)
         return model, model
     return _build_actor_model(obs_dim, action_dim, cfg, device), _build_value_model(obs_dim, cfg, device)
 
 
 def _copy_state_dict_to_cpu(module: nn.Module) -> dict[str, torch.Tensor]:
     return {key: value.detach().cpu().clone() for key, value in module.state_dict().items()}
+
+
+def _sync_shared_target_value_model(
+    source: SharedNNKNNActorCriticNetwork,
+    target: SharedNNKNNActorCriticNetwork,
+    *,
+    mode: str,
+    ema_tau: float,
+) -> None:
+    normalized_mode = mode.strip().lower()
+    if normalized_mode not in {"hard", "ema"}:
+        raise ValueError("shared target value sync mode must be 'hard' or 'ema'")
+    if normalized_mode == "ema" and not (0.0 < float(ema_tau) <= 1.0):
+        raise ValueError("shared_target_ema_tau must be in (0, 1] when EMA sync is enabled")
+
+    source_params = dict(source.named_parameters())
+    source_buffers = dict(source.named_buffers())
+    with torch.no_grad():
+        for name, target_param in target.named_parameters():
+            source_param = source_params[name]
+            if normalized_mode == "hard":
+                target_param.copy_(source_param)
+            else:
+                target_param.lerp_(source_param, float(ema_tau))
+        for name, target_buffer in target.named_buffers():
+            target_buffer.copy_(source_buffers[name])
+        target._active_case_count = source.case_entries
+    target.eval()
+
+
+def _build_shared_target_value_model(
+    source: SharedNNKNNActorCriticNetwork,
+    obs_dim: int,
+    action_dim: int,
+    cfg: NNKNNRLConfig,
+    device: torch.device,
+) -> SharedNNKNNActorCriticNetwork:
+    target = _build_shared_actor_critic_model(obs_dim, action_dim, cfg, device)
+    target.requires_grad_(False)
+    _sync_shared_target_value_model(source, target, mode="hard", ema_tau=1.0)
+    return target
 
 
 def _is_nnknn_policy_actor(actor: PolicyActor) -> bool:
@@ -1262,9 +1372,21 @@ def _select_action(
         return action, probs
 
 
+def _protected_shared_case_ids(
+    pending_update_episodes: list[dict[str, Any]],
+    current_episode_case_ids: list[int],
+) -> list[int]:
+    protected_case_ids: list[int] = []
+    for episode in pending_update_episodes:
+        protected_case_ids.extend(int(case_id) for case_id in episode.get("case_ids", []))
+    protected_case_ids.extend(int(case_id) for case_id in current_episode_case_ids)
+    return protected_case_ids
+
+
 def _train_actor_critic_batch(
     actor: PolicyActor,
     value_model: ValueCritic,
+    target_value_model: ValueCritic | None,
     actor_optimizer: optim.Optimizer,
     critic_optimizer: optim.Optimizer | None,
     episodes: list[dict[str, Any]],
@@ -1277,7 +1399,7 @@ def _train_actor_critic_batch(
     observations: list[np.ndarray] = []
     next_observations: list[np.ndarray] = []
     actions: list[int] = []
-    case_indices: list[int] = []
+    case_ids: list[int] = []
     rewards: list[torch.Tensor] = []
     terminated: list[bool] = []
     episode_returns: list[float] = []
@@ -1287,7 +1409,7 @@ def _train_actor_critic_batch(
         observations.extend(episode["observations"])
         next_observations.extend(episode["next_observations"])
         actions.extend(episode["actions"])
-        case_indices.extend(int(idx) for idx in episode.get("case_indices", []))
+        case_ids.extend(int(case_id) for case_id in episode.get("case_ids", []))
         policy_rewards = episode_policy_rewards(episode, cfg, device=device)
         if policy_rewards.numel() > 1:
             reward_checked_episodes += 1
@@ -1303,12 +1425,13 @@ def _train_actor_critic_batch(
     actions_t = torch.as_tensor(actions, dtype=torch.long, device=device)
     rewards_t = torch.cat(rewards).to(device)
     terminated_t = torch.as_tensor(terminated, dtype=torch.bool, device=device)
-    case_indices_t = torch.as_tensor(case_indices, dtype=torch.long, device=device) if case_indices else None
+    case_ids_t = torch.as_tensor(case_ids, dtype=torch.long, device=device) if case_ids else None
 
-    value_model.eval()
+    bootstrap_value_model = target_value_model if target_value_model is not None else value_model
+    bootstrap_value_model.eval()
     with torch.no_grad():
         critic_inputs = torch.cat([obs_t, next_obs_t], dim=0)
-        critic_values = value_model(critic_inputs)
+        critic_values = bootstrap_value_model(critic_inputs)
         values_t, next_values_t = critic_values.chunk(2)
         raw_advantages, value_targets = compute_gae(
             rewards_t,
@@ -1328,9 +1451,9 @@ def _train_actor_critic_batch(
     critic_loss = torch.zeros((), dtype=torch.float32, device=device)
     shared_actor_critic = actor is value_model and isinstance(actor, SharedNNKNNActorCriticNetwork)
     if shared_actor_critic:
-        if case_indices_t is None or case_indices_t.numel() != obs_t.shape[0]:
-            raise ValueError("Shared NN-kNN actor-critic updates require one case index per sample")
-        value_model.update_value_labels(case_indices_t, value_targets.detach())
+        if case_ids_t is None or case_ids_t.numel() != obs_t.shape[0]:
+            raise ValueError("Shared NN-kNN actor-critic updates require one case id per sample")
+        value_model.update_value_labels(case_ids_t, value_targets.detach())
         value_model.train()
         critic_loss = F.mse_loss(value_model(obs_t), value_targets.detach())
     elif isinstance(value_model, NNKNNValueNetwork):
@@ -1413,6 +1536,11 @@ def _train_actor_critic_batch(
         "value_mean": float(post_value_predictions.mean().detach().cpu().item()),
         "value_target_mean": float(value_targets.mean().detach().cpu().item()),
         "explained_variance": explained_variance(post_value_predictions, value_targets),
+        "bootstrap_value_source": (
+            "shared_target_value_model"
+            if target_value_model is not None
+            else "online_value_model"
+        ),
         "mean_episode_return": float(np.mean(episode_returns)) if episode_returns else 0.0,
         "reward_varying_episodes": reward_varying_episodes,
         "reward_checked_episodes": reward_checked_episodes,
@@ -1515,6 +1643,13 @@ def train_nnknn_rl(
     env = _make_env(spec, seed=cfg.seed)
     obs_dim, action_dim = _validate_env_spaces(env, spec)
     actor, value_network = _build_actor_critic_models(obs_dim, action_dim, cfg, run_device)
+    shared_target_value_model: SharedNNKNNActorCriticNetwork | None = None
+    if (
+        isinstance(actor, SharedNNKNNActorCriticNetwork)
+        and actor is value_network
+        and cfg.shared_target_value_mode != "none"
+    ):
+        shared_target_value_model = _build_shared_target_value_model(actor, obs_dim, action_dim, cfg, run_device)
     actor_optimizer = optim.Adam(actor.parameters(), lr=cfg.learning_rate)
     critic_optimizer = (
         optim.Adam(value_network.parameters(), lr=cfg.critic_learning_rate)
@@ -1537,12 +1672,14 @@ def train_nnknn_rl(
     best_critic_state: dict[str, torch.Tensor] | None = None
     total_pruned = 0
     total_replaced = 0
+    shared_target_syncs = 1 if shared_target_value_model is not None else 0
+    shared_update_batches = 0
 
     obs, _ = env.reset(seed=cfg.seed)
     episode_observations: list[np.ndarray] = []
     episode_next_observations: list[np.ndarray] = []
     episode_actions: list[int] = []
-    episode_case_indices: list[int] = []
+    episode_case_ids: list[int] = []
     episode_rewards: list[float] = []
     episode_terminated: list[bool] = []
     episode_truncated: list[bool] = []
@@ -1565,10 +1702,20 @@ def train_nnknn_rl(
             next_obs, reward, terminated, truncated, _ = env.step(action)
             if _is_nnknn_policy_actor(actor):
                 action_case = np.asarray([int(action)], dtype=np.int64)
-                add_stats = actor.add_cases(obs_array[np.newaxis, :], action_case)
+                if isinstance(actor, SharedNNKNNActorCriticNetwork):
+                    add_stats = actor.add_cases(
+                        obs_array[np.newaxis, :],
+                        action_case,
+                        protected_case_ids=_protected_shared_case_ids(pending_update_episodes, episode_case_ids),
+                    )
+                    assigned_case_ids = add_stats.get("case_ids", [])
+                    if len(assigned_case_ids) != 1:
+                        raise RuntimeError("Shared NN-kNN actor-critic failed to store the selected state-action case.")
+                    episode_case_ids.append(int(assigned_case_ids[0]))
+                else:
+                    add_stats = actor.add_cases(obs_array[np.newaxis, :], action_case)
                 if add_stats["added"] != 1:
                     raise RuntimeError("NN-kNN actor failed to store the selected state-action case.")
-                episode_case_indices.append(int(add_stats["start"]))
                 total_pruned += int(add_stats["pruned"])
                 total_replaced += int(add_stats["replaced"])
 
@@ -1609,7 +1756,7 @@ def train_nnknn_rl(
                         "observations": episode_observations,
                         "next_observations": episode_next_observations,
                         "actions": episode_actions,
-                        "case_indices": episode_case_indices,
+                        "case_ids": episode_case_ids,
                         "rewards": episode_rewards,
                         "terminated": episode_terminated,
                         "truncated": episode_truncated,
@@ -1620,6 +1767,7 @@ def train_nnknn_rl(
                     loss_row = _train_actor_critic_batch(
                         actor,
                         value_network,
+                        shared_target_value_model,
                         actor_optimizer,
                         critic_optimizer,
                         pending_update_episodes,
@@ -1629,6 +1777,16 @@ def train_nnknn_rl(
                         completed_episodes=episode_index,
                     )
                     if loss_row is not None:
+                        if shared_target_value_model is not None:
+                            shared_update_batches += 1
+                            if shared_update_batches % cfg.shared_target_sync_interval == 0:
+                                _sync_shared_target_value_model(
+                                    actor,
+                                    shared_target_value_model,
+                                    mode=cfg.shared_target_value_mode,
+                                    ema_tau=cfg.shared_target_ema_tau,
+                                )
+                                shared_target_syncs += 1
                         loss_rows.append(loss_row)
                         latest_loss = float(loss_row["loss"])
                     pending_update_episodes = []
@@ -1701,7 +1859,7 @@ def train_nnknn_rl(
                 episode_observations = []
                 episode_next_observations = []
                 episode_actions = []
-                episode_case_indices = []
+                episode_case_ids = []
                 episode_rewards = []
                 episode_terminated = []
                 episode_truncated = []
@@ -1739,6 +1897,7 @@ def train_nnknn_rl(
             loss_row = _train_actor_critic_batch(
                 actor,
                 value_network,
+                shared_target_value_model,
                 actor_optimizer,
                 critic_optimizer,
                 pending_update_episodes,
@@ -1748,6 +1907,16 @@ def train_nnknn_rl(
                 completed_episodes=episode_index,
             )
             if loss_row is not None:
+                if shared_target_value_model is not None:
+                    shared_update_batches += 1
+                    if shared_update_batches % cfg.shared_target_sync_interval == 0:
+                        _sync_shared_target_value_model(
+                            actor,
+                            shared_target_value_model,
+                            mode=cfg.shared_target_value_mode,
+                            ema_tau=cfg.shared_target_ema_tau,
+                        )
+                        shared_target_syncs += 1
                 loss_rows.append(loss_row)
     finally:
         env.close()
@@ -1865,6 +2034,10 @@ def train_nnknn_rl(
         "action_counts": _actor_action_counts(actor),
         "cases_pruned": total_pruned,
         "cases_replaced": total_replaced,
+        "shared_target_value_mode": cfg.shared_target_value_mode,
+        "shared_target_sync_interval": cfg.shared_target_sync_interval,
+        "shared_target_ema_tau": cfg.shared_target_ema_tau,
+        "shared_target_value_syncs": shared_target_syncs,
         "checkpoint_path": str(checkpoint_path),
         "run_dir": str(run_dir),
     }

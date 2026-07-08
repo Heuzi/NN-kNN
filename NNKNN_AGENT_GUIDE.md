@@ -132,6 +132,33 @@ Current NN-kNN-RL algorithm:
 - NN-kNN regression as the critic and an MLP actor are available for direct
   actor/critic ablation comparisons.
 
+Training by actor/critic choice:
+
+- The workflow is on-policy. It collects complete episodes, stores raw rewards,
+  and runs an update every `policy_update_episodes` episodes.
+- Before the actor update, the selected critic predicts `V(s)` and `V(s')`,
+  then GAE computes actor advantages and critic value targets for the full batch.
+- If `actor_type="nnknn"` and `critic_type="mlp"`, the NN-kNN actor appends
+  state-action cases during rollout. After GAE is computed, the actor retrieval
+  parameters are optimized by the policy loss plus entropy and case-bias
+  regularization, while the MLP critic is optimized by value loss.
+- If `actor_type="mlp"` and `critic_type="nnknn"`, the MLP actor is optimized
+  by policy loss, while `NNKNNValueNetwork` appends state/value-target cases and
+  trains its retrieval parameters directly with the value loss.
+- If `actor_type="nnknn"` and `critic_type="nnknn"`, the workflow uses one
+  `SharedNNKNNActorCriticNetwork`. Rollout appends shared state-action cases,
+  then the critic writes value targets onto those same cases through stable
+  shared case IDs. This keeps policy labels and scalar value labels aligned even
+  if the shared case base is compacted or pruned between insertion and update.
+- The shared NN-kNN actor-critic can bootstrap GAE with a lagged target value
+  model. `shared_target_value_mode="hard"` copies the continuous trainable
+  retrieval parameters directly on sync; `shared_target_value_mode="ema"`
+  applies EMA to those trainable parameters. In both modes, the structured case
+  memory, labels, case IDs, and active-case metadata are hard-copied on sync.
+- Standalone and shared NN-kNN paths both support case maintenance. The shared
+  path protects pending rollout cases until their critic targets have been
+  attached, then later updates can prune or replace them normally.
+
 Task metadata lives in `datasets/rl_tasks.py`; currently supported:
 
 - `cartpole` -> `CartPole-v1`

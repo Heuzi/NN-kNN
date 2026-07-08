@@ -143,6 +143,7 @@ def run_nnknn_rl_smoke() -> None:
         ALGORITHM_NAME,
         MLPPolicyNetwork,
         NNKNNPolicyNetwork,
+        NNKNNValueNetwork,
         SharedNNKNNActorCriticNetwork,
         compute_gae,
         evaluate_nnknn_rl,
@@ -181,6 +182,71 @@ def run_nnknn_rl_smoke() -> None:
     if torch.any(wrapper.action_counts() < 1):
         raise AssertionError("NN-kNN-RL pruning removed all cases for an action.")
 
+    actor_probe = NNKNNPolicyNetwork(2, 2, case_capacity=4, top_k=2, min_cases_per_action=1)
+    actor_probe_device = next(actor_probe.parameters()).device
+    actor_probe.add_cases(
+        torch.tensor([[0.0, 0.0], [1.0, 1.0]], dtype=torch.float32, device=actor_probe_device),
+        torch.tensor([0, 1], dtype=torch.long, device=actor_probe_device),
+    )
+    actor_probe_optim = torch.optim.Adam(actor_probe.parameters(), lr=0.05)
+    actor_bias_before = actor_probe.nnknn_model.biases[: actor_probe.case_entries].detach().clone()
+    actor_probe_loss = -torch.log(
+        actor_probe.policy_probs(torch.tensor([[0.2, 0.2]], dtype=torch.float32, device=actor_probe_device))[0, 1].clamp_min(1e-8)
+    )
+    actor_probe_optim.zero_grad()
+    actor_probe_loss.backward()
+    actor_probe_optim.step()
+    actor_bias_after = actor_probe.nnknn_model.biases[: actor_probe.case_entries].detach().clone()
+    if torch.allclose(actor_bias_before, actor_bias_after):
+        raise AssertionError("NN-kNN actor parameters did not update under policy loss with an MLP critic path.")
+
+    critic_probe = NNKNNValueNetwork(2, case_capacity=4, top_k=2)
+    critic_probe_device = next(critic_probe.parameters()).device
+    critic_probe.add_cases(
+        torch.tensor([[0.0, 0.0], [1.0, 1.0]], dtype=torch.float32, device=critic_probe_device),
+        torch.tensor([0.0, 1.0], dtype=torch.float32, device=critic_probe_device),
+    )
+    critic_probe_optim = torch.optim.Adam(critic_probe.parameters(), lr=0.05)
+    critic_bias_before = critic_probe.nnknn_model.biases[: critic_probe.case_entries].detach().clone()
+    critic_probe_loss = torch.nn.functional.mse_loss(
+        critic_probe(torch.tensor([[0.1, 0.1], [0.9, 0.9]], dtype=torch.float32, device=critic_probe_device)),
+        torch.tensor([1.0, 0.0], dtype=torch.float32, device=critic_probe_device),
+    )
+    critic_probe_optim.zero_grad()
+    critic_probe_loss.backward()
+    critic_probe_optim.step()
+    critic_bias_after = critic_probe.nnknn_model.biases[: critic_probe.case_entries].detach().clone()
+    if torch.allclose(critic_bias_before, critic_bias_after):
+        raise AssertionError("NN-kNN critic parameters did not update under value loss with an MLP actor path.")
+
+    shared_probe = SharedNNKNNActorCriticNetwork(2, 2, case_capacity=3, top_k=2, min_cases_per_action=1)
+    shared_probe_device = next(shared_probe.parameters()).device
+    first_insert = shared_probe.add_cases(
+        torch.tensor([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]], dtype=torch.float32, device=shared_probe_device),
+        torch.tensor([0, 1, 0], dtype=torch.long, device=shared_probe_device),
+    )
+    first_case_ids = first_insert["case_ids"]
+    with torch.no_grad():
+        shared_probe.biases[: shared_probe.case_entries].copy_(torch.tensor([-3.0, -2.0, -1.0]))
+    second_insert = shared_probe.add_cases(
+        torch.tensor([[3.0, 3.0]], dtype=torch.float32, device=shared_probe_device),
+        torch.tensor([0], dtype=torch.long, device=shared_probe_device),
+        protected_case_ids=first_case_ids[1:],
+    )
+    active_case_ids = shared_probe.case_ids[: shared_probe.case_entries].detach().cpu().tolist()
+    expected_case_ids = [first_case_ids[1], first_case_ids[2], second_insert["case_ids"][0]]
+    if active_case_ids != expected_case_ids:
+        raise AssertionError("Shared NN-kNN actor-critic did not preserve protected shared cases across compaction.")
+    shared_probe.update_value_labels(
+        expected_case_ids,
+        torch.tensor([1.1, 2.2, 3.3], dtype=torch.float32, device=shared_probe_device),
+    )
+    if not torch.allclose(
+        shared_probe.value_labels[: shared_probe.case_entries],
+        torch.tensor([1.1, 2.2, 3.3], dtype=torch.float32, device=shared_probe_device),
+    ):
+        raise AssertionError("Shared NN-kNN actor-critic did not keep separate value labels over the shared case base.")
+
     cfg = make_nnknn_rl_config("smoke", seed=0)
     for removed_field in ("advantage_method", "value_function", "bootstrap_n_steps", "vtrace"):
         if hasattr(cfg, removed_field):
@@ -193,6 +259,8 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("NN-kNN-RL should default to the MLP value critic.")
     if cfg.actor_type != "nnknn":
         raise AssertionError("NN-kNN-RL should default to the NN-kNN actor.")
+    if cfg.shared_target_value_mode != "hard":
+        raise AssertionError("NN-kNN-RL should default shared NN-kNN target value updates to hard sync.")
 
     mlp_wrapper = MLPPolicyNetwork(4, 2, hidden_sizes=(8,))
     mlp_probs = mlp_wrapper.policy_probs(torch.zeros(3, 4))
@@ -241,6 +309,10 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("NN-kNN critic checkpoint reload did not return the value critic.")
     if getattr(nnknn_loaded["value_model"], "case_entries", 0) <= 0:
         raise AssertionError("NN-kNN critic checkpoint did not preserve critic value cases.")
+    if nnknn_state["summary"]["shared_target_value_mode"] != "hard":
+        raise AssertionError("Shared NN-kNN actor-critic summary should record hard target sync mode by default.")
+    if nnknn_state["summary"]["shared_target_value_syncs"] <= 0:
+        raise AssertionError("Shared NN-kNN actor-critic should record at least one target value sync.")
 
     mlp_cfg = make_nnknn_rl_config("smoke", seed=2, actor_type="mlp", critic_type="mlp")
     mlp_state = train_nnknn_rl("cartpole", mlp_cfg, progress=False)
@@ -260,6 +332,37 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("MLP actor + NN-kNN critic checkpoint reload did not preserve actor/critic types.")
     if getattr(mlp_nnknn_loaded["value_model"], "case_entries", 0) <= 0:
         raise AssertionError("MLP actor + NN-kNN critic checkpoint did not preserve critic value cases.")
+
+    shared_capacity_cfg = make_nnknn_rl_config(
+        "smoke",
+        seed=4,
+        critic_type="nnknn",
+        case_capacity=32,
+        total_timesteps=96,
+        policy_update_episodes=2,
+    )
+    shared_capacity_state = train_nnknn_rl("cartpole", shared_capacity_cfg, progress=False)
+    if not isinstance(shared_capacity_state["model"], SharedNNKNNActorCriticNetwork):
+        raise AssertionError("Small-capacity shared NN-kNN smoke should still build the shared actor-critic path.")
+    if shared_capacity_state["summary"]["critic_case_entries"] <= 0:
+        raise AssertionError("Shared NN-kNN actor-critic small-capacity smoke did not keep critic value labels active.")
+
+    shared_ema_cfg = make_nnknn_rl_config(
+        "smoke",
+        seed=5,
+        critic_type="nnknn",
+        case_capacity=128,
+        total_timesteps=96,
+        policy_update_episodes=2,
+        shared_target_value_mode="ema",
+        shared_target_sync_interval=1,
+        shared_target_ema_tau=0.5,
+    )
+    shared_ema_state = train_nnknn_rl("cartpole", shared_ema_cfg, progress=False)
+    if shared_ema_state["summary"]["shared_target_value_mode"] != "ema":
+        raise AssertionError("Shared NN-kNN EMA smoke should record EMA target value mode.")
+    if shared_ema_state["summary"]["shared_target_value_syncs"] <= 0:
+        raise AssertionError("Shared NN-kNN EMA smoke should perform target value syncs.")
     print("nnknn rl smoke ok")
     print(f"run_dir={state['run_dir']}")
     print(f"nnknn_critic_run_dir={nnknn_state['run_dir']}")

@@ -88,6 +88,33 @@ The shared NN-kNN actor-critic reuses the case base, similarity computation,
 case biases, glocal case weights, and glocal feature weighting. Separate MLP
 actor/critic variants remain available for ablations.
 
+Training behavior by variant:
+
+- Rollout is on-policy. The workflow collects complete episodes, stores raw
+  environment rewards, and updates after `policy_update_episodes` episodes with
+  GAE advantages from the selected critic.
+- If `actor_type="nnknn"` and `critic_type="mlp"`, the NN-kNN actor stores each
+  sampled state-action pair in its policy case base during rollout. After the
+  rollout batch closes, the MLP critic predicts values, GAE produces
+  advantages/value targets, and the NN-kNN actor parameters are optimized by the
+  policy loss plus entropy and case-bias regularization.
+- If `actor_type="mlp"` and `critic_type="nnknn"`, the MLP actor is updated by
+  policy loss from GAE, while the NN-kNN critic appends state/value-target cases
+  and trains its retrieval parameters directly with the value loss.
+- If `actor_type="nnknn"` and `critic_type="nnknn"`, the workflow uses one
+  shared NN-kNN actor-critic case base. Rollout inserts state-action cases for
+  the actor, then the critic writes value targets back onto those same cases
+  through stable shared case IDs, so critic labels remain attached even if case
+  maintenance compacts the case base.
+- In the shared NN-kNN actor-critic path, GAE bootstrap values can use a lagged
+  shared target value model. `shared_target_value_mode="hard"` copies the
+  trainable retrieval parameters directly on sync; `shared_target_value_mode="ema"`
+  smooths those trainable parameters with EMA. In both modes, the structured
+  case memory and label buffers are hard-copied on sync rather than averaged.
+- Shared and standalone NN-kNN paths both support case pruning/replacement. The
+  shared path protects pending rollout cases until their critic targets have
+  been written, then later updates can prune or compact them normally.
+
 Current DQN fast run:
 
 - `results/rl/dqn_cartpole_20260702_135146_537913/`

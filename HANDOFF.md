@@ -106,6 +106,22 @@
   Tuning and diagnostics should support those goals, especially actor
   probabilities, critic value loss, explained variance, and
   selected-checkpoint behavior.
+  Current training behavior is:
+  - rollout is on-policy and updates happen after complete episode batches using
+    GAE from the selected critic
+  - with an NN-kNN actor and MLP critic, the actor stores state-action cases
+    online during rollout and then trains its retrieval parameters through the
+    actor loss
+  - with an MLP actor and NN-kNN critic, the critic appends state/value-target
+    cases and trains its retrieval parameters with the value loss
+  - with both actor and critic as NN-kNN, one shared case base is used; rollout
+    inserts policy cases first, then critic value targets are written back onto
+    the same shared cases through stable case IDs so compaction/pruning does not
+    detach value labels from their actor cases
+  - shared NN-kNN actor-critic can also use a lagged target value model for GAE
+    bootstrap values; hard sync copies the continuous trainable retrieval
+    parameters directly, EMA smooths those trainable parameters, and both modes
+    hard-copy the structured case memory/label buffers on sync
 - Do not restore the retired legacy case-weight classification path solely to
   reproduce old numbers. Improvements should come from the current workflow,
   dataset protocol checks, hyperparameter tuning, or appropriate current-core
