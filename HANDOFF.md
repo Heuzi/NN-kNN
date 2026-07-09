@@ -13,7 +13,9 @@
   supports MLP or NN-kNN regression value critics with GAE advantages, and
   writes the same
   fixed-budget/best-checkpoint artifacts as DQN and NEC. Treat it as a
-  research/debug surface, not as a solved or reliable baseline.
+  research/debug surface, not as a solved or reliable baseline. The shared
+  NN-kNN actor-critic path uses one case base and retrieval backbone; each
+  active shared case has both an action label and a scalar value label.
 - Classification uses normalized case activation as class probability mass
   with NLL loss; it does not restore the older class-weight formulation.
 - `model/classification_workflow.py` and `datasets/classification_data.py`
@@ -59,26 +61,21 @@
 - The previous NEC 25k-step debug-sized run selected step `17663` with mean
   return `281.2`, so the larger 150k-step NEC profile substantially improved
   the best evaluation.
-- Current NN-kNN-RL smoke runs are functional but not competitive:
-  - run folders: `results/rl/nnknn_rl_cartpole_*`
-  - smoke profile: `256` environment steps, `case_capacity=1000`,
-    `eval_episodes=2`
-  - current actor-critic GAE smoke artifact:
-    `results/rl/nnknn_rl_cartpole_20260625_161005_956241/`
-  - observed actor-critic smoke eval mean return: `14.0`
-  - interpretation: smoke verifies plumbing only. It is not a meaningful
-    performance result, and fast/debug runs still need tuning before
-    paper-style comparison.
-- Current NN-kNN-RL fast NN-kNN-critic run remains unsolved but is a useful
-  comparison artifact:
-  - run folder: `results/rl/nnknn_rl_cartpole_20260626_150805_689987/`
-  - critic: `critic_type="nnknn"`
-  - selected checkpoint step: `150000`
-  - selected eval mean return: `369.5` over 20 episodes
-  - last/end-of-budget eval mean return: `369.5`
-  - interpretation: the selected model is the final model and the success
-    threshold was not reached, so treat it as `unsolved_or_underfit` rather
-    than a solved CartPole result.
+- Current NN-kNN-RL smoke runs are functional but not competitive. The expanded
+  smoke now checks all actor/critic variants, checkpoint reloads,
+  final-partial-rollout training, episode-boundary-aware GAE, shared value
+  label writes, and NN-kNN maintenance reporting. Treat smoke as plumbing
+  validation only.
+- The previous NN-kNN-RL fast NN-kNN-critic artifact remains unsolved:
+  `results/rl/nnknn_rl_cartpole_20260626_150805_689987/`, selected eval mean
+  return `369.5` over 20 episodes at step `150000`. It predates the latest
+  shared-case-base audit fixes and remains below the `475.0` threshold.
+- A full six-variant `fast` CPU sweep launched from
+  `results/rl/run_cartpole_variant_fast_sweep.py` was stopped because it was
+  still on the first variant after several hours. A smaller CUDA debug sweep
+  was launched under `results/rl/cartpole_variant_debug_gpu_sweep_*/` with
+  logs in `results/rl/debug_gpu_sweep_logs/`; use that for quick variant
+  inspection, not paper-style claims.
 - A fresh June 1 NN-kNN-only 10-fold rerun confirmed the recorded Iris and
   Zebra representative results exactly. These are current-core functionality
   checks, not exact reproductions of IJCAI-25 results from the older
@@ -101,14 +98,19 @@
     is an MLP; it should append value-target cases and train its NN-kNN
     retrieval parameters with the value loss
   - when both actor and critic are NN-kNN, they should use one shared NN-kNN
-    actor-critic model with one case base and one retrieval backbone, while
-    keeping separate policy and value label stores
+    actor-critic model with one case base and one retrieval backbone, with both
+    action and value labels on each active shared case
   Tuning and diagnostics should support those goals, especially actor
-  probabilities, critic value loss, explained variance, and
+  probabilities, critic value loss, explained variance, case maintenance, and
   selected-checkpoint behavior.
   Current training behavior is:
-  - rollout is on-policy and updates happen after complete episode batches using
-    GAE from the selected critic
+  - rollout is on-policy and updates happen after complete episode batches
+    using GAE from the selected critic; if the fixed step budget ends
+    mid-episode, the final partial rollout is trained with bootstrapped GAE before
+    final evaluation and checkpointing
+  - GAE masks value bootstrapping with `terminated` and stops lambda recursion
+    with an episode-boundary mask, so traces do not cross truncated episode or
+    final partial-rollout boundaries
   - with an NN-kNN actor and MLP critic, the actor stores state-action cases
     online during rollout and then trains its retrieval parameters through the
     actor loss
@@ -116,12 +118,14 @@
     cases and trains its retrieval parameters with the value loss
   - with both actor and critic as NN-kNN, one shared case base is used; rollout
     inserts policy cases first, then critic value targets are written back onto
-    the same shared cases through stable case IDs so compaction/pruning does not
-    detach value labels from their actor cases
+    the same shared cases through stable case IDs so each retained shared case
+    has both action and value labels
   - shared NN-kNN actor-critic can also use a lagged target value model for GAE
     bootstrap values; hard sync copies the continuous trainable retrieval
     parameters directly, EMA smooths those trainable parameters, and both modes
     hard-copy the structured case memory/label buffers on sync
+  - standalone actor, standalone critic, and shared NN-kNN case maintenance are
+    reported separately in run summaries and `case_maintenance.csv`
 - Do not restore the retired legacy case-weight classification path solely to
   reproduce old numbers. Improvements should come from the current workflow,
   dataset protocol checks, hyperparameter tuning, or appropriate current-core
@@ -171,12 +175,15 @@
 - NN-kNN-RL run folders use the same artifact names as DQN and NEC run folders
   and add `algorithm`, `gae`, `actor_type`, `critic_type`, and comparison
   diagnostics to the saved summary. NN-kNN actor runs record `case_entries` and
-  action-count fields; NN-kNN critic runs record `critic_case_entries`. Current
-  actor-critic checkpoints record `algorithm="nnknn_actor_mlp_value_gae"` and
-  include both actor and critic state; the algorithm name is retained for
-  compatibility even when `actor_type="mlp"` or `critic_type="nnknn"`. Older
-  reward-to-go NN-kNN-RL checkpoints are legacy and should be retrained rather
-  than loaded.
+  action-count fields; NN-kNN critic runs record `critic_case_entries`.
+  Summaries also record total and per-store actor/critic/shared
+  `*_cases_pruned`, `*_cases_replaced`, `partial_rollout_segments`,
+  `partial_rollout_samples`, and `shared_value_labels_written` where
+  applicable. Current actor-critic checkpoints record
+  `algorithm="nnknn_actor_mlp_value_gae"` and include both actor and critic
+  state; the algorithm name is retained for compatibility even when
+  `actor_type="mlp"` or `critic_type="nnknn"`. Older reward-to-go NN-kNN-RL
+  checkpoints are legacy and should be retrained rather than loaded.
 - `summary.json` records both the selected best checkpoint evaluation
   (`final_eval`) and the end-of-budget model evaluation (`last_eval`). It also
   records `training_efficiency`, including `best_model_step`,

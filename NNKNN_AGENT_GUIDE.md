@@ -117,7 +117,7 @@ Current NN-kNN-RL algorithm:
   the default MLP `ValueNetwork` preserves existing behavior.
 - When both `actor_type="nnknn"` and `critic_type="nnknn"`, the workflow uses
   one `SharedNNKNNActorCriticNetwork`: one case base and retrieval backbone with
-  separate policy/action labels and scalar value labels.
+  both an action label and a scalar value label on each active shared case.
 - When only the critic is NN-kNN, `NNKNNValueNetwork` remains a standalone value
   critic and is optimized with the value loss after value-target cases are
   inserted.
@@ -126,7 +126,7 @@ Current NN-kNN-RL algorithm:
   comparison variants.
 - Actor updates use GAE advantages from the selected value critic. Raw
   environment reward is the default; `reward_shaping` is off unless explicitly
-  set.
+  set to `cartpole_potential`. Unknown reward-shaping strings are invalid.
 - Old reward-to-go NN-kNN-RL checkpoints do not load into the actor-critic
   workflow. Retrain them instead of attempting compatibility shims.
 - NN-kNN regression as the critic and an MLP actor are available for direct
@@ -135,9 +135,15 @@ Current NN-kNN-RL algorithm:
 Training by actor/critic choice:
 
 - The workflow is on-policy. It collects complete episodes, stores raw rewards,
-  and runs an update every `policy_update_episodes` episodes.
+  and runs an update every `policy_update_episodes` episodes. If the fixed step
+  budget ends mid-episode, the final partial rollout is trained before final
+  evaluation/checkpointing instead of leaving inserted NN-kNN cases unlabeled or
+  unoptimized.
 - Before the actor update, the selected critic predicts `V(s)` and `V(s')`,
   then GAE computes actor advantages and critic value targets for the full batch.
+  GAE uses `terminated` to mask value bootstrapping and a separate
+  episode-boundary mask to stop lambda recursion across terminated, truncated,
+  and final partial rollout boundaries.
 - If `actor_type="nnknn"` and `critic_type="mlp"`, the NN-kNN actor appends
   state-action cases during rollout. After GAE is computed, the actor retrieval
   parameters are optimized by the policy loss plus entropy and case-bias
@@ -148,16 +154,19 @@ Training by actor/critic choice:
 - If `actor_type="nnknn"` and `critic_type="nnknn"`, the workflow uses one
   `SharedNNKNNActorCriticNetwork`. Rollout appends shared state-action cases,
   then the critic writes value targets onto those same cases through stable
-  shared case IDs. This keeps policy labels and scalar value labels aligned even
-  if the shared case base is compacted or pruned between insertion and update.
+  shared case IDs. This keeps each retained shared case labeled for both policy
+  and value even if the shared case base is compacted or pruned between
+  insertion and update.
 - The shared NN-kNN actor-critic can bootstrap GAE with a lagged target value
   model. `shared_target_value_mode="hard"` copies the continuous trainable
   retrieval parameters directly on sync; `shared_target_value_mode="ema"`
   applies EMA to those trainable parameters. In both modes, the structured case
   memory, labels, case IDs, and active-case metadata are hard-copied on sync.
-- Standalone and shared NN-kNN paths both support case maintenance. The shared
-  path protects pending rollout cases until their critic targets have been
-  attached, then later updates can prune or replace them normally.
+- Standalone actor, standalone critic, and shared NN-kNN paths all support
+  case maintenance. The shared path protects pending rollout cases until their
+  critic targets have been attached, then later updates can prune or replace
+  them normally. Run artifacts report total and per-store actor/critic/shared
+  prune/replace counts.
 
 Task metadata lives in `datasets/rl_tasks.py`; currently supported:
 
@@ -233,18 +242,20 @@ Current CartPole NEC reference result:
 
 Current NN-kNN-RL status:
 
-- newest validated smoke artifact:
-  `results/rl/nnknn_rl_cartpole_20260625_161005_956241/`
-- algorithm: `nnknn_actor_mlp_value_gae`
-- smoke eval mean return: `14.0` over 2 episodes
-- interpretation: this validates actor-critic plumbing and checkpoint reload
-  only. It is not a competitive CartPole result.
-- current fast NN-kNN-critic comparison artifact:
-  `results/rl/nnknn_rl_cartpole_20260626_150805_689987/`
-- critic: `critic_type="nnknn"`
-- selected eval mean return: `369.5` over 20 episodes
-- interpretation: this remains below the `475.0` success threshold and should
-  be treated as `unsolved_or_underfit`.
+- The expanded `codex/smoke_test.py --mode nnknn_rl` validates all actor/critic
+  variants, checkpoint reloads, final partial-rollout training,
+  episode-boundary-aware GAE, shared value-label writes, and NN-kNN maintenance
+  reporting.
+- Smoke results are plumbing checks only. They are not competitive CartPole
+  results.
+- The previous fast NN-kNN-critic artifact
+  `results/rl/nnknn_rl_cartpole_20260626_150805_689987/` selected mean return
+  `369.5` over 20 episodes at step `150000`; it remains below the `475.0`
+  threshold and predates the latest shared-case-base audit fixes.
+- A smaller local CUDA debug variant sweep may exist under
+  `results/rl/cartpole_variant_debug_gpu_sweep_*/` with logs in
+  `results/rl/debug_gpu_sweep_logs/`. Treat it as fast diagnostics, not a
+  paper-style benchmark.
 
 ## Classification Workflow Files
 
@@ -586,7 +597,9 @@ Legacy or specialized files:
   `run_table1_kfold(...)` from `tools/table1_nnknn_kfold.py`.
 - For RL/DQN/NEC/NN-kNN-RL runs, use the corresponding `tools/run_rl_*.py`
   script and inspect `summary.json`, `eval_metrics.csv`, and
-  `training_efficiency` before comparing methods.
+  `training_efficiency` before comparing methods. For NN-kNN-RL also inspect
+  `partial_rollout_samples`, `shared_value_labels_written`, and the
+  actor/critic/shared case-maintenance counters when debugging variants.
 - Use `datasets/reg_data.py` as the source of truth for tabular regression
   datasets.
 - Treat `HANDOFF.md` as the current experiment-status document.

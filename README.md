@@ -78,9 +78,9 @@ The NN-kNN actor-critic path is still experimental, but its structure is now:
   an MLP. It appends value-target cases and also trains its NN-kNN retrieval
   parameters with the value loss.
 - When both actor and critic are NN-kNN, they use one shared NN-kNN
-  actor-critic model with one case base and one retrieval backbone. The shared
-  model has separate policy and value label stores, so action probabilities and
-  scalar value estimates remain distinct heads over the same retrieved cases.
+  actor-critic model with one case base and one retrieval backbone. Each active
+  shared case has both an action label and a scalar value label, so policy and
+  value heads stay distinct over the same retrieved cases.
 - When only one side is NN-kNN, that standalone actor or critic should still
   train its NN-kNN parameters directly through the relevant actor or value loss.
 
@@ -92,7 +92,12 @@ Training behavior by variant:
 
 - Rollout is on-policy. The workflow collects complete episodes, stores raw
   environment rewards, and updates after `policy_update_episodes` episodes with
-  GAE advantages from the selected critic.
+  GAE advantages from the selected critic. If a fixed step budget ends
+  mid-episode, the final partial rollout is trained with bootstrapped GAE before
+  final evaluation and checkpointing.
+- GAE uses termination to mask value bootstrapping and a separate episode-
+  boundary mask to stop lambda recursion across terminated, truncated, and
+  final partial rollout boundaries.
 - If `actor_type="nnknn"` and `critic_type="mlp"`, the NN-kNN actor stores each
   sampled state-action pair in its policy case base during rollout. After the
   rollout batch closes, the MLP critic predicts values, GAE produces
@@ -104,8 +109,8 @@ Training behavior by variant:
 - If `actor_type="nnknn"` and `critic_type="nnknn"`, the workflow uses one
   shared NN-kNN actor-critic case base. Rollout inserts state-action cases for
   the actor, then the critic writes value targets back onto those same cases
-  through stable shared case IDs, so critic labels remain attached even if case
-  maintenance compacts the case base.
+  through stable shared case IDs, so each retained shared case has both labels
+  even if case maintenance compacts the case base.
 - In the shared NN-kNN actor-critic path, GAE bootstrap values can use a lagged
   shared target value model. `shared_target_value_mode="hard"` copies the
   trainable retrieval parameters directly on sync; `shared_target_value_mode="ema"`
@@ -113,7 +118,8 @@ Training behavior by variant:
   case memory and label buffers are hard-copied on sync rather than averaged.
 - Shared and standalone NN-kNN paths both support case pruning/replacement. The
   shared path protects pending rollout cases until their critic targets have
-  been written, then later updates can prune or compact them normally.
+  been written, then later updates can prune or compact them normally. Run
+  summaries report total and per-store actor/critic/shared maintenance counts.
 
 Current DQN fast run:
 
@@ -150,13 +156,12 @@ interpretation such as `regressed_after_best`, `final_is_best_check_for_underfit
 or `unsolved_or_underfit`. Use these fields as sample-efficiency proxies across
 DQN, NEC, and NN-kNN-RL.
 
-Current NN-kNN-RL status: the actor-critic GAE smoke path validated at
-`results/rl/nnknn_rl_cartpole_20260625_161005_956241/` with mean return `14.0`
-over 2 smoke-eval episodes. This verifies plumbing only, not benchmark quality.
-The current fast NN-kNN-critic comparison run is
-`results/rl/nnknn_rl_cartpole_20260626_150805_689987/` with selected eval mean
-return `369.5` over 20 episodes; it remains below the `475.0` success
-threshold and should be treated as `unsolved_or_underfit`.
+Current NN-kNN-RL status: the expanded `nnknn_rl` smoke check validates all
+actor/critic variants, checkpoint reloads, final partial-rollout training,
+episode-boundary-aware GAE, shared value-label writes, and NN-kNN maintenance
+reporting. This verifies plumbing only, not benchmark quality. The previous
+fast NN-kNN-critic comparison artifact remains below the `475.0` success
+threshold and should still be treated as `unsolved_or_underfit`.
 
 ## Quick Checks
 
