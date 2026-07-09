@@ -54,6 +54,7 @@ python tools/run_rl_nec.py cartpole --profile fast --seed 0
 python tools/run_rl_nec.py cartpole --eval-only --checkpoint <checkpoint.pt>
 python tools/run_rl_nnknn.py cartpole --profile fast --seed 0
 python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --critic-type nnknn
+python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --critic-type nnknn --critic-mutable-value-labels --critic-trainable-value-labels
 python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --actor-type mlp --critic-type mlp
 python tools/run_rl_nnknn.py cartpole --profile fast --seed 0 --actor-type mlp --critic-type nnknn
 python tools/run_rl_nnknn.py cartpole --profile debug --gamma 0.99 --gae-lambda 0.95 --critic-learning-rate 1e-3 --critic-update-epochs 1
@@ -77,6 +78,19 @@ The NN-kNN actor-critic path is still experimental, but its structure is now:
 - An NN-kNN critic should be an optimizable value network even when the actor is
   an MLP. It appends value-target cases and also trains its NN-kNN retrieval
   parameters with the value loss.
+- NN-kNN critic value labels default to fixed GAE targets. Optional
+  `critic_mutable_value_labels` smooths close or highly activated active case
+  labels toward new targets, optional `critic_trainable_value_labels` makes
+  value labels optimizer-trained parameters, and enabling both gives the hybrid
+  mutable/trainable label mode.
+- Trainable value labels use the NN-kNN case-level optimizer group, the same
+  group used for case biases and per-case glocal weights. Set
+  `case_learning_rate` or `--case-learning-rate` when that group should move at
+  a different rate from the actor/critic base network.
+- The hybrid label mode follows the Neural Episodic Control precedent: NEC uses
+  fast memory-value updates for matching keys and slower gradient updates through
+  a differentiable key-value memory. For NN-kNN-RL, keep labels tied to
+  GAE/TD-style expected value targets rather than max-return memory.
 - When both actor and critic are NN-kNN, they use one shared NN-kNN
   actor-critic model with one case base and one retrieval backbone. Each active
   shared case has both an action label and a scalar value label, so policy and
@@ -116,6 +130,14 @@ Training behavior by variant:
   trainable retrieval parameters directly on sync; `shared_target_value_mode="ema"`
   smooths those trainable parameters with EMA. In both modes, the structured
   case memory and label buffers are hard-copied on sync rather than averaged.
+- Design direction: any NN-kNN critic should prefer lagged bootstrap targets.
+  The shared NN-kNN actor-critic already supports a lagged target value model;
+  the standalone NN-kNN critic path should get the same target-critic option
+  before making strong stability claims.
+- Training action selection is stochastic (`greedy=False`) and evaluation is
+  greedy. Sampling during training helps exploration and on-policy coverage, but
+  it is not a substitute for avoiding max-return labels; the critic labels should
+  still represent expected GAE/TD value targets.
 - Shared and standalone NN-kNN paths both support case pruning/replacement. The
   shared path protects pending rollout cases until their critic targets have
   been written, then later updates can prune or compact them normally. Run
@@ -158,10 +180,11 @@ DQN, NEC, and NN-kNN-RL.
 
 Current NN-kNN-RL status: the expanded `nnknn_rl` smoke check validates all
 actor/critic variants, checkpoint reloads, final partial-rollout training,
-episode-boundary-aware GAE, shared value-label writes, and NN-kNN maintenance
-reporting. This verifies plumbing only, not benchmark quality. The previous
-fast NN-kNN-critic comparison artifact remains below the `475.0` success
-threshold and should still be treated as `unsolved_or_underfit`.
+episode-boundary-aware GAE, shared value-label writes, mutable/trainable critic
+value-label modes, and NN-kNN maintenance reporting. This verifies plumbing
+only, not benchmark quality. The previous fast NN-kNN-critic comparison artifact
+remains below the `475.0` success threshold and should still be treated as
+`unsolved_or_underfit`.
 
 ## Quick Checks
 

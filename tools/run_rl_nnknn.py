@@ -20,6 +20,13 @@ from model.nnknn_rl_workflow import (  # noqa: E402
 )
 
 
+def _optional_float_arg(value: str) -> float | None:
+    normalized = value.strip().lower()
+    if normalized in {"none", "null"}:
+        return None
+    return float(value)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train or evaluate the repo-native NN-kNN-RL workflow.")
     parser.add_argument("task", nargs="?", default="cartpole", help="RL task key, such as cartpole.")
@@ -38,6 +45,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--critic-type", choices=["mlp", "nnknn"], default=None)
     parser.add_argument("--critic-learning-rate", type=float, default=None)
     parser.add_argument("--critic-update-epochs", type=int, default=None)
+    parser.add_argument(
+        "--critic-mutable-value-labels",
+        action="store_true",
+        help="Smooth existing close/high-activation NN-kNN critic value labels toward new GAE targets.",
+    )
+    parser.add_argument(
+        "--critic-trainable-value-labels",
+        action="store_true",
+        help="Make NN-kNN critic value labels optimizer-trained parameters.",
+    )
+    parser.add_argument("--critic-value-label-update-alpha", type=float, default=None)
+    parser.add_argument("--critic-value-label-min-activation", type=_optional_float_arg, default=argparse.SUPPRESS)
+    parser.add_argument("--critic-value-label-distance-threshold", type=_optional_float_arg, default=argparse.SUPPRESS)
+    parser.add_argument(
+        "--case-learning-rate",
+        type=float,
+        default=None,
+        help="Optional NN-kNN case-parameter LR used for case biases, per-case weights, and trainable value labels.",
+    )
+    parser.add_argument(
+        "--no-critic-value-label-append-on-no-match",
+        dest="critic_value_label_append_on_no_match",
+        action="store_false",
+        default=None,
+        help="With mutable standalone NN-kNN critic labels, do not append samples that match no existing case.",
+    )
     parser.add_argument("--shared-target-value-mode", choices=["none", "hard", "ema"], default=None)
     parser.add_argument("--shared-target-sync-interval", type=int, default=None)
     parser.add_argument("--shared-target-ema-tau", type=float, default=None)
@@ -71,6 +104,20 @@ def _config_from_args(args: argparse.Namespace) -> NNKNNRLConfig:
         overrides["critic_learning_rate"] = args.critic_learning_rate
     if args.critic_update_epochs is not None:
         overrides["critic_update_epochs"] = args.critic_update_epochs
+    if args.critic_mutable_value_labels:
+        overrides["critic_mutable_value_labels"] = True
+    if args.critic_trainable_value_labels:
+        overrides["critic_trainable_value_labels"] = True
+    if args.critic_value_label_update_alpha is not None:
+        overrides["critic_value_label_update_alpha"] = args.critic_value_label_update_alpha
+    if hasattr(args, "critic_value_label_min_activation"):
+        overrides["critic_value_label_min_activation"] = args.critic_value_label_min_activation
+    if hasattr(args, "critic_value_label_distance_threshold"):
+        overrides["critic_value_label_distance_threshold"] = args.critic_value_label_distance_threshold
+    if args.case_learning_rate is not None:
+        overrides["case_learning_rate"] = args.case_learning_rate
+    if args.critic_value_label_append_on_no_match is not None:
+        overrides["critic_value_label_append_on_no_match"] = args.critic_value_label_append_on_no_match
     if args.shared_target_value_mode is not None:
         overrides["shared_target_value_mode"] = args.shared_target_value_mode
     if args.shared_target_sync_interval is not None:

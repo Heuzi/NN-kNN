@@ -145,6 +145,7 @@ def run_nnknn_rl_smoke() -> None:
         NNKNNPolicyNetwork,
         NNKNNValueNetwork,
         SharedNNKNNActorCriticNetwork,
+        _build_nnknn_rl_optimizer,
         compute_gae,
         evaluate_nnknn_rl,
         load_nnknn_rl_checkpoint,
@@ -231,6 +232,72 @@ def run_nnknn_rl_smoke() -> None:
     if torch.allclose(critic_bias_before, critic_bias_after):
         raise AssertionError("NN-kNN critic parameters did not update under value loss with an MLP actor path.")
 
+    mutable_critic = NNKNNValueNetwork(
+        2,
+        case_capacity=4,
+        top_k=1,
+        mutable_value_labels=True,
+        value_label_update_alpha=0.5,
+        value_label_min_activation=None,
+        value_label_distance_threshold=1e-8,
+    )
+    mutable_critic_device = next(mutable_critic.parameters()).device
+    mutable_critic.add_cases(
+        torch.tensor([[0.0, 0.0]], dtype=torch.float32, device=mutable_critic_device),
+        torch.tensor([0.0], dtype=torch.float32, device=mutable_critic_device),
+    )
+    mutable_stats = mutable_critic.add_cases(
+        torch.tensor([[0.0, 0.0]], dtype=torch.float32, device=mutable_critic_device),
+        torch.tensor([10.0], dtype=torch.float32, device=mutable_critic_device),
+    )
+    if mutable_critic.case_entries != 1:
+        raise AssertionError("Mutable NN-kNN critic should relabel an identical active case instead of appending it.")
+    if mutable_stats["label_updates"] != 1 or mutable_stats["label_update_samples"] != 1:
+        raise AssertionError("Mutable NN-kNN critic did not report the expected value-label relabel.")
+    if not torch.allclose(
+        mutable_critic.nnknn_model.labels[0, 0],
+        torch.tensor(5.0, dtype=torch.float32, device=mutable_critic_device),
+        atol=1e-5,
+    ):
+        raise AssertionError("Mutable NN-kNN critic did not smooth the existing value label toward the new target.")
+
+    trainable_critic = NNKNNValueNetwork(2, case_capacity=4, top_k=1, trainable_value_labels=True)
+    trainable_critic_device = next(trainable_critic.parameters()).device
+    if not isinstance(trainable_critic.nnknn_model.labels, torch.nn.Parameter):
+        raise AssertionError("Trainable NN-kNN critic labels should be registered as a Parameter.")
+    trainable_critic.add_cases(
+        torch.tensor([[0.0, 0.0], [1.0, 1.0]], dtype=torch.float32, device=trainable_critic_device),
+        torch.tensor([0.0, 1.0], dtype=torch.float32, device=trainable_critic_device),
+    )
+    trainable_critic_optim = torch.optim.Adam(trainable_critic.parameters(), lr=0.1)
+    trainable_labels_before = trainable_critic.nnknn_model.labels[: trainable_critic.case_entries].detach().clone()
+    trainable_loss = torch.nn.functional.mse_loss(
+        trainable_critic(
+            torch.tensor([[0.0, 0.0], [1.0, 1.0]], dtype=torch.float32, device=trainable_critic_device)
+        ),
+        torch.tensor([10.0, -10.0], dtype=torch.float32, device=trainable_critic_device),
+    )
+    trainable_critic_optim.zero_grad()
+    trainable_loss.backward()
+    trainable_critic_optim.step()
+    trainable_labels_after = trainable_critic.nnknn_model.labels[: trainable_critic.case_entries].detach().clone()
+    if torch.allclose(trainable_labels_before, trainable_labels_after):
+        raise AssertionError("Trainable NN-kNN critic labels did not update under value loss.")
+    grouped_critic_optim = _build_nnknn_rl_optimizer(
+        trainable_critic,
+        base_lr=0.03,
+        case_lr=0.007,
+    )
+    label_group_lr = None
+    bias_group_lr = None
+    for group in grouped_critic_optim.param_groups:
+        if any(param is trainable_critic.nnknn_model.labels for param in group["params"]):
+            label_group_lr = float(group["lr"])
+        if any(param is trainable_critic.nnknn_model.biases for param in group["params"]):
+            bias_group_lr = float(group["lr"])
+    if label_group_lr != 0.007 or bias_group_lr != 0.007:
+        raise AssertionError("Trainable critic labels should share the case-level learning rate with case biases.")
+
     shared_probe = SharedNNKNNActorCriticNetwork(2, 2, case_capacity=3, top_k=2, min_cases_per_action=1)
     shared_probe_device = next(shared_probe.parameters()).device
     first_insert = shared_probe.add_cases(
@@ -259,6 +326,53 @@ def run_nnknn_rl_smoke() -> None:
     ):
         raise AssertionError("Shared NN-kNN actor-critic did not keep separate value labels over the shared case base.")
 
+    shared_hybrid_probe = SharedNNKNNActorCriticNetwork(
+        2,
+        2,
+        case_capacity=4,
+        top_k=2,
+        min_cases_per_action=1,
+        mutable_value_labels=True,
+        trainable_value_labels=True,
+        value_label_update_alpha=0.5,
+        value_label_min_activation=None,
+        value_label_distance_threshold=1e-8,
+    )
+    shared_hybrid_device = next(shared_hybrid_probe.parameters()).device
+    if not isinstance(shared_hybrid_probe.value_labels, torch.nn.Parameter):
+        raise AssertionError("Shared trainable value labels should be registered as a Parameter.")
+    hybrid_first = shared_hybrid_probe.add_cases(
+        torch.tensor([[0.0, 0.0], [1.0, 1.0]], dtype=torch.float32, device=shared_hybrid_device),
+        torch.tensor([0, 1], dtype=torch.long, device=shared_hybrid_device),
+    )
+    shared_hybrid_probe.update_value_labels(
+        hybrid_first["case_ids"],
+        torch.tensor([0.0, 1.0], dtype=torch.float32, device=shared_hybrid_device),
+    )
+    hybrid_second = shared_hybrid_probe.add_cases(
+        torch.tensor([[0.0, 0.0]], dtype=torch.float32, device=shared_hybrid_device),
+        torch.tensor([1], dtype=torch.long, device=shared_hybrid_device),
+    )
+    hybrid_update_stats = shared_hybrid_probe.update_value_labels(
+        hybrid_second["case_ids"],
+        torch.tensor([10.0], dtype=torch.float32, device=shared_hybrid_device),
+        observations=torch.tensor([[0.0, 0.0]], dtype=torch.float32, device=shared_hybrid_device),
+    )
+    if hybrid_update_stats["label_updates"] < 1 or hybrid_update_stats["label_update_samples"] != 1:
+        raise AssertionError("Shared hybrid NN-kNN did not relabel a similar existing value label.")
+    if not torch.allclose(
+        shared_hybrid_probe.value_labels[0],
+        torch.tensor(5.0, dtype=torch.float32, device=shared_hybrid_device),
+        atol=1e-5,
+    ):
+        raise AssertionError("Shared hybrid NN-kNN did not smooth a similar existing value label.")
+    if not torch.allclose(
+        shared_hybrid_probe.value_labels[2],
+        torch.tensor(10.0, dtype=torch.float32, device=shared_hybrid_device),
+        atol=1e-5,
+    ):
+        raise AssertionError("Shared hybrid NN-kNN did not preserve the direct value target for the rollout case.")
+
     cfg = make_nnknn_rl_config("smoke", seed=0)
     for removed_field in ("advantage_method", "value_function", "bootstrap_n_steps", "vtrace"):
         if hasattr(cfg, removed_field):
@@ -273,6 +387,34 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("NN-kNN-RL should default to the NN-kNN actor.")
     if cfg.shared_target_value_mode != "hard":
         raise AssertionError("NN-kNN-RL should default shared NN-kNN target value updates to hard sync.")
+    if cfg.critic_mutable_value_labels or cfg.critic_trainable_value_labels:
+        raise AssertionError("NN-kNN-RL should default to fixed critic value labels.")
+    hybrid_cfg = make_nnknn_rl_config(
+        "smoke",
+        critic_type="nnknn",
+        critic_mutable_value_labels="true",
+        critic_trainable_value_labels=True,
+        critic_value_label_min_activation=None,
+        case_learning_rate=7e-4,
+    )
+    if not hybrid_cfg.critic_mutable_value_labels or not hybrid_cfg.critic_trainable_value_labels:
+        raise AssertionError("NN-kNN-RL config did not enable the requested hybrid value-label mode.")
+    if hybrid_cfg.critic_value_label_min_activation is not None:
+        raise AssertionError("NN-kNN-RL config should allow disabling activation-based mutable label matching.")
+    if hybrid_cfg.case_learning_rate != 7e-4:
+        raise AssertionError("NN-kNN-RL config did not preserve the case-level learning rate.")
+    for invalid_overrides in (
+        {"critic_value_label_update_alpha": 0.0},
+        {"critic_value_label_min_activation": -1.0},
+        {"critic_value_label_distance_threshold": -1.0},
+        {"case_learning_rate": 0.0},
+    ):
+        try:
+            make_nnknn_rl_config("smoke", **invalid_overrides)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"NN-kNN-RL should reject invalid value-label config {invalid_overrides}.")
     try:
         make_nnknn_rl_config("smoke", reward_shaping="invalid")
     except ValueError:

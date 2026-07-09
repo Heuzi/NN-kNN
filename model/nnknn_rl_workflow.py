@@ -46,6 +46,12 @@ class NNKNNRLConfig:
     critic_diagnostic_episode_frequency: int = 10
     critic_nnknn_config: dict[str, Any] = field(default_factory=dict)
     critic_case_capacity: int | None = None
+    critic_mutable_value_labels: bool = False
+    critic_trainable_value_labels: bool = False
+    critic_value_label_update_alpha: float = 0.25
+    critic_value_label_min_activation: float | None = 0.5
+    critic_value_label_distance_threshold: float | None = 1e-6
+    critic_value_label_append_on_no_match: bool = True
     case_capacity: int = 10_000
     max_grad_norm: float = 10.0
     min_case_entries: int = 32
@@ -69,6 +75,7 @@ class NNKNNRLConfig:
     top_k: int = 10
     case_default_bias: float = 0.0
     case_bias_l2: float = 1e-4
+    case_learning_rate: float | None = None
     case_maintenance_frequency: int = 1_000
     case_prune_quantile: float = 0.05
     case_prune_bias_threshold: float | None = None
@@ -102,6 +109,11 @@ class NNKNNPolicyNetwork(nn.Module):
         nnknn_config: dict[str, Any] | None = None,
         use_glocal_weightor: bool = True,
         glocal_fw_set_num: int = 1,
+        mutable_value_labels: bool = False,
+        trainable_value_labels: bool = False,
+        value_label_update_alpha: float = 0.25,
+        value_label_min_activation: float | None = 0.5,
+        value_label_distance_threshold: float | None = 1e-6,
     ):
         super().__init__()
         self.obs_dim = int(obs_dim)
@@ -416,6 +428,12 @@ class NNKNNValueNetwork(nn.Module):
         nnknn_config: dict[str, Any] | None = None,
         use_glocal_weightor: bool = True,
         glocal_fw_set_num: int = 1,
+        mutable_value_labels: bool = False,
+        trainable_value_labels: bool = False,
+        value_label_update_alpha: float = 0.25,
+        value_label_min_activation: float | None = 0.5,
+        value_label_distance_threshold: float | None = 1e-6,
+        value_label_append_on_no_match: bool = True,
     ):
         super().__init__()
         self.obs_dim = int(obs_dim)
@@ -425,6 +443,22 @@ class NNKNNValueNetwork(nn.Module):
         self.case_default_bias = float(case_default_bias)
         self.use_glocal_weightor = bool(use_glocal_weightor)
         self.glocal_fw_set_num = int(glocal_fw_set_num)
+        self.mutable_value_labels = bool(mutable_value_labels)
+        self.trainable_value_labels = bool(trainable_value_labels)
+        self.value_label_update_alpha = float(value_label_update_alpha)
+        self.value_label_min_activation = (
+            None if value_label_min_activation is None else float(value_label_min_activation)
+        )
+        self.value_label_distance_threshold = (
+            None if value_label_distance_threshold is None else float(value_label_distance_threshold)
+        )
+        self.value_label_append_on_no_match = bool(value_label_append_on_no_match)
+        if not (0.0 < self.value_label_update_alpha <= 1.0):
+            raise ValueError("value_label_update_alpha must be in (0, 1]")
+        if self.value_label_min_activation is not None and self.value_label_min_activation < 0.0:
+            raise ValueError("value_label_min_activation must be None or non-negative")
+        if self.value_label_distance_threshold is not None and self.value_label_distance_threshold < 0.0:
+            raise ValueError("value_label_distance_threshold must be None or non-negative")
         self._prune_quantile = 0.0
         self._prune_bias_threshold: float | None = None
 
@@ -469,6 +503,10 @@ class NNKNNValueNetwork(nn.Module):
             glocal_weightor=glocal_weightor,
             **model_config,
         )
+        if self.trainable_value_labels:
+            labels_param = nn.Parameter(self.nnknn_model.labels.detach().clone())
+            del self.nnknn_model._buffers["labels"]
+            self.nnknn_model.register_parameter("labels", labels_param)
         self.nnknn_model.to(self.nnknn_model.cases.device)
 
     @property
@@ -484,6 +522,80 @@ class NNKNNValueNetwork(nn.Module):
         final_predictions, _predicted, *_ = self.nnknn_model(observations)
         return final_predictions.view(observations.shape[0], -1)[:, 0]
 
+    def _case_distances_and_weights(self, observations: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        if observations.dim() == 1:
+            observations = observations.unsqueeze(0)
+        observations = observations.to(self.nnknn_model.cases.device, dtype=torch.float32)
+        active_count = self.case_entries
+        if active_count <= 0:
+            raise ValueError("NN-kNN value critic requires at least one active case")
+        case_features = self.nnknn_model.cases[:active_count]
+        query_expanded = observations.unsqueeze(1).expand(-1, active_count, -1)
+        case_expanded = case_features.unsqueeze(0).expand(observations.shape[0], -1, -1)
+        elementwise_distance = (query_expanded - case_expanded) ** 2
+        if self.nnknn_model.glocal_weightor is not None:
+            glocal_weights = self.nnknn_model.glocal_weights[:active_count]
+            elementwise_distance = self.nnknn_model.glocal_weightor(elementwise_distance, glocal_weights)
+        distances = torch.sqrt(torch.relu(elementwise_distance.sum(dim=-1)))
+        mode = str(self.nnknn_model.config.get("case_score_mode", "bias_minus_distance"))
+        if mode == "hard_knn":
+            k_eff = min(int(self.top_k), active_count)
+            _, top_idx = torch.topk(-distances, k=k_eff, dim=1)
+            weights = torch.zeros_like(distances)
+            weights.scatter_(1, top_idx, 1.0 / float(k_eff))
+            return distances, weights
+        scores = -distances if mode == "neg_distance" else self.nnknn_model.biases[:active_count].unsqueeze(0) - distances
+        if bool(self.nnknn_model.config.get("pre_topk_mask", False)):
+            k_eff = min(int(self.top_k), active_count)
+            top_vals, top_idx = torch.topk(scores, k=k_eff, dim=1)
+            fill_val = float("-inf") if self.nnknn_model.case_normalizer == "softmax" else -1e9
+            masked_scores = torch.full_like(scores, fill_val)
+            scores = masked_scores.scatter(1, top_idx, top_vals)
+        weights = normalize_cases(scores, normalizer=self.nnknn_model.case_normalizer, tau=self.tau, dim=1)
+        return distances, weights
+
+    def update_similar_value_labels(
+        self,
+        observations: torch.Tensor,
+        values: torch.Tensor,
+        *,
+        exclude_positions: torch.Tensor | None = None,
+    ) -> dict[str, int]:
+        if self.case_entries <= 0:
+            return {"label_updates": 0, "label_update_samples": 0}
+        values_t = torch.as_tensor(values, dtype=torch.float32, device=self.nnknn_model.labels.device).view(-1)
+        obs_t = torch.as_tensor(observations, dtype=torch.float32, device=self.nnknn_model.cases.device)
+        if obs_t.dim() == 1:
+            obs_t = obs_t.unsqueeze(0)
+        if obs_t.shape[0] != values_t.numel():
+            raise ValueError("observations and values must have the same batch size")
+        with torch.no_grad():
+            distances, weights = self._case_distances_and_weights(obs_t)
+            match_mask = torch.zeros_like(weights, dtype=torch.bool)
+            if self.value_label_min_activation is not None:
+                match_mask |= weights >= float(self.value_label_min_activation)
+            if self.value_label_distance_threshold is not None:
+                match_mask |= distances <= float(self.value_label_distance_threshold)
+            if exclude_positions is not None and exclude_positions.numel():
+                exclude_t = exclude_positions.to(match_mask.device, dtype=torch.long).view(-1)
+                if exclude_t.numel() == obs_t.shape[0]:
+                    match_mask[torch.arange(obs_t.shape[0], device=match_mask.device), exclude_t] = False
+                else:
+                    match_mask[:, exclude_t] = False
+
+            labels = self.nnknn_model.labels[: self.case_entries].view(-1)
+            alpha = float(self.value_label_update_alpha)
+            label_updates = 0
+            label_update_samples = 0
+            for row_idx in range(obs_t.shape[0]):
+                positions = torch.nonzero(match_mask[row_idx], as_tuple=False).view(-1)
+                if positions.numel() == 0:
+                    continue
+                label_update_samples += 1
+                labels[positions] = labels[positions] * (1.0 - alpha) + values_t[row_idx] * alpha
+                label_updates += int(positions.numel())
+        return {"label_updates": label_updates, "label_update_samples": label_update_samples}
+
     def add_cases(self, observations: torch.Tensor | np.ndarray, values: torch.Tensor | np.ndarray) -> dict[str, int]:
         obs_t = torch.as_tensor(observations, dtype=torch.float32, device=self.nnknn_model.cases.device)
         values_t = torch.as_tensor(values, dtype=torch.float32, device=self.nnknn_model.labels.device).view(-1, 1)
@@ -491,11 +603,44 @@ class NNKNNValueNetwork(nn.Module):
             obs_t = obs_t.unsqueeze(0)
         if obs_t.shape[0] != values_t.shape[0]:
             raise ValueError("observations and values must have the same batch size")
+        mutable_stats = {"label_updates": 0, "label_update_samples": 0}
+        if self.mutable_value_labels and self.case_entries > 0:
+            mutable_stats = self.update_similar_value_labels(obs_t, values_t.view(-1))
+            if self.value_label_append_on_no_match:
+                with torch.no_grad():
+                    distances, weights = self._case_distances_and_weights(obs_t)
+                    match_mask = torch.zeros_like(weights, dtype=torch.bool)
+                    if self.value_label_min_activation is not None:
+                        match_mask |= weights >= float(self.value_label_min_activation)
+                    if self.value_label_distance_threshold is not None:
+                        match_mask |= distances <= float(self.value_label_distance_threshold)
+                    append_mask = ~match_mask.any(dim=1)
+                obs_t = obs_t[append_mask]
+                values_t = values_t[append_mask]
+            else:
+                obs_t = obs_t[:0]
+                values_t = values_t[:0]
+        if obs_t.shape[0] == 0:
+            return {
+                "added": 0,
+                "pruned": 0,
+                "replaced": 0,
+                "start": self.case_entries,
+                "end": self.case_entries,
+                **mutable_stats,
+            }
         available = self.case_capacity - self.case_entries
         if obs_t.shape[0] <= available:
             start = self.case_entries
             added = self.nnknn_model.append_cases(obs_t, values_t)
-            return {"added": added, "pruned": 0, "replaced": 0, "start": start, "end": start + added}
+            return {
+                "added": added,
+                "pruned": 0,
+                "replaced": 0,
+                "start": start,
+                "end": start + added,
+                **mutable_stats,
+            }
         added = 0
         replaced = 0
         pruned = 0
@@ -516,7 +661,14 @@ class NNKNNValueNetwork(nn.Module):
                 first_added_index = start
             added += 1
         start = self.case_entries - added if first_added_index is None else first_added_index
-        return {"added": added, "pruned": pruned, "replaced": replaced, "start": start, "end": start + added}
+        return {
+            "added": added,
+            "pruned": pruned,
+            "replaced": replaced,
+            "start": start,
+            "end": start + added,
+            **mutable_stats,
+        }
 
     def _lowest_case_index(self) -> int | None:
         if self.case_entries <= 0:
@@ -591,6 +743,11 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
         nnknn_config: dict[str, Any] | None = None,
         use_glocal_weightor: bool = True,
         glocal_fw_set_num: int = 1,
+        mutable_value_labels: bool = False,
+        trainable_value_labels: bool = False,
+        value_label_update_alpha: float = 0.25,
+        value_label_min_activation: float | None = 0.5,
+        value_label_distance_threshold: float | None = 1e-6,
     ):
         super().__init__()
         self.obs_dim = int(obs_dim)
@@ -602,13 +759,31 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
         self.case_default_bias = float(case_default_bias)
         self.use_glocal_weightor = bool(use_glocal_weightor)
         self.glocal_fw_set_num = int(glocal_fw_set_num)
+        self.mutable_value_labels = bool(mutable_value_labels)
+        self.trainable_value_labels = bool(trainable_value_labels)
+        self.value_label_update_alpha = float(value_label_update_alpha)
+        self.value_label_min_activation = (
+            None if value_label_min_activation is None else float(value_label_min_activation)
+        )
+        self.value_label_distance_threshold = (
+            None if value_label_distance_threshold is None else float(value_label_distance_threshold)
+        )
+        if not (0.0 < self.value_label_update_alpha <= 1.0):
+            raise ValueError("value_label_update_alpha must be in (0, 1]")
+        if self.value_label_min_activation is not None and self.value_label_min_activation < 0.0:
+            raise ValueError("value_label_min_activation must be None or non-negative")
+        if self.value_label_distance_threshold is not None and self.value_label_distance_threshold < 0.0:
+            raise ValueError("value_label_distance_threshold must be None or non-negative")
         self._active_case_count = 0
         self._prune_quantile = 0.0
         self._prune_bias_threshold: float | None = None
 
         self.register_buffer("cases", torch.zeros(self.case_capacity, self.obs_dim, dtype=torch.float32))
         self.register_buffer("action_labels", torch.zeros(self.case_capacity, self.action_dim, dtype=torch.float32))
-        self.register_buffer("value_labels", torch.zeros(self.case_capacity, dtype=torch.float32))
+        if self.trainable_value_labels:
+            self.value_labels = nn.Parameter(torch.zeros(self.case_capacity, dtype=torch.float32))
+        else:
+            self.register_buffer("value_labels", torch.zeros(self.case_capacity, dtype=torch.float32))
         self.register_buffer("case_ids", torch.full((self.case_capacity,), -1, dtype=torch.long))
         self.register_buffer("next_case_id", torch.zeros((), dtype=torch.long))
         self.biases = nn.Parameter(torch.full((self.case_capacity,), self.case_default_bias, dtype=torch.float32))
@@ -660,7 +835,7 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
         protected_ids_t = torch.as_tensor(protected_case_ids, dtype=torch.long).view(-1)
         return {int(case_id) for case_id in protected_ids_t.detach().cpu().tolist() if int(case_id) >= 0}
 
-    def _case_weights(self, observations: torch.Tensor) -> torch.Tensor:
+    def _case_distances_and_weights(self, observations: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         if observations.dim() == 1:
             observations = observations.unsqueeze(0)
         observations = observations.to(self.cases.device, dtype=torch.float32)
@@ -680,7 +855,7 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
             _, top_idx = torch.topk(-distances, k=k_eff, dim=1)
             weights = torch.zeros_like(distances)
             weights.scatter_(1, top_idx, 1.0 / float(k_eff))
-            return weights
+            return distances, weights
         scores = -distances if self.case_score_mode == "neg_distance" else self.biases[:active_count].unsqueeze(0) - distances
         if self.pre_topk_mask:
             k_eff = min(int(self.top_k), active_count)
@@ -688,7 +863,12 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
             fill_val = float("-inf") if self.case_normalizer == "softmax" else -1e9
             masked_scores = torch.full_like(scores, fill_val)
             scores = masked_scores.scatter(1, top_idx, top_vals)
-        return normalize_cases(scores, normalizer=self.case_normalizer, tau=self.tau, dim=1)
+        weights = normalize_cases(scores, normalizer=self.case_normalizer, tau=self.tau, dim=1)
+        return distances, weights
+
+    def _case_weights(self, observations: torch.Tensor) -> torch.Tensor:
+        _distances, weights = self._case_distances_and_weights(observations)
+        return weights
 
     def policy_probs(self, observations: torch.Tensor) -> torch.Tensor:
         if observations.dim() == 1:
@@ -777,13 +957,60 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
             "case_ids": assigned_case_ids,
         }
 
-    def update_value_labels(self, case_ids: torch.Tensor | list[int], values: torch.Tensor) -> None:
+    def update_similar_value_labels(
+        self,
+        observations: torch.Tensor,
+        values: torch.Tensor,
+        *,
+        exclude_positions: torch.Tensor | None = None,
+    ) -> dict[str, int]:
+        if self.case_entries <= 0:
+            return {"label_updates": 0, "label_update_samples": 0}
+        values_t = torch.as_tensor(values, dtype=torch.float32, device=self.value_labels.device).view(-1)
+        obs_t = torch.as_tensor(observations, dtype=torch.float32, device=self.cases.device)
+        if obs_t.dim() == 1:
+            obs_t = obs_t.unsqueeze(0)
+        if obs_t.shape[0] != values_t.numel():
+            raise ValueError("observations and values must have the same batch size")
+        with torch.no_grad():
+            distances, weights = self._case_distances_and_weights(obs_t)
+            match_mask = torch.zeros_like(weights, dtype=torch.bool)
+            if self.value_label_min_activation is not None:
+                match_mask |= weights >= float(self.value_label_min_activation)
+            if self.value_label_distance_threshold is not None:
+                match_mask |= distances <= float(self.value_label_distance_threshold)
+            if exclude_positions is not None and exclude_positions.numel():
+                exclude_t = exclude_positions.to(match_mask.device, dtype=torch.long).view(-1)
+                if exclude_t.numel() == obs_t.shape[0]:
+                    match_mask[torch.arange(obs_t.shape[0], device=match_mask.device), exclude_t] = False
+                else:
+                    match_mask[:, exclude_t] = False
+
+            labels = self.value_labels[: self.case_entries]
+            alpha = float(self.value_label_update_alpha)
+            label_updates = 0
+            label_update_samples = 0
+            for row_idx in range(obs_t.shape[0]):
+                positions = torch.nonzero(match_mask[row_idx], as_tuple=False).view(-1)
+                if positions.numel() == 0:
+                    continue
+                label_update_samples += 1
+                labels[positions] = labels[positions] * (1.0 - alpha) + values_t[row_idx] * alpha
+                label_updates += int(positions.numel())
+        return {"label_updates": label_updates, "label_update_samples": label_update_samples}
+
+    def update_value_labels(
+        self,
+        case_ids: torch.Tensor | list[int],
+        values: torch.Tensor,
+        observations: torch.Tensor | None = None,
+    ) -> dict[str, int]:
         case_ids_t = torch.as_tensor(case_ids, dtype=torch.long, device=self.value_labels.device).view(-1)
         values_t = torch.as_tensor(values, dtype=torch.float32, device=self.value_labels.device).view(-1)
         if case_ids_t.numel() != values_t.numel():
             raise ValueError("case_ids and values must have the same length")
         if case_ids_t.numel() == 0:
-            return
+            return {"label_updates": 0, "label_update_samples": 0}
         active_case_ids = self.case_ids[: self.case_entries]
         if active_case_ids.numel() == 0:
             raise ValueError("Shared NN-kNN actor-critic has no active cases to label")
@@ -794,6 +1021,14 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
             raise ValueError("case_ids contain inactive or unknown shared NN-kNN cases")
         with torch.no_grad():
             self.value_labels[positions] = values_t
+        mutable_stats = {"label_updates": 0, "label_update_samples": 0}
+        if self.mutable_value_labels and observations is not None:
+            mutable_stats = self.update_similar_value_labels(
+                observations,
+                values_t,
+                exclude_positions=positions,
+            )
+        return mutable_stats
 
     def _lowest_replaceable_case_index(self, *, protected_case_ids: torch.Tensor | list[int] | None = None) -> int | None:
         if self.case_entries <= 0:
@@ -917,6 +1152,17 @@ ValueCritic = ValueNetwork | NNKNNValueNetwork | SharedNNKNNActorCriticNetwork
 
 
 def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConfig:
+    def _coerce_bool_field(field_name: str, default: bool) -> bool:
+        value = data.get(field_name, default)
+        if isinstance(value, str):
+            normalized_value = value.strip().lower()
+            if normalized_value in {"1", "true", "yes", "on"}:
+                return True
+            if normalized_value in {"0", "false", "no", "off"}:
+                return False
+            raise ValueError(f"{field_name} must be a boolean")
+        return bool(value)
+
     profiles: dict[str, dict[str, Any]] = {
         "smoke": {
             "profile": "smoke",
@@ -1015,6 +1261,34 @@ def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConf
     if not (0.0 < shared_target_ema_tau <= 1.0):
         raise ValueError("shared_target_ema_tau must be in (0, 1]")
     data["shared_target_ema_tau"] = shared_target_ema_tau
+    data["critic_mutable_value_labels"] = _coerce_bool_field("critic_mutable_value_labels", False)
+    data["critic_trainable_value_labels"] = _coerce_bool_field("critic_trainable_value_labels", False)
+    data["critic_value_label_append_on_no_match"] = _coerce_bool_field(
+        "critic_value_label_append_on_no_match",
+        True,
+    )
+    critic_value_label_update_alpha = float(data.get("critic_value_label_update_alpha", 0.25))
+    if not (0.0 < critic_value_label_update_alpha <= 1.0):
+        raise ValueError("critic_value_label_update_alpha must be in (0, 1]")
+    data["critic_value_label_update_alpha"] = critic_value_label_update_alpha
+    critic_value_label_min_activation = data.get("critic_value_label_min_activation", 0.5)
+    if critic_value_label_min_activation is not None:
+        critic_value_label_min_activation = float(critic_value_label_min_activation)
+        if critic_value_label_min_activation < 0.0:
+            raise ValueError("critic_value_label_min_activation must be None or non-negative")
+    data["critic_value_label_min_activation"] = critic_value_label_min_activation
+    critic_value_label_distance_threshold = data.get("critic_value_label_distance_threshold", 1e-6)
+    if critic_value_label_distance_threshold is not None:
+        critic_value_label_distance_threshold = float(critic_value_label_distance_threshold)
+        if critic_value_label_distance_threshold < 0.0:
+            raise ValueError("critic_value_label_distance_threshold must be None or non-negative")
+    data["critic_value_label_distance_threshold"] = critic_value_label_distance_threshold
+    case_learning_rate = data.get("case_learning_rate", None)
+    if case_learning_rate is not None:
+        case_learning_rate = float(case_learning_rate)
+        if case_learning_rate <= 0.0:
+            raise ValueError("case_learning_rate must be None or positive")
+    data["case_learning_rate"] = case_learning_rate
     return NNKNNRLConfig(**data)
 
 
@@ -1090,6 +1364,11 @@ def _build_shared_actor_critic_model(
         nnknn_config={**cfg.nnknn_config, **cfg.critic_nnknn_config},
         use_glocal_weightor=cfg.use_glocal_weightor,
         glocal_fw_set_num=cfg.glocal_fw_set_num,
+        mutable_value_labels=cfg.critic_mutable_value_labels,
+        trainable_value_labels=cfg.critic_trainable_value_labels,
+        value_label_update_alpha=cfg.critic_value_label_update_alpha,
+        value_label_min_activation=cfg.critic_value_label_min_activation,
+        value_label_distance_threshold=cfg.critic_value_label_distance_threshold,
     ).to(device)
     model.configure_case_maintenance(
         prune_quantile=cfg.case_prune_quantile,
@@ -1137,6 +1416,12 @@ def _build_value_model(obs_dim: int, cfg: NNKNNRLConfig, device: torch.device) -
             nnknn_config=cfg.critic_nnknn_config,
             use_glocal_weightor=cfg.use_glocal_weightor,
             glocal_fw_set_num=cfg.glocal_fw_set_num,
+            mutable_value_labels=cfg.critic_mutable_value_labels,
+            trainable_value_labels=cfg.critic_trainable_value_labels,
+            value_label_update_alpha=cfg.critic_value_label_update_alpha,
+            value_label_min_activation=cfg.critic_value_label_min_activation,
+            value_label_distance_threshold=cfg.critic_value_label_distance_threshold,
+            value_label_append_on_no_match=cfg.critic_value_label_append_on_no_match,
         ).to(device)
         model.configure_case_maintenance(
             prune_quantile=cfg.case_prune_quantile,
@@ -1156,6 +1441,50 @@ def _build_actor_critic_models(
         model = _build_shared_actor_critic_model(obs_dim, action_dim, cfg, device)
         return model, model
     return _build_actor_model(obs_dim, action_dim, cfg, device), _build_value_model(obs_dim, cfg, device)
+
+
+def _nnknn_case_parameter_names(model: nn.Module) -> set[str]:
+    if isinstance(model, SharedNNKNNActorCriticNetwork):
+        case_names = {"biases", "glocal_weights"}
+        if isinstance(model.value_labels, nn.Parameter):
+            case_names.add("value_labels")
+        return case_names
+    if isinstance(model, (NNKNNPolicyNetwork, NNKNNValueNetwork)):
+        case_names: set[str] = set()
+        for attr_name in ("biases", "negative_weights", "glocal_weights"):
+            if isinstance(getattr(model.nnknn_model, attr_name, None), nn.Parameter):
+                case_names.add(f"nnknn_model.{attr_name}")
+        if isinstance(getattr(model.nnknn_model, "labels", None), nn.Parameter):
+            case_names.add("nnknn_model.labels")
+        return case_names
+    return set()
+
+
+def _build_nnknn_rl_optimizer(
+    model: nn.Module,
+    *,
+    base_lr: float,
+    case_lr: float | None,
+) -> optim.Optimizer:
+    case_parameter_names = _nnknn_case_parameter_names(model)
+    base_params: list[nn.Parameter] = []
+    case_params: list[nn.Parameter] = []
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        if name in case_parameter_names:
+            case_params.append(parameter)
+        else:
+            base_params.append(parameter)
+
+    param_groups: list[dict[str, Any]] = []
+    if base_params:
+        param_groups.append({"params": base_params, "lr": float(base_lr)})
+    if case_params:
+        param_groups.append({"params": case_params, "lr": float(case_lr if case_lr is not None else base_lr)})
+    if not param_groups:
+        raise ValueError("Cannot build an optimizer for a model with no trainable parameters")
+    return optim.Adam(param_groups)
 
 
 def _copy_state_dict_to_cpu(module: nn.Module) -> dict[str, torch.Tensor]:
@@ -1533,14 +1862,24 @@ def _train_actor_critic_batch(
 
     critic_loss = torch.zeros((), dtype=torch.float32, device=device)
     shared_actor_critic = actor is value_model and isinstance(actor, SharedNNKNNActorCriticNetwork)
+    critic_add_stats = {"pruned": 0, "replaced": 0, "label_updates": 0, "label_update_samples": 0}
+    critic_label_stats = {"label_updates": 0, "label_update_samples": 0}
     if shared_actor_critic:
         if case_ids_t is None or case_ids_t.numel() != obs_t.shape[0]:
             raise ValueError("Shared NN-kNN actor-critic updates require one case id per sample")
-        value_model.update_value_labels(case_ids_t, value_targets.detach())
+        critic_label_stats = value_model.update_value_labels(
+            case_ids_t,
+            value_targets.detach(),
+            observations=obs_t,
+        )
         value_model.train()
         critic_loss = F.mse_loss(value_model(obs_t), value_targets.detach())
     elif isinstance(value_model, NNKNNValueNetwork):
         critic_add_stats = value_model.add_cases(obs_t, value_targets.detach())
+        critic_label_stats = {
+            "label_updates": int(critic_add_stats.get("label_updates", 0)),
+            "label_update_samples": int(critic_add_stats.get("label_update_samples", 0)),
+        }
         if critic_optimizer is None:
             raise ValueError("critic_optimizer is required for the NN-kNN critic")
         value_model.train()
@@ -1630,6 +1969,8 @@ def _train_actor_critic_batch(
         "critic_cases_replaced": (
             int(critic_add_stats["replaced"]) if isinstance(value_model, NNKNNValueNetwork) else 0
         ),
+        "critic_label_updates": int(critic_label_stats.get("label_updates", 0)),
+        "critic_label_update_samples": int(critic_label_stats.get("label_update_samples", 0)),
         "shared_value_labels_written": int(case_ids_t.numel()) if shared_actor_critic and case_ids_t is not None else 0,
         "mean_episode_return": float(np.mean(episode_returns)) if episode_returns else 0.0,
         "reward_varying_episodes": reward_varying_episodes,
@@ -1740,9 +2081,17 @@ def train_nnknn_rl(
         and cfg.shared_target_value_mode != "none"
     ):
         shared_target_value_model = _build_shared_target_value_model(actor, obs_dim, action_dim, cfg, run_device)
-    actor_optimizer = optim.Adam(actor.parameters(), lr=cfg.learning_rate)
+    actor_optimizer = _build_nnknn_rl_optimizer(
+        actor,
+        base_lr=cfg.learning_rate,
+        case_lr=cfg.case_learning_rate,
+    )
     critic_optimizer = (
-        optim.Adam(value_network.parameters(), lr=cfg.critic_learning_rate)
+        _build_nnknn_rl_optimizer(
+            value_network,
+            base_lr=cfg.critic_learning_rate,
+            case_lr=cfg.case_learning_rate,
+        )
         if isinstance(value_network, (ValueNetwork, NNKNNValueNetwork))
         else None
     )
@@ -1767,6 +2116,8 @@ def train_nnknn_rl(
     shared_cases_pruned = 0
     shared_cases_replaced = 0
     shared_value_labels_written = 0
+    critic_label_updates = 0
+    critic_label_update_samples = 0
     partial_rollout_segments = 0
     partial_rollout_samples = 0
     shared_target_syncs = 1 if shared_target_value_model is not None else 0
@@ -1947,6 +2298,8 @@ def train_nnknn_rl(
                         critic_cases_pruned += critic_pruned
                         critic_cases_replaced += critic_replaced
                         shared_value_labels_written += int(loss_row.get("shared_value_labels_written", 0))
+                        critic_label_updates += int(loss_row.get("critic_label_updates", 0))
+                        critic_label_update_samples += int(loss_row.get("critic_label_update_samples", 0))
                         row = _maintenance_row(
                             global_step=completed_step,
                             case_store="critic",
@@ -1981,6 +2334,8 @@ def train_nnknn_rl(
                         "critic_cases_replaced": critic_cases_replaced,
                         "shared_cases_pruned": shared_cases_pruned,
                         "shared_cases_replaced": shared_cases_replaced,
+                        "critic_label_updates": critic_label_updates,
+                        "critic_label_update_samples": critic_label_update_samples,
                         "action_probs": json.dumps(action_probs),
                         "action_counts": _actor_action_counts_json(actor),
                         **stats,
@@ -2113,6 +2468,8 @@ def train_nnknn_rl(
                 critic_cases_pruned += critic_pruned
                 critic_cases_replaced += critic_replaced
                 shared_value_labels_written += int(loss_row.get("shared_value_labels_written", 0))
+                critic_label_updates += int(loss_row.get("critic_label_updates", 0))
+                critic_label_update_samples += int(loss_row.get("critic_label_update_samples", 0))
                 row = _maintenance_row(
                     global_step=cfg.total_timesteps,
                     case_store="critic",
@@ -2198,6 +2555,8 @@ def train_nnknn_rl(
         "critic_cases_replaced": critic_cases_replaced,
         "shared_cases_pruned": shared_cases_pruned,
         "shared_cases_replaced": shared_cases_replaced,
+        "critic_label_updates": critic_label_updates,
+        "critic_label_update_samples": critic_label_update_samples,
         "partial_rollout_segments": partial_rollout_segments,
         "partial_rollout_samples": partial_rollout_samples,
         "shared_value_labels_written": shared_value_labels_written,
@@ -2259,6 +2618,8 @@ def train_nnknn_rl(
         "critic_cases_replaced": critic_cases_replaced,
         "shared_cases_pruned": shared_cases_pruned,
         "shared_cases_replaced": shared_cases_replaced,
+        "critic_label_updates": critic_label_updates,
+        "critic_label_update_samples": critic_label_update_samples,
         "partial_rollout_segments": partial_rollout_segments,
         "partial_rollout_samples": partial_rollout_samples,
         "shared_value_labels_written": shared_value_labels_written,

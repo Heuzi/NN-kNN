@@ -44,8 +44,17 @@ critics, and uses GAE advantages; checkpoints record
 and `critic_type` in config or summary output to distinguish comparison
 variants. In the shared NN-kNN actor-critic path, one case base is used and
 each active shared case has both an action label and a scalar value label.
-NN-kNN-RL summaries also report partial-rollout training and per-store
-actor/critic/shared maintenance counters.
+NN-kNN critic value labels default to fixed GAE targets, with optional mutable
+relabeling, trainable label parameters, or both as a hybrid mode. NN-kNN-RL
+summaries also report partial-rollout training, critic label-update counts, and
+per-store actor/critic/shared maintenance counters. Trainable value labels share
+the case-level optimizer group with case biases and per-case glocal weights; set
+`case_learning_rate` / `--case-learning-rate` for that group. The hybrid mode
+follows the NEC pattern of fast memory-value updates plus slower differentiable
+training, but critic labels should remain expected GAE/TD targets, not
+max-return memory. The shared NN-kNN critic already supports lagged target
+values; standalone NN-kNN critics should get the same target-critic treatment
+before stability claims.
 
 Current CartPole references:
 

@@ -121,6 +121,17 @@ Current NN-kNN-RL algorithm:
 - When only the critic is NN-kNN, `NNKNNValueNetwork` remains a standalone value
   critic and is optimized with the value loss after value-target cases are
   inserted.
+- NN-kNN critic value labels default to fixed GAE targets. Set
+  `critic_mutable_value_labels=True` to smooth close or highly activated active
+  labels toward new targets, set `critic_trainable_value_labels=True` to train
+  value labels as parameters, and enable both for the hybrid label mode.
+- Trainable value labels share the NN-kNN case-level optimizer group with case
+  biases and per-case glocal weights. Use `case_learning_rate` or
+  `--case-learning-rate` to tune that whole case-parameter group.
+- This hybrid is intentionally close to Neural Episodic Control: NEC combines
+  fast updates to matching memory values with slower gradient updates through a
+  differentiable key-value memory. For this repo, keep the stored value labels as
+  GAE/TD-style expected value targets, not max-return episodic memory.
 - The algorithm name is retained for checkpoint compatibility; use
   `actor_type` and `critic_type` in the config or summary to distinguish
   comparison variants.
@@ -150,7 +161,9 @@ Training by actor/critic choice:
   regularization, while the MLP critic is optimized by value loss.
 - If `actor_type="mlp"` and `critic_type="nnknn"`, the MLP actor is optimized
   by policy loss, while `NNKNNValueNetwork` appends state/value-target cases and
-  trains its retrieval parameters directly with the value loss.
+  trains its retrieval parameters directly with the value loss. If mutable or
+  trainable critic labels are enabled, those value labels are updated before and
+  during this same critic optimization path.
 - If `actor_type="nnknn"` and `critic_type="nnknn"`, the workflow uses one
   `SharedNNKNNActorCriticNetwork`. Rollout appends shared state-action cases,
   then the critic writes value targets onto those same cases through stable
@@ -162,6 +175,14 @@ Training by actor/critic choice:
   retrieval parameters directly on sync; `shared_target_value_mode="ema"`
   applies EMA to those trainable parameters. In both modes, the structured case
   memory, labels, case IDs, and active-case metadata are hard-copied on sync.
+- Design direction: lagged bootstrap targets should apply to NN-kNN critics
+  generally. The shared actor-critic path has a lagged target value model now;
+  standalone `NNKNNValueNetwork` should gain a target critic before treating
+  standalone NN-kNN critic stability as settled.
+- During training, action selection should remain stochastic (`greedy=False`);
+  greedy action selection is for evaluation. Sampling improves exploration and
+  coverage, but it does not justify max-return labels. The critic target should
+  remain an expected value target from GAE/TD-style computation.
 - Standalone actor, standalone critic, and shared NN-kNN paths all support
   case maintenance. The shared path protects pending rollout cases until their
   critic targets have been attached, then later updates can prune or replace
@@ -244,8 +265,8 @@ Current NN-kNN-RL status:
 
 - The expanded `codex/smoke_test.py --mode nnknn_rl` validates all actor/critic
   variants, checkpoint reloads, final partial-rollout training,
-  episode-boundary-aware GAE, shared value-label writes, and NN-kNN maintenance
-  reporting.
+  episode-boundary-aware GAE, shared value-label writes, mutable/trainable
+  critic value-label modes, and NN-kNN maintenance reporting.
 - Smoke results are plumbing checks only. They are not competitive CartPole
   results.
 - The previous fast NN-kNN-critic artifact

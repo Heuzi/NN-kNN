@@ -116,6 +116,16 @@
     actor loss
   - with an MLP actor and NN-kNN critic, the critic appends state/value-target
     cases and trains its retrieval parameters with the value loss
+  - NN-kNN critic value labels default to fixed GAE targets; optional mutable
+    labels smooth close or highly activated active cases toward new targets,
+    optional trainable labels make value labels optimizer parameters, and both
+    options together form the hybrid mutable/trainable mode
+  - trainable value labels use the same case-level optimizer group as case
+    biases and per-case glocal weights; tune this group with
+    `case_learning_rate` / `--case-learning-rate`
+  - the hybrid label mode is intentionally NEC-like: fast memory-value updates
+    plus slower differentiable training, but labels should remain GAE/TD-style
+    expected value targets rather than max-return episodic memory
   - with both actor and critic as NN-kNN, one shared case base is used; rollout
     inserts policy cases first, then critic value targets are written back onto
     the same shared cases through stable case IDs so each retained shared case
@@ -124,6 +134,12 @@
     bootstrap values; hard sync copies the continuous trainable retrieval
     parameters directly, EMA smooths those trainable parameters, and both modes
     hard-copy the structured case memory/label buffers on sync
+  - design direction: NN-kNN critics should use lagged bootstrap targets in both
+    shared and standalone paths; the shared path has this now, while standalone
+    `NNKNNValueNetwork` still needs a target-critic option
+  - training should keep stochastic action selection (`greedy=False`) and reserve
+    greedy action selection for evaluation; sampling helps exploration but does
+    not replace expected GAE/TD critic targets
   - standalone actor, standalone critic, and shared NN-kNN case maintenance are
     reported separately in run summaries and `case_maintenance.csv`
 - Do not restore the retired legacy case-weight classification path solely to
@@ -178,8 +194,9 @@
   action-count fields; NN-kNN critic runs record `critic_case_entries`.
   Summaries also record total and per-store actor/critic/shared
   `*_cases_pruned`, `*_cases_replaced`, `partial_rollout_segments`,
-  `partial_rollout_samples`, and `shared_value_labels_written` where
-  applicable. Current actor-critic checkpoints record
+  `partial_rollout_samples`, `shared_value_labels_written`,
+  `critic_label_updates`, and `critic_label_update_samples` where applicable.
+  Current actor-critic checkpoints record
   `algorithm="nnknn_actor_mlp_value_gae"` and include both actor and critic
   state; the algorithm name is retained for compatibility even when
   `actor_type="mlp"` or `critic_type="nnknn"`. Older reward-to-go NN-kNN-RL
