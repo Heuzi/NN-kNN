@@ -6,6 +6,9 @@
 - For regression work, prefer the helpers in `model/regression_workflow.py` instead of calling low-level training code directly.
 - Regression configs must explicitly set `task_type="regression"`. The notebook does this already; ad hoc scripts should too.
 - For RL baseline work, prefer `model/rl_workflow.py`, `model/nec_workflow.py`, `model/nnknn_rl_workflow.py`, `datasets/rl_tasks.py`, `tools/run_rl_dqn.py`, `tools/run_rl_nec.py`, and `tools/run_rl_nnknn.py` instead of notebook-only implementations.
+- Maintained notebooks live under `demos/`. Keep archival `Outdated...` notebooks and `older versions/` as historical references only.
+- Atari demo support is currently DQN-only for Pong and Breakout. NEC and NN-kNN-RL remain CartPole/flat-observation workflows until image-observation support is added.
+- Current NN-kNN-RL is an on-policy actor-critic workflow: the actor is selectable between NN-kNN and MLP, the value critic is selectable between MLP and NN-kNN regression, and GAE supplies actor advantages. Preserve `actor_type="nnknn"` and `critic_type="mlp"` as the default comparison baseline unless explicitly changed.
 - Current NN-kNN-RL is an on-policy actor-critic workflow: the actor and critic are selectable between NN-kNN and MLP variants, and GAE supplies actor advantages and value targets.
 - When both actor and critic are NN-kNN, use one shared NN-kNN actor-critic case base. Each active shared case has both an action label and a value label over the same retrieval backbone; do not add a separate critic case base for that path.
 - NN-kNN critic value labels default to fixed GAE targets; optional mutable labels, trainable labels, or the combined hybrid mode are controlled by `critic_mutable_value_labels` and `critic_trainable_value_labels`.
@@ -29,6 +32,7 @@
 - Fast RL smoke test: `python codex/smoke_test.py --mode rl`
 - Fast NEC smoke test: `python codex/smoke_test.py --mode nec`
 - Fast NN-kNN-RL smoke test: `python codex/smoke_test.py --mode nnknn_rl`
+- Atari DQN smoke commands such as `python tools/run_rl_dqn.py pong --profile smoke --seed 0` require Gymnasium Atari dependencies and accepted/installed ALE ROMs.
 
 ## Notes
 

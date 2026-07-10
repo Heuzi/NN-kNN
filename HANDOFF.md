@@ -28,20 +28,33 @@
   baseline workflow.
 - `model/nnknn_rl_workflow.py` and `tools/run_rl_nnknn.py` provide the
   experimental actor-critic workflow for NN-kNN and MLP actor comparisons.
-- `nnknn_sample_classification.ipynb` is the maintained classification
+- `demos/nnknn_sample_classification.ipynb` is the maintained classification
   notebook entry point.
-- `dqn_cartpole_demo.ipynb` is the maintained RL notebook entry point; it
+- `demos/dqn_cartpole_demo.ipynb` is the maintained RL notebook entry point; it
   should call Python workflow functions rather than duplicating DQN logic.
-- `nnknn_cartpole_demo.ipynb` is the maintained NN-kNN-RL notebook entry point;
+- `demos/nec_cartpole_demo.ipynb` is the maintained NEC notebook entry point.
+- `demos/nnknn_cartpole_demo.ipynb` is the maintained NN-kNN-RL notebook entry point;
   it should call Python workflow functions rather than duplicating training
   logic.
+- `demos/dqn_atari_pong_demo.ipynb` and
+  `demos/dqn_atari_breakout_demo.ipynb` are maintained Atari DQN demo entry
+  points. Atari is DQN-only for now; NEC and NN-kNN-RL still need
+  image-observation workflow support before runnable Atari demos.
 - `Outdated NN-kNN Reinforcement Learning.ipynb` and `OutdatedNewCartpole.ipynb`
   are archival only. Do not use them as RL implementation references.
 - Representative checks completed: one-epoch regression and classification
   smokes, RL smoke, sparsemax Iris folds, portable small/image loaders, and a
   tiny all-image-method MNIST subset comparison.
-- The current DQN fast CartPole notebook/artifact run did not reproduce the
+- The current saved DQN fast CartPole notebook output did not reproduce the
   older solved checkpoint result:
+  - notebook: `demos/dqn_cartpole_demo.ipynb`
+  - saved run folder: `results/rl/dqn_cartpole_20260701_183004_199116/`
+  - selected checkpoint step: `135000`
+  - selected eval mean return: `152.70` over 20 episodes
+  - last/end-of-budget eval mean return: `118.75`
+  - interpretation: the success threshold was never reached, so treat this
+    saved notebook output as `unsolved_or_underfit`.
+- The current DQN fast CartPole artifact reference is also unsolved:
   - run folder: `results/rl/dqn_cartpole_20260702_135146_537913/`
   - selected checkpoint step: `110000`
   - selected eval mean return: `110.85` over 20 episodes
@@ -61,6 +74,43 @@
 - The previous NEC 25k-step debug-sized run selected step `17663` with mean
   return `281.2`, so the larger 150k-step NEC profile substantially improved
   the best evaluation.
+- The current saved NEC CartPole notebook output is the older debug-sized run:
+  - notebook: `demos/nec_cartpole_demo.ipynb`
+  - saved run folder: `results/rl/nec_cartpole_20260616_184922_757182/`
+  - selected checkpoint step: `17663`
+  - selected eval mean return: `281.20` over 20 episodes
+  - last/end-of-budget eval mean return: `176.05`
+  - interpretation: useful debug history, but superseded by the 150k-step NEC
+    artifact above for current CartPole comparisons.
+- Current NN-kNN-RL smoke runs are functional but not competitive:
+  - run folders: `results/rl/nnknn_rl_cartpole_*`
+  - smoke profile: `256` environment steps, `case_capacity=1000`,
+    `eval_episodes=2`
+  - current actor-critic GAE smoke artifact:
+    `results/rl/nnknn_rl_cartpole_20260625_161005_956241/`
+  - observed actor-critic smoke eval mean return: `14.0`
+  - interpretation: smoke verifies plumbing only. It is not a meaningful
+    performance result, and fast/debug runs still need tuning before
+    paper-style comparison.
+- Current NN-kNN-RL fast NN-kNN-critic run remains unsolved but is a useful
+  comparison artifact:
+  - current saved notebook run folder:
+    `results/rl/nnknn_rl_cartpole_20260629_130136_701190/`
+  - critic: `critic_type="nnknn"`
+  - selected checkpoint step: `121325`
+  - selected eval mean return: `432.35` over 20 episodes
+  - last/end-of-budget eval mean return: `418.15`
+  - interpretation: this is much stronger than early smoke/debug runs and
+    reaches some 500-return episodes, but the mean remains below the `475.0`
+    success threshold. Treat it as `unsolved_or_underfit`, not solved.
+- Current DQN Atari notebook outputs:
+  - Pong gold output from `demos/dqn_atari_pong_demo.ipynb`:
+    `results/rl/dqn_pong_20260708_133010_927252/`, selected final checkpoint
+    at `1000000` steps, mean return `-21.0` over 10 episodes, interpreted as
+    an unsolved learning/debug result rather than benchmark quality.
+  - Breakout smoke output:
+    `results/rl/dqn_breakout_20260707_203426_373636/`, mean return `1.0` over
+    1 episode, plumbing only.
 - Current NN-kNN-RL smoke runs are functional but not competitive. The expanded
   smoke now checks all actor/critic variants, checkpoint reloads,
   final-partial-rollout training, episode-boundary-aware GAE, shared value
@@ -103,6 +153,10 @@
   Tuning and diagnostics should support those goals, especially actor
   probabilities, critic value loss, explained variance, case maintenance, and
   selected-checkpoint behavior.
+- Atari demo work has begun with DQN support for Pong and Breakout using
+  Gymnasium ALE preprocessing and a CNN DQN. The current Pong gold notebook
+  output still returns `-21.0`, so the Atari path should be treated as runnable
+  but unsolved and in need of DQN diagnostics/tuning before comparison claims.
   Current training behavior is:
   - rollout is on-policy and updates happen after complete episode batches
     using GAE from the selected critic; if the fixed step budget ends
@@ -155,7 +209,7 @@
   debugging priority. Inspect their alternating-boundary structure,
   preprocessing/splitting protocol, retrieved cases, feature weights,
   temperature, normalizer choice, and possible current-core feature mapping.
-- Use `nnknn_sample_classification.ipynb` for interactive inspection. Use
+- Use `demos/nnknn_sample_classification.ipynb` for interactive inspection. Use
   `"zebra"` for Zebra (a) and `"zebra_special"` for Zebra (b).
 - Before expanding to full prior-paper comparisons, establish better
   representative results on Zebra and then rerun the remaining small

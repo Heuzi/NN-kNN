@@ -33,7 +33,36 @@ class DQNNetwork(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.network(x)
+        return self.network(x.float())
+
+
+class AtariDQNNetwork(nn.Module):
+    """Nature-DQN style CNN for stacked Atari frames."""
+
+    def __init__(self, obs_shape: tuple[int, ...], action_dim: int):
+        super().__init__()
+        if len(obs_shape) != 3:
+            raise ValueError(f"Atari DQN expects stacked image observations, got shape {obs_shape}.")
+        channels, height, width = obs_shape
+        self.features = nn.Sequential(
+            nn.Conv2d(int(channels), 32, kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
+        with torch.no_grad():
+            feature_dim = int(self.features(torch.zeros(1, int(channels), int(height), int(width))).shape[1])
+        self.head = nn.Sequential(
+            nn.Linear(feature_dim, 512),
+            nn.ReLU(),
+            nn.Linear(512, int(action_dim)),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.head(self.features(x.float() / 255.0))
 
 
 @dataclass(frozen=True)
@@ -59,6 +88,7 @@ class DQNConfig:
     eval_seed: int = 10_000
     success_threshold: float | None = 475.0
     hidden_sizes: tuple[int, int] = (120, 84)
+    network_kind: str = "auto"
     source_reference: str = "CleanRL dqn.py"
 
     def to_dict(self) -> dict[str, Any]:
@@ -78,10 +108,17 @@ class ReplayBuffer:
     size: int = 0
 
     @classmethod
-    def create(cls, buffer_size: int, obs_dim: int) -> "ReplayBuffer":
+    def create(
+        cls,
+        buffer_size: int,
+        obs_shape: int | tuple[int, ...],
+        *,
+        observation_dtype: np.dtype | type = np.float32,
+    ) -> "ReplayBuffer":
+        shape = (int(obs_shape),) if isinstance(obs_shape, int) else tuple(int(dim) for dim in obs_shape)
         return cls(
-            observations=np.zeros((buffer_size, obs_dim), dtype=np.float32),
-            next_observations=np.zeros((buffer_size, obs_dim), dtype=np.float32),
+            observations=np.zeros((buffer_size, *shape), dtype=observation_dtype),
+            next_observations=np.zeros((buffer_size, *shape), dtype=observation_dtype),
             actions=np.zeros(buffer_size, dtype=np.int64),
             rewards=np.zeros(buffer_size, dtype=np.float32),
             dones=np.zeros(buffer_size, dtype=np.float32),
@@ -114,7 +151,10 @@ class ReplayBuffer:
         }
 
 
-def make_dqn_config(profile: str = "fast", **overrides: Any) -> DQNConfig:
+def make_dqn_config(profile: str = "fast", task_name: str | None = None, **overrides: Any) -> DQNConfig:
+    task_family = None
+    if task_name is not None:
+        task_family = get_rl_task_spec(task_name).family
     profiles: dict[str, dict[str, Any]] = {
         "smoke": {
             "profile": "smoke",
@@ -127,6 +167,17 @@ def make_dqn_config(profile: str = "fast", **overrides: Any) -> DQNConfig:
             "eval_frequency": 128,
             "eval_episodes": 2,
             "success_threshold": None,
+        },
+        "debug": {
+            "profile": "debug",
+            "total_timesteps": 25_000,
+            "learning_rate": 1e-3,
+            "learning_starts": 1_000,
+            "train_frequency": 1,
+            "target_network_frequency": 250,
+            "eval_frequency": 5_000,
+            "eval_episodes": 10,
+            "success_threshold": 475.0,
         },
         "fast": {
             "profile": "fast",
@@ -151,12 +202,74 @@ def make_dqn_config(profile: str = "fast", **overrides: Any) -> DQNConfig:
             "success_threshold": 475.0,
         },
     }
+    if task_family == "atari":
+        profiles = {
+            "smoke": {
+                "profile": "smoke",
+                "total_timesteps": 256,
+                "buffer_size": 1_000,
+                "batch_size": 8,
+                "learning_starts": 32,
+                "train_frequency": 4,
+                "target_network_frequency": 100,
+                "eval_frequency": 0,
+                "eval_episodes": 1,
+                "success_threshold": None,
+                "network_kind": "cnn",
+                "source_reference": "Nature DQN-style CNN for Gymnasium Atari preprocessing",
+            },
+            "debug": {
+                "profile": "debug",
+                "total_timesteps": 10_000,
+                "buffer_size": 10_000,
+                "batch_size": 32,
+                "learning_starts": 1_000,
+                "train_frequency": 4,
+                "target_network_frequency": 1_000,
+                "eval_frequency": 5_000,
+                "eval_episodes": 2,
+                "success_threshold": None,
+                "network_kind": "cnn",
+                "source_reference": "Nature DQN-style CNN for Gymnasium Atari preprocessing",
+            },
+            "fast": {
+                "profile": "fast",
+                "total_timesteps": 250_000,
+                "buffer_size": 50_000,
+                "batch_size": 32,
+                "learning_starts": 10_000,
+                "train_frequency": 4,
+                "target_network_frequency": 1_000,
+                "eval_frequency": 25_000,
+                "eval_episodes": 5,
+                "success_threshold": None,
+                "network_kind": "cnn",
+                "source_reference": "Nature DQN-style CNN for Gymnasium Atari preprocessing",
+            },
+            "gold": {
+                "profile": "gold",
+                "total_timesteps": 1_000_000,
+                "buffer_size": 100_000,
+                "batch_size": 32,
+                "learning_starts": 50_000,
+                "train_frequency": 4,
+                "target_network_frequency": 10_000,
+                "eval_frequency": 50_000,
+                "eval_episodes": 10,
+                "success_threshold": None,
+                "network_kind": "cnn",
+                "source_reference": "Nature DQN-style CNN for Gymnasium Atari preprocessing",
+            },
+        }
     normalized = profile.strip().lower()
     if normalized not in profiles:
         raise ValueError(f"Unknown DQN profile '{profile}'. Choose one of: {', '.join(sorted(profiles))}")
     data = {**profiles[normalized], **overrides}
     if "hidden_sizes" in data and not isinstance(data["hidden_sizes"], tuple):
         data["hidden_sizes"] = tuple(data["hidden_sizes"])
+    data["network_kind"] = str(data.get("network_kind", "auto")).strip().lower()
+    if data["network_kind"] not in {"auto", "mlp", "cnn"}:
+        raise ValueError("network_kind must be one of: auto, mlp, cnn")
     return DQNConfig(**data)
 
 
@@ -210,14 +323,79 @@ def _require_gymnasium() -> Any:
     except ModuleNotFoundError as exc:
         raise ModuleNotFoundError(
             "gymnasium is required for RL workflows. Install dependencies with "
-            "`bash codex/setup.sh` or `python -m pip install 'gymnasium[classic_control]'`."
+            "`bash codex/setup.sh`, `python -m pip install 'gymnasium[classic_control]'`, "
+            "or `python -m pip install 'gymnasium[atari]' autorom autorom.accept-rom-license` "
+            "for Atari demos."
         ) from exc
     return gym
 
 
+def _wrap_fire_reset(env: Any, gym: Any) -> Any:
+    """Start Atari games that require FIRE actions after reset."""
+
+    class FireResetWrapper(gym.Wrapper):
+        def __init__(self, wrapped_env: Any):
+            super().__init__(wrapped_env)
+            self.action_meanings = []
+            if hasattr(wrapped_env.unwrapped, "get_action_meanings"):
+                self.action_meanings = list(wrapped_env.unwrapped.get_action_meanings())
+
+        def reset(self, **kwargs: Any) -> tuple[Any, dict[str, Any]]:
+            obs, info = self.env.reset(**kwargs)
+            if "FIRE" not in self.action_meanings:
+                return obs, info
+            fire_idx = self.action_meanings.index("FIRE")
+            obs, _, terminated, truncated, info = self.env.step(fire_idx)
+            if terminated or truncated:
+                obs, info = self.env.reset(**kwargs)
+            if len(self.action_meanings) > 2:
+                obs, _, terminated, truncated, info = self.env.step(2)
+                if terminated or truncated:
+                    obs, info = self.env.reset(**kwargs)
+            return obs, info
+
+    return FireResetWrapper(env)
+
+
 def _make_env(spec: RLTaskSpec, seed: int | None = None) -> Any:
     gym = _require_gymnasium()
-    env = gym.make(spec.env_id)
+    if spec.family == "atari":
+        try:
+            import ale_py
+
+            gym.register_envs(ale_py)
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "ale_py is required for Atari demos. Install it with "
+                "`python -m pip install 'gymnasium[atari]' autorom autorom.accept-rom-license`."
+            ) from exc
+        try:
+            env = gym.make(
+                spec.env_id,
+                frameskip=1,
+                repeat_action_probability=0.0,
+                max_episode_steps=spec.max_episode_steps,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Could not create Atari environment {spec.env_id!r}. Install Atari dependencies with "
+                "`python -m pip install 'gymnasium[atari]' autorom autorom.accept-rom-license` and run "
+                "`AutoROM --accept-license` so ROM license acceptance/install steps have completed."
+            ) from exc
+        env = gym.wrappers.AtariPreprocessing(
+            env,
+            noop_max=30,
+            frame_skip=4,
+            screen_size=84,
+            terminal_on_life_loss=False,
+            grayscale_obs=True,
+            grayscale_newaxis=False,
+            scale_obs=False,
+        )
+        env = _wrap_fire_reset(env, gym)
+        env = gym.wrappers.FrameStackObservation(env, stack_size=4)
+    else:
+        env = gym.make(spec.env_id)
     if seed is not None:
         env.action_space.seed(seed)
         env.observation_space.seed(seed)
@@ -234,6 +412,47 @@ def _validate_env_spaces(env: Any, spec: RLTaskSpec) -> tuple[int, int]:
     if len(obs_shape) != 1:
         raise ValueError(f"{spec.env_id} observation shape must be flat, got {obs_shape}.")
     return int(np.prod(obs_shape)), int(env.action_space.n)
+
+
+def _validate_dqn_env_spaces(env: Any, spec: RLTaskSpec) -> tuple[tuple[int, ...], int]:
+    gym = _require_gymnasium()
+    if not isinstance(env.observation_space, gym.spaces.Box):
+        raise ValueError(f"{spec.env_id} must use a Box observation space for this DQN baseline.")
+    if not isinstance(env.action_space, gym.spaces.Discrete):
+        raise ValueError(f"{spec.env_id} must use a Discrete action space for this DQN baseline.")
+    obs_shape = tuple(int(dim) for dim in env.observation_space.shape)
+    if spec.family == "atari":
+        if obs_shape != (4, 84, 84):
+            raise ValueError(f"{spec.env_id} Atari preprocessing should produce shape (4, 84, 84), got {obs_shape}.")
+        return obs_shape, int(env.action_space.n)
+    if len(obs_shape) != 1:
+        raise ValueError(f"{spec.env_id} observation shape must be flat, got {obs_shape}.")
+    return obs_shape, int(env.action_space.n)
+
+
+def _dqn_model_kind(cfg: DQNConfig, spec: RLTaskSpec, obs_shape: tuple[int, ...]) -> str:
+    if cfg.network_kind != "auto":
+        return cfg.network_kind
+    return "cnn" if spec.family == "atari" or len(obs_shape) == 3 else "mlp"
+
+
+def _build_dqn_model(obs_shape: tuple[int, ...], action_dim: int, cfg: DQNConfig, spec: RLTaskSpec) -> nn.Module:
+    model_kind = _dqn_model_kind(cfg, spec, obs_shape)
+    if model_kind == "cnn":
+        return AtariDQNNetwork(obs_shape, action_dim)
+    if model_kind == "mlp":
+        if len(obs_shape) != 1:
+            raise ValueError(f"MLP DQN requires flat observations, got {obs_shape}.")
+        return DQNNetwork(int(np.prod(obs_shape)), action_dim, hidden_sizes=cfg.hidden_sizes)
+    raise ValueError(f"Unsupported DQN network kind: {model_kind}")
+
+
+def _replay_observation_dtype(spec: RLTaskSpec) -> np.dtype:
+    return np.dtype(np.uint8 if spec.family == "atari" else np.float32)
+
+
+def _observation_array(observation: Any, spec: RLTaskSpec) -> np.ndarray:
+    return np.asarray(observation, dtype=_replay_observation_dtype(spec))
 
 
 def _json_default(obj: Any) -> Any:
@@ -317,7 +536,7 @@ def _build_training_efficiency(
 
 
 def _select_action(
-    model: DQNNetwork,
+    model: nn.Module,
     obs: np.ndarray,
     *,
     action_dim: int,
@@ -334,7 +553,7 @@ def _select_action(
 
 def evaluate_dqn(
     task_name: str,
-    model: DQNNetwork,
+    model: nn.Module,
     *,
     episodes: int = 20,
     seed: int = 10_000,
@@ -348,6 +567,7 @@ def evaluate_dqn(
     else:
         run_device = device if isinstance(device, torch.device) else torch.device(device)
     env = _make_env(spec, seed=seed)
+    _validate_dqn_env_spaces(env, spec)
     model.eval()
     returns: list[float] = []
     lengths: list[int] = []
@@ -408,17 +628,22 @@ def train_dqn(
     """Train a DQN baseline and write reproducible run artifacts."""
 
     spec = get_rl_task_spec(task_name)
-    cfg = config or make_dqn_config(spec.default_profile)
+    cfg = config or make_dqn_config(spec.default_profile, task_name=spec.name)
     seed_everything(cfg.seed)
     run_device = _resolve_device_arg(device)
 
     env = _make_env(spec, seed=cfg.seed)
-    obs_dim, action_dim = _validate_env_spaces(env, spec)
-    q_network = DQNNetwork(obs_dim, action_dim, hidden_sizes=cfg.hidden_sizes).to(run_device)
-    target_network = DQNNetwork(obs_dim, action_dim, hidden_sizes=cfg.hidden_sizes).to(run_device)
+    obs_shape, action_dim = _validate_dqn_env_spaces(env, spec)
+    model_kind = _dqn_model_kind(cfg, spec, obs_shape)
+    q_network = _build_dqn_model(obs_shape, action_dim, cfg, spec).to(run_device)
+    target_network = _build_dqn_model(obs_shape, action_dim, cfg, spec).to(run_device)
     target_network.load_state_dict(q_network.state_dict())
     optimizer = optim.Adam(q_network.parameters(), lr=cfg.learning_rate)
-    replay_buffer = ReplayBuffer.create(cfg.buffer_size, obs_dim)
+    replay_buffer = ReplayBuffer.create(
+        cfg.buffer_size,
+        obs_shape,
+        observation_dtype=_replay_observation_dtype(spec),
+    )
 
     run_dir = Path(output_dir) if output_dir is not None else make_dqn_output_dir(spec.name)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -448,22 +673,24 @@ def train_dqn(
                 int(cfg.exploration_fraction * cfg.total_timesteps),
                 global_step,
             )
+            obs_array = _observation_array(obs, spec)
             action = _select_action(
                 q_network,
-                np.asarray(obs, dtype=np.float32),
+                obs_array,
                 action_dim=action_dim,
                 epsilon=epsilon,
                 env=env,
                 device=run_device,
             )
             next_obs, reward, terminated, truncated, _ = env.step(action)
+            next_obs_array = _observation_array(next_obs, spec)
             train_done = bool(terminated)
             episode_done = bool(terminated or truncated)
             replay_buffer.add(
-                np.asarray(obs, dtype=np.float32),
+                obs_array,
                 action,
                 float(reward),
-                np.asarray(next_obs, dtype=np.float32),
+                next_obs_array,
                 train_done,
             )
             obs = next_obs
@@ -606,8 +833,10 @@ def train_dqn(
         "target_model_state_dict": selected_target_state,
         "task": spec.to_dict(),
         "config": cfg.to_dict(),
-        "obs_dim": obs_dim,
+        "obs_dim": int(np.prod(obs_shape)) if len(obs_shape) == 1 else None,
+        "obs_shape": list(obs_shape),
         "action_dim": action_dim,
+        "network_kind": model_kind,
         "selected_eval": {k: v for k, v in selected_eval.items() if k != "episode_metrics"},
         "last_eval": {k: v for k, v in last_eval.items() if k != "episode_metrics"},
         "selected_step": selected_step,
@@ -636,6 +865,9 @@ def train_dqn(
         "task": spec.name,
         "env_id": spec.env_id,
         "profile": cfg.profile,
+        "family": spec.family,
+        "observation_kind": spec.observation_kind,
+        "network_kind": model_kind,
         "seed": cfg.seed,
         "total_timesteps": cfg.total_timesteps,
         "eval_episodes": cfg.eval_episodes,
@@ -657,6 +889,7 @@ def train_dqn(
             "task": spec.name,
             "env_id": spec.env_id,
             "profile": cfg.profile,
+            "network_kind": model_kind,
             "outputs": [
                 "config.json",
                 "training_metrics.csv",
@@ -702,12 +935,16 @@ def load_dqn_checkpoint(
     checkpoint = torch.load(checkpoint_path, map_location=run_device)
     config_data = dict(checkpoint["config"])
     config_data["hidden_sizes"] = tuple(config_data["hidden_sizes"])
+    config_data.setdefault("network_kind", checkpoint.get("network_kind", "auto"))
     cfg = DQNConfig(**config_data)
-    model = DQNNetwork(
-        int(checkpoint["obs_dim"]),
-        int(checkpoint["action_dim"]),
-        hidden_sizes=cfg.hidden_sizes,
-    ).to(run_device)
+    task = checkpoint["task"]
+    spec = get_rl_task_spec(task["name"])
+    saved_obs_shape = checkpoint.get("obs_shape")
+    if saved_obs_shape is not None:
+        obs_shape = tuple(int(dim) for dim in saved_obs_shape)
+    else:
+        obs_shape = (int(checkpoint["obs_dim"]),)
+    model = _build_dqn_model(obs_shape, int(checkpoint["action_dim"]), cfg, spec).to(run_device)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
     return {

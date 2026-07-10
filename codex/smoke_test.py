@@ -12,7 +12,8 @@ if str(ROOT_DIR) not in sys.path:
 
 
 def run_import_smoke() -> None:
-    from datasets.rl_tasks import list_supported_rl_tasks
+    from datasets.rl_tasks import get_rl_task_spec, list_supported_rl_tasks
+    from model.rl_workflow import make_dqn_config
     from model.regression_workflow import (
         list_supported_regression_benchmark_methods,
         list_supported_regression_datasets,
@@ -28,6 +29,12 @@ def run_import_smoke() -> None:
     cls_datasets = list_supported_classification_datasets()
     cls_methods = list_supported_classification_benchmark_methods()
     rl_tasks = list_supported_rl_tasks()
+    if "atari" not in rl_tasks or not {"pong", "breakout"}.issubset(set(rl_tasks["atari"])):
+        raise AssertionError("Atari RL tasks should include pong and breakout.")
+    pong_spec = get_rl_task_spec("pong")
+    pong_cfg = make_dqn_config("smoke", task_name=pong_spec.name)
+    if pong_cfg.network_kind != "cnn" or pong_cfg.success_threshold is not None:
+        raise AssertionError("Atari DQN smoke config should use CNN plumbing and no success threshold.")
     regression_cfg = make_regression_cfg({"task_type": "regression"})
     if regression_cfg.get("case_score_mode") != "bias_minus_distance":
         raise AssertionError("Generic regression runs must use the current bias-minus-distance case score.")
