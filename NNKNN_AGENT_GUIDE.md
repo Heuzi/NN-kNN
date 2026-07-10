@@ -96,8 +96,10 @@ Important entry points in `model/nnknn_rl_workflow.py`:
 - `ALGORITHM_NAME`
 - `NNKNNRLConfig`
 - `MLPPolicyNetwork`
-- `NNKNNQNetwork`
+- `NNKNNPolicyNetwork`
+- `SharedNNKNNActorCriticNetwork`
 - `ValueNetwork`
+- `NNKNNValueNetwork`
 - `compute_gae(...)`
 - `make_nnknn_rl_config(...)`
 - `train_nnknn_rl(...)`
@@ -113,16 +115,89 @@ Current NN-kNN-RL algorithm:
   baseline actor-critic comparisons.
 - The critic is selectable with `critic_type="mlp"` or `critic_type="nnknn"`;
   the default MLP `ValueNetwork` preserves existing behavior.
+- When both `actor_type="nnknn"` and `critic_type="nnknn"`, the workflow uses
+  one `SharedNNKNNActorCriticNetwork`: one case base and retrieval backbone with
+  both an action label and a scalar value label on each active shared case.
+- When only the critic is NN-kNN, `NNKNNValueNetwork` remains a standalone value
+  critic and is optimized with the value loss after value-target cases are
+  inserted.
+- NN-kNN critic value labels default to fixed GAE targets. Set
+  `critic_mutable_value_labels=True` to smooth close or highly activated active
+  labels toward new targets, set `critic_trainable_value_labels=True` to train
+  value labels as parameters, and enable both for the hybrid label mode.
+- Trainable value labels share the NN-kNN case-level optimizer group with case
+  biases and per-case glocal weights. Use `case_learning_rate` or
+  `--case-learning-rate` to tune that whole case-parameter group.
+- This hybrid is intentionally close to Neural Episodic Control: NEC combines
+  fast updates to matching memory values with slower gradient updates through a
+  differentiable key-value memory. For this repo, keep the stored value labels as
+  GAE/TD-style expected value targets, not max-return episodic memory.
 - The algorithm name is retained for checkpoint compatibility; use
   `actor_type` and `critic_type` in the config or summary to distinguish
   comparison variants.
 - Actor updates use GAE advantages from the selected value critic. Raw
   environment reward is the default; `reward_shaping` is off unless explicitly
-  set.
+  set to `cartpole_potential`. Unknown reward-shaping strings are invalid.
 - Old reward-to-go NN-kNN-RL checkpoints do not load into the actor-critic
   workflow. Retrain them instead of attempting compatibility shims.
 - NN-kNN regression as the critic and an MLP actor are available for direct
   actor/critic ablation comparisons.
+
+Training by actor/critic choice:
+
+- The workflow is on-policy. It collects complete episodes, stores raw rewards,
+  and runs an update every `policy_update_episodes` episodes. If the fixed step
+  budget ends mid-episode, the final partial rollout is trained before final
+  evaluation/checkpointing instead of leaving inserted NN-kNN cases unlabeled or
+  unoptimized.
+- Before the actor update, the selected critic predicts `V(s)` and `V(s')`,
+  then GAE computes actor advantages and critic value targets for the full batch.
+  GAE uses `terminated` to mask value bootstrapping and a separate
+  episode-boundary mask to stop lambda recursion across terminated, truncated,
+  and final partial rollout boundaries.
+- If `actor_type="nnknn"` and `critic_type="mlp"`, the NN-kNN actor appends
+  state-action cases during rollout. After GAE is computed, the actor retrieval
+  parameters are optimized by the policy loss plus entropy and case-bias
+  regularization, while the MLP critic is optimized by value loss.
+- If `actor_type="mlp"` and `critic_type="nnknn"`, the MLP actor is optimized
+  by policy loss, while `NNKNNValueNetwork` appends state/value-target cases and
+  trains its retrieval parameters directly with the value loss. If mutable or
+  trainable critic labels are enabled, those value labels are updated before and
+  during this same critic optimization path.
+- If `actor_type="nnknn"` and `critic_type="nnknn"`, the workflow uses one
+  `SharedNNKNNActorCriticNetwork`. Rollout appends shared state-action cases,
+  then the critic writes value targets onto those same cases through stable
+  shared case IDs. This keeps each retained shared case labeled for both policy
+  and value even if the shared case base is compacted or pruned between
+  insertion and update.
+- The shared NN-kNN actor-critic can bootstrap GAE with a lagged target value
+  model. `shared_target_value_mode="hard"` copies the continuous trainable
+  retrieval parameters directly on sync; `shared_target_value_mode="ema"`
+  applies EMA to those trainable parameters. In both modes, the structured case
+  memory, labels, case IDs, and active-case metadata are hard-copied on sync.
+- Design direction: lagged bootstrap targets should apply to NN-kNN critics
+  generally. The shared actor-critic path has a lagged target value model now;
+  standalone `NNKNNValueNetwork` should gain a target critic before treating
+  standalone NN-kNN critic stability as settled.
+- During training, action selection should remain stochastic (`greedy=False`);
+  greedy action selection is for evaluation. Once an NN-kNN actor is ready, the
+  behavior policy samples from `(1 - epsilon) * pi(a|s) + epsilon / action_dim`.
+  Epsilon decays from `exploration_initial_epsilon` to
+  `exploration_final_epsilon` over `exploration_fraction` of the fixed step
+  budget. Before readiness, behavior is fully random and the stored epsilon is
+  `1.0`, so those bootstrap actions populate memory without directly pushing
+  the actor policy loss.
+- NN-kNN actor readiness requires both `min_case_entries` active cases and at
+  least `min_cases_per_action` cases for every discrete action. This avoids
+  switching to policy-influenced sampling after only one case for an action.
+- Sampling improves exploration and coverage, but it does not justify
+  max-return labels. The critic target should remain an expected value target
+  from GAE/TD-style computation.
+- Standalone actor, standalone critic, and shared NN-kNN paths all support
+  case maintenance. The shared path protects pending rollout cases until their
+  critic targets have been attached, then later updates can prune or replace
+  them normally. Run artifacts report total and per-store actor/critic/shared
+  prune/replace counts.
 
 Task metadata lives in `datasets/rl_tasks.py`; currently supported:
 
@@ -240,6 +315,20 @@ Current NN-kNN-RL status:
 - selected eval mean return: `432.35` over 20 episodes
 - interpretation: this remains below the `475.0` success threshold and should
   be treated as `unsolved_or_underfit`.
+- The expanded `codex/smoke_test.py --mode nnknn_rl` validates all actor/critic
+  variants, checkpoint reloads, final partial-rollout training,
+  episode-boundary-aware GAE, shared value-label writes, mutable/trainable
+  critic value-label modes, and NN-kNN maintenance reporting.
+- Smoke results are plumbing checks only. They are not competitive CartPole
+  results.
+- The previous fast NN-kNN-critic artifact
+  `results/rl/nnknn_rl_cartpole_20260626_150805_689987/` selected mean return
+  `369.5` over 20 episodes at step `150000`; it remains below the `475.0`
+  threshold and predates the latest shared-case-base audit fixes.
+- A smaller local CUDA debug variant sweep may exist under
+  `results/rl/cartpole_variant_debug_gpu_sweep_*/` with logs in
+  `results/rl/debug_gpu_sweep_logs/`. Treat it as fast diagnostics, not a
+  paper-style benchmark.
 
 ## Classification Workflow Files
 
@@ -581,7 +670,9 @@ Legacy or specialized files:
   `run_table1_kfold(...)` from `tools/table1_nnknn_kfold.py`.
 - For RL/DQN/NEC/NN-kNN-RL runs, use the corresponding `tools/run_rl_*.py`
   script and inspect `summary.json`, `eval_metrics.csv`, and
-  `training_efficiency` before comparing methods.
+  `training_efficiency` before comparing methods. For NN-kNN-RL also inspect
+  `partial_rollout_samples`, `shared_value_labels_written`, and the
+  actor/critic/shared case-maintenance counters when debugging variants.
 - Use `datasets/reg_data.py` as the source of truth for tabular regression
   datasets.
 - Treat `HANDOFF.md` as the current experiment-status document.
