@@ -41,6 +41,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-seed", type=int, default=None)
     parser.add_argument("--gamma", type=float, default=None)
     parser.add_argument("--gae-lambda", type=float, default=None)
+    parser.add_argument("--exploration-initial-epsilon", type=float, default=None)
+    parser.add_argument("--exploration-final-epsilon", type=float, default=None)
+    parser.add_argument("--exploration-fraction", type=float, default=None)
+    parser.add_argument("--min-case-entries", type=int, default=None)
+    parser.add_argument("--min-cases-per-action", type=int, default=None)
     parser.add_argument("--actor-type", choices=["nnknn", "mlp"], default=None)
     parser.add_argument("--critic-type", choices=["mlp", "nnknn"], default=None)
     parser.add_argument("--critic-learning-rate", type=float, default=None)
@@ -96,6 +101,16 @@ def _config_from_args(args: argparse.Namespace) -> NNKNNRLConfig:
         overrides["gamma"] = args.gamma
     if args.gae_lambda is not None:
         overrides["gae_lambda"] = args.gae_lambda
+    if args.exploration_initial_epsilon is not None:
+        overrides["exploration_initial_epsilon"] = args.exploration_initial_epsilon
+    if args.exploration_final_epsilon is not None:
+        overrides["exploration_final_epsilon"] = args.exploration_final_epsilon
+    if args.exploration_fraction is not None:
+        overrides["exploration_fraction"] = args.exploration_fraction
+    if args.min_case_entries is not None:
+        overrides["min_case_entries"] = args.min_case_entries
+    if args.min_cases_per_action is not None:
+        overrides["min_cases_per_action"] = args.min_cases_per_action
     if args.actor_type is not None:
         overrides["actor_type"] = args.actor_type
     if args.critic_type is not None:

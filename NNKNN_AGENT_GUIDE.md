@@ -180,9 +180,19 @@ Training by actor/critic choice:
   standalone `NNKNNValueNetwork` should gain a target critic before treating
   standalone NN-kNN critic stability as settled.
 - During training, action selection should remain stochastic (`greedy=False`);
-  greedy action selection is for evaluation. Sampling improves exploration and
-  coverage, but it does not justify max-return labels. The critic target should
-  remain an expected value target from GAE/TD-style computation.
+  greedy action selection is for evaluation. Once an NN-kNN actor is ready, the
+  behavior policy samples from `(1 - epsilon) * pi(a|s) + epsilon / action_dim`.
+  Epsilon decays from `exploration_initial_epsilon` to
+  `exploration_final_epsilon` over `exploration_fraction` of the fixed step
+  budget. Before readiness, behavior is fully random and the stored epsilon is
+  `1.0`, so those bootstrap actions populate memory without directly pushing
+  the actor policy loss.
+- NN-kNN actor readiness requires both `min_case_entries` active cases and at
+  least `min_cases_per_action` cases for every discrete action. This avoids
+  switching to policy-influenced sampling after only one case for an action.
+- Sampling improves exploration and coverage, but it does not justify
+  max-return labels. The critic target should remain an expected value target
+  from GAE/TD-style computation.
 - Standalone actor, standalone critic, and shared NN-kNN paths all support
   case maintenance. The shared path protects pending rollout cases until their
   critic targets have been attached, then later updates can prune or replace

@@ -20,6 +20,7 @@ from model.rl_workflow import (
     _build_training_efficiency,
     _first_threshold_step,
     _json_default,
+    _linear_schedule,
     _make_env,
     _resolve_device_arg,
     _validate_env_spaces,
@@ -63,6 +64,9 @@ class NNKNNRLConfig:
     gamma: float = 0.99
     gae_lambda: float = 0.95
     policy_update_episodes: int = 4
+    exploration_initial_epsilon: float = 1.0
+    exploration_final_epsilon: float = 0.05
+    exploration_fraction: float = 0.5
     entropy_coef: float = 0.01
     advantage_epsilon: float = 1e-8
     advantage_clip: float = 5.0
@@ -197,7 +201,7 @@ class NNKNNPolicyNetwork(nn.Module):
     def is_policy_ready(self, min_case_entries: int = 1) -> bool:
         if self.case_entries < int(min_case_entries):
             return False
-        return bool(torch.all(self.action_counts() > 0).detach().cpu().item())
+        return bool(torch.all(self.action_counts() >= self.min_cases_per_action).detach().cpu().item())
 
     def policy_probs(self, observations: torch.Tensor) -> torch.Tensor:
         if observations.dim() == 1:
@@ -825,7 +829,7 @@ class SharedNNKNNActorCriticNetwork(nn.Module):
     def is_policy_ready(self, min_case_entries: int = 1) -> bool:
         if self.case_entries < int(min_case_entries):
             return False
-        return bool(torch.all(self.action_counts() > 0).detach().cpu().item())
+        return bool(torch.all(self.action_counts() >= self.min_cases_per_action).detach().cpu().item())
 
     def _protected_case_id_set(self, protected_case_ids: torch.Tensor | list[int] | None) -> set[int]:
         if protected_case_ids is None:
@@ -1151,6 +1155,15 @@ PolicyActor = NNKNNPolicyNetwork | MLPPolicyNetwork | SharedNNKNNActorCriticNetw
 ValueCritic = ValueNetwork | NNKNNValueNetwork | SharedNNKNNActorCriticNetwork
 
 
+@dataclass(frozen=True)
+class ActionSelection:
+    action: int
+    policy_probs: list[float]
+    behavior_probs: list[float]
+    behavior_epsilon: float
+    policy_ready: bool
+
+
 def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConfig:
     def _coerce_bool_field(field_name: str, default: bool) -> bool:
         value = data.get(field_name, default)
@@ -1261,6 +1274,28 @@ def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConf
     if not (0.0 < shared_target_ema_tau <= 1.0):
         raise ValueError("shared_target_ema_tau must be in (0, 1]")
     data["shared_target_ema_tau"] = shared_target_ema_tau
+    min_case_entries = int(data.get("min_case_entries", 32))
+    if min_case_entries <= 0:
+        raise ValueError("min_case_entries must be a positive integer")
+    data["min_case_entries"] = min_case_entries
+    min_cases_per_action = int(data.get("min_cases_per_action", 1))
+    if min_cases_per_action <= 0:
+        raise ValueError("min_cases_per_action must be a positive integer")
+    data["min_cases_per_action"] = min_cases_per_action
+    exploration_initial_epsilon = float(data.get("exploration_initial_epsilon", 1.0))
+    exploration_final_epsilon = float(data.get("exploration_final_epsilon", 0.05))
+    if not (0.0 <= exploration_initial_epsilon <= 1.0):
+        raise ValueError("exploration_initial_epsilon must be in [0, 1]")
+    if not (0.0 <= exploration_final_epsilon <= 1.0):
+        raise ValueError("exploration_final_epsilon must be in [0, 1]")
+    if exploration_initial_epsilon < exploration_final_epsilon:
+        raise ValueError("exploration_initial_epsilon must be greater than or equal to exploration_final_epsilon")
+    data["exploration_initial_epsilon"] = exploration_initial_epsilon
+    data["exploration_final_epsilon"] = exploration_final_epsilon
+    exploration_fraction = float(data.get("exploration_fraction", 0.5))
+    if not (0.0 <= exploration_fraction <= 1.0):
+        raise ValueError("exploration_fraction must be in [0, 1]")
+    data["exploration_fraction"] = exploration_fraction
     data["critic_mutable_value_labels"] = _coerce_bool_field("critic_mutable_value_labels", False)
     data["critic_trainable_value_labels"] = _coerce_bool_field("critic_trainable_value_labels", False)
     data["critic_value_label_append_on_no_match"] = _coerce_bool_field(
@@ -1756,20 +1791,72 @@ def _select_action(
     env: Any,
     device: torch.device,
     min_case_entries: int,
+    exploration_epsilon: float = 0.0,
     greedy: bool = False,
-) -> tuple[int, list[float]]:
+) -> ActionSelection:
+    action_dim = int(model.action_dim)
     if not model.is_policy_ready(min_case_entries=min_case_entries):
         action = int(env.action_space.sample())
-        probs = [1.0 / float(model.action_dim) for _ in range(model.action_dim)]
-        return action, probs
+        uniform_probs = [1.0 / float(action_dim) for _ in range(action_dim)]
+        return ActionSelection(
+            action=action,
+            policy_probs=uniform_probs,
+            behavior_probs=uniform_probs,
+            behavior_epsilon=1.0,
+            policy_ready=False,
+        )
     with torch.no_grad():
         obs_tensor = torch.as_tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
         probs_tensor = model.policy_probs(obs_tensor).squeeze(0)
         probs = [float(value) for value in probs_tensor.detach().cpu().tolist()]
         if greedy:
-            return int(probs_tensor.argmax().item()), probs
-        action = int(torch.distributions.Categorical(probs=probs_tensor).sample().item())
-        return action, probs
+            return ActionSelection(
+                action=int(probs_tensor.argmax().item()),
+                policy_probs=probs,
+                behavior_probs=probs,
+                behavior_epsilon=0.0,
+                policy_ready=True,
+            )
+        behavior_epsilon = min(max(float(exploration_epsilon), 0.0), 1.0)
+        behavior_probs_tensor = _epsilon_mixed_policy_probs(probs_tensor.unsqueeze(0), behavior_epsilon).squeeze(0)
+        behavior_probs = [float(value) for value in behavior_probs_tensor.detach().cpu().tolist()]
+        action = int(torch.distributions.Categorical(probs=behavior_probs_tensor).sample().item())
+        return ActionSelection(
+            action=action,
+            policy_probs=probs,
+            behavior_probs=behavior_probs,
+            behavior_epsilon=behavior_epsilon,
+            policy_ready=True,
+        )
+
+
+def _exploration_epsilon(cfg: NNKNNRLConfig, global_step: int) -> float:
+    duration = int(float(cfg.exploration_fraction) * int(cfg.total_timesteps))
+    return float(
+        _linear_schedule(
+            float(cfg.exploration_initial_epsilon),
+            float(cfg.exploration_final_epsilon),
+            duration,
+            max(0, int(global_step)),
+        )
+    )
+
+
+def _epsilon_mixed_policy_probs(
+    policy_probs: torch.Tensor,
+    epsilon: float | torch.Tensor,
+) -> torch.Tensor:
+    if policy_probs.dim() == 1:
+        policy_probs = policy_probs.unsqueeze(0)
+    action_dim = int(policy_probs.shape[1])
+    epsilon_t = torch.as_tensor(epsilon, dtype=policy_probs.dtype, device=policy_probs.device)
+    epsilon_t = epsilon_t.clamp(0.0, 1.0)
+    if epsilon_t.dim() == 0:
+        epsilon_t = epsilon_t.view(1, 1)
+    elif epsilon_t.dim() == 1:
+        epsilon_t = epsilon_t.view(-1, 1)
+    uniform_prob = 1.0 / float(action_dim)
+    return ((1.0 - epsilon_t) * policy_probs) + (epsilon_t * uniform_prob)
 
 
 def _protected_shared_case_ids(
@@ -1799,6 +1886,7 @@ def _train_actor_critic_batch(
     observations: list[np.ndarray] = []
     next_observations: list[np.ndarray] = []
     actions: list[int] = []
+    behavior_epsilons: list[float] = []
     case_ids: list[int] = []
     rewards: list[torch.Tensor] = []
     terminated: list[bool] = []
@@ -1815,6 +1903,10 @@ def _train_actor_critic_batch(
         observations.extend(episode["observations"])
         next_observations.extend(episode["next_observations"])
         actions.extend(episode["actions"])
+        behavior_epsilons.extend(
+            float(value)
+            for value in episode.get("behavior_epsilons", [0.0] * episode_length)
+        )
         case_ids.extend(int(case_id) for case_id in episode.get("case_ids", []))
         policy_rewards = episode_policy_rewards(episode, cfg, device=device)
         if policy_rewards.numel() > 1:
@@ -1829,10 +1921,13 @@ def _train_actor_critic_batch(
         episode_returns.append(float(sum(episode["rewards"])))
     if not observations:
         return None
+    if len(behavior_epsilons) != len(actions):
+        raise ValueError("Each NN-kNN-RL action must have a matching behavior epsilon")
 
     obs_t = torch.as_tensor(np.asarray(observations, dtype=np.float32), dtype=torch.float32, device=device)
     next_obs_t = torch.as_tensor(np.asarray(next_observations, dtype=np.float32), dtype=torch.float32, device=device)
     actions_t = torch.as_tensor(actions, dtype=torch.long, device=device)
+    behavior_epsilons_t = torch.as_tensor(behavior_epsilons, dtype=torch.float32, device=device).view(-1, 1)
     rewards_t = torch.cat(rewards).to(device)
     terminated_t = torch.as_tensor(terminated, dtype=torch.bool, device=device)
     episode_boundaries_t = torch.as_tensor(episode_boundaries, dtype=torch.bool, device=device)
@@ -1919,11 +2014,14 @@ def _train_actor_critic_batch(
 
     actor.train()
     probs = actor.policy_probs(obs_t)
-    chosen_probs = probs.gather(1, actions_t.view(-1, 1)).squeeze(1).clamp_min(cfg.advantage_epsilon)
+    behavior_probs = _epsilon_mixed_policy_probs(probs, behavior_epsilons_t)
+    chosen_probs = behavior_probs.gather(1, actions_t.view(-1, 1)).squeeze(1).clamp_min(cfg.advantage_epsilon)
     log_probs = torch.log(chosen_probs)
     policy_loss = -(log_probs * normalized_advantages.detach()).mean()
     probs_clamped = probs.clamp_min(cfg.advantage_epsilon)
     entropy = -(probs_clamped * probs_clamped.log()).sum(dim=1).mean()
+    behavior_probs_clamped = behavior_probs.clamp_min(cfg.advantage_epsilon)
+    behavior_entropy = -(behavior_probs_clamped * behavior_probs_clamped.log()).sum(dim=1).mean()
     bias_loss = _actor_bias_loss(actor, device)
     actor_loss = policy_loss - cfg.entropy_coef * entropy + cfg.case_bias_l2 * bias_loss
 
@@ -1951,6 +2049,10 @@ def _train_actor_critic_batch(
         "critic_loss": float(critic_loss.detach().cpu().item()),
         "critic_diagnostics_post_update": run_critic_diagnostics,
         "entropy": float(entropy.detach().cpu().item()),
+        "behavior_entropy": float(behavior_entropy.detach().cpu().item()),
+        "mean_behavior_epsilon": float(behavior_epsilons_t.mean().detach().cpu().item()),
+        "min_behavior_epsilon": float(behavior_epsilons_t.min().detach().cpu().item()),
+        "max_behavior_epsilon": float(behavior_epsilons_t.max().detach().cpu().item()),
         "bias_loss": float(bias_loss.detach().cpu().item()),
         "mean_reward": float(rewards_t.mean().detach().cpu().item()),
         "mean_advantage": float(raw_advantages.mean().detach().cpu().item()),
@@ -2016,7 +2118,7 @@ def evaluate_nnknn_rl(
             episode_return = 0.0
             episode_length = 0
             while not done:
-                action, _ = _select_action(
+                selection = _select_action(
                     model,
                     np.asarray(obs, dtype=np.float32),
                     env=env,
@@ -2024,6 +2126,7 @@ def evaluate_nnknn_rl(
                     min_case_entries=1,
                     greedy=True,
                 )
+                action = selection.action
                 obs, reward, terminated, truncated, _ = env.step(action)
                 episode_return += float(reward)
                 episode_length += 1
@@ -2133,6 +2236,7 @@ def train_nnknn_rl(
     episode_observations: list[np.ndarray] = []
     episode_next_observations: list[np.ndarray] = []
     episode_actions: list[int] = []
+    episode_behavior_epsilons: list[float] = []
     episode_case_ids: list[int] = []
     episode_rewards: list[float] = []
     episode_terminated: list[bool] = []
@@ -2145,14 +2249,17 @@ def train_nnknn_rl(
     try:
         for global_step in range(cfg.total_timesteps):
             obs_array = np.asarray(obs, dtype=np.float32)
-            action, action_probs = _select_action(
+            exploration_epsilon = _exploration_epsilon(cfg, global_step)
+            selection = _select_action(
                 actor,
                 obs_array,
                 env=env,
                 device=run_device,
                 min_case_entries=cfg.min_case_entries,
+                exploration_epsilon=exploration_epsilon,
                 greedy=False,
             )
+            action = selection.action
             next_obs, reward, terminated, truncated, _ = env.step(action)
             if _is_nnknn_policy_actor(actor):
                 action_case = np.asarray([int(action)], dtype=np.int64)
@@ -2200,6 +2307,7 @@ def train_nnknn_rl(
             episode_observations.append(obs_array)
             episode_next_observations.append(np.asarray(next_obs, dtype=np.float32))
             episode_actions.append(action)
+            episode_behavior_epsilons.append(selection.behavior_epsilon)
             episode_rewards.append(float(reward))
             episode_terminated.append(bool(terminated))
             episode_truncated.append(bool(truncated))
@@ -2262,6 +2370,7 @@ def train_nnknn_rl(
                         "observations": episode_observations,
                         "next_observations": episode_next_observations,
                         "actions": episode_actions,
+                        "behavior_epsilons": episode_behavior_epsilons,
                         "case_ids": episode_case_ids,
                         "rewards": episode_rewards,
                         "terminated": episode_terminated,
@@ -2336,7 +2445,11 @@ def train_nnknn_rl(
                         "shared_cases_replaced": shared_cases_replaced,
                         "critic_label_updates": critic_label_updates,
                         "critic_label_update_samples": critic_label_update_samples,
-                        "action_probs": json.dumps(action_probs),
+                        "exploration_epsilon": exploration_epsilon,
+                        "behavior_epsilon": selection.behavior_epsilon,
+                        "policy_ready": selection.policy_ready,
+                        "action_probs": json.dumps(selection.policy_probs),
+                        "behavior_action_probs": json.dumps(selection.behavior_probs),
                         "action_counts": _actor_action_counts_json(actor),
                         **stats,
                     }
@@ -2392,6 +2505,7 @@ def train_nnknn_rl(
                 episode_observations = []
                 episode_next_observations = []
                 episode_actions = []
+                episode_behavior_epsilons = []
                 episode_case_ids = []
                 episode_rewards = []
                 episode_terminated = []
@@ -2431,6 +2545,7 @@ def train_nnknn_rl(
                 "observations": episode_observations,
                 "next_observations": episode_next_observations,
                 "actions": episode_actions,
+                "behavior_epsilons": episode_behavior_epsilons,
                 "case_ids": episode_case_ids,
                 "rewards": episode_rewards,
                 "terminated": episode_terminated,
@@ -2597,6 +2712,16 @@ def train_nnknn_rl(
             "gamma": cfg.gamma,
             "gae_lambda": cfg.gae_lambda,
             "advantage_clip": cfg.advantage_clip,
+        },
+        "exploration": {
+            "initial_epsilon": cfg.exploration_initial_epsilon,
+            "final_epsilon": cfg.exploration_final_epsilon,
+            "fraction": cfg.exploration_fraction,
+            "final_step_epsilon": _exploration_epsilon(cfg, cfg.total_timesteps),
+            "readiness": {
+                "min_case_entries": cfg.min_case_entries,
+                "min_cases_per_action": cfg.min_cases_per_action,
+            },
         },
         "final_eval": {k: v for k, v in selected_eval.items() if k != "episode_metrics"},
         "last_eval": {k: v for k, v in last_eval.items() if k != "episode_metrics"},

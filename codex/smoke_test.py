@@ -146,6 +146,8 @@ def run_nnknn_rl_smoke() -> None:
         NNKNNValueNetwork,
         SharedNNKNNActorCriticNetwork,
         _build_nnknn_rl_optimizer,
+        _epsilon_mixed_policy_probs,
+        _exploration_epsilon,
         compute_gae,
         evaluate_nnknn_rl,
         load_nnknn_rl_checkpoint,
@@ -212,6 +214,20 @@ def run_nnknn_rl_smoke() -> None:
     actor_bias_after = actor_probe.nnknn_model.biases[: actor_probe.case_entries].detach().clone()
     if torch.allclose(actor_bias_before, actor_bias_after):
         raise AssertionError("NN-kNN actor parameters did not update under policy loss with an MLP critic path.")
+    readiness_probe = NNKNNPolicyNetwork(2, 2, case_capacity=6, top_k=2, min_cases_per_action=2)
+    readiness_device = next(readiness_probe.parameters()).device
+    readiness_probe.add_cases(
+        torch.tensor([[0.0, 0.0], [0.1, 0.1], [1.0, 1.0]], dtype=torch.float32, device=readiness_device),
+        torch.tensor([0, 0, 1], dtype=torch.long, device=readiness_device),
+    )
+    if readiness_probe.is_policy_ready(min_case_entries=3):
+        raise AssertionError("NN-kNN policy should wait for the configured per-action case floor.")
+    readiness_probe.add_cases(
+        torch.tensor([[1.1, 1.1]], dtype=torch.float32, device=readiness_device),
+        torch.tensor([1], dtype=torch.long, device=readiness_device),
+    )
+    if not readiness_probe.is_policy_ready(min_case_entries=4):
+        raise AssertionError("NN-kNN policy did not become ready after each action reached its case floor.")
 
     critic_probe = NNKNNValueNetwork(2, case_capacity=4, top_k=2)
     critic_probe_device = next(critic_probe.parameters()).device
@@ -385,6 +401,12 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("NN-kNN-RL should default to the MLP value critic.")
     if cfg.actor_type != "nnknn":
         raise AssertionError("NN-kNN-RL should default to the NN-kNN actor.")
+    if cfg.exploration_initial_epsilon != 1.0 or cfg.exploration_final_epsilon != 0.05:
+        raise AssertionError("NN-kNN-RL should default to epsilon-mixed stochastic exploration.")
+    if abs(_exploration_epsilon(cfg, 0) - cfg.exploration_initial_epsilon) > 1e-12:
+        raise AssertionError("NN-kNN-RL exploration schedule should start at initial epsilon.")
+    if abs(_exploration_epsilon(cfg, cfg.total_timesteps) - cfg.exploration_final_epsilon) > 1e-12:
+        raise AssertionError("NN-kNN-RL exploration schedule should end at final epsilon.")
     if cfg.shared_target_value_mode != "hard":
         raise AssertionError("NN-kNN-RL should default shared NN-kNN target value updates to hard sync.")
     if cfg.critic_mutable_value_labels or cfg.critic_trainable_value_labels:
@@ -408,6 +430,12 @@ def run_nnknn_rl_smoke() -> None:
         {"critic_value_label_min_activation": -1.0},
         {"critic_value_label_distance_threshold": -1.0},
         {"case_learning_rate": 0.0},
+        {"exploration_initial_epsilon": -0.1},
+        {"exploration_final_epsilon": 1.1},
+        {"exploration_initial_epsilon": 0.1, "exploration_final_epsilon": 0.2},
+        {"exploration_fraction": 1.1},
+        {"min_case_entries": 0},
+        {"min_cases_per_action": 0},
     ):
         try:
             make_nnknn_rl_config("smoke", **invalid_overrides)
@@ -426,6 +454,9 @@ def run_nnknn_rl_smoke() -> None:
     mlp_probs = mlp_wrapper.policy_probs(torch.zeros(3, 4))
     if mlp_probs.shape != (3, 2) or not torch.allclose(mlp_probs.sum(dim=1), torch.ones(3), atol=1e-5):
         raise AssertionError("MLP actor did not return normalized action probabilities.")
+    mixed_probs = _epsilon_mixed_policy_probs(torch.tensor([[0.9, 0.1]], dtype=torch.float32), 0.2)
+    if not torch.allclose(mixed_probs, torch.tensor([[0.82, 0.18]], dtype=torch.float32), atol=1e-6):
+        raise AssertionError("NN-kNN-RL epsilon-mixed behavior probabilities are incorrect.")
 
     state = train_nnknn_rl("cartpole", cfg, progress=False)
     final_eval = state["final_eval"]
@@ -442,14 +473,29 @@ def run_nnknn_rl_smoke() -> None:
         raise AssertionError("NN-kNN-RL checkpoint did not preserve actor and critic state.")
     if loaded["model"].case_entries != state["model"].case_entries:
         raise AssertionError("NN-kNN-RL checkpoint did not preserve active case count.")
-    if state["summary"]["partial_rollout_samples"] <= 0:
-        raise AssertionError("NN-kNN actor smoke should train a final partial rollout.")
+    exploration_summary = state["summary"].get("exploration", {})
+    if exploration_summary.get("initial_epsilon") != cfg.exploration_initial_epsilon:
+        raise AssertionError("NN-kNN actor smoke summary did not record exploration configuration.")
+    if not state["training_metrics"] or "behavior_epsilon" not in state["training_metrics"][0]:
+        raise AssertionError("NN-kNN actor training metrics did not record behavior epsilon.")
     final_loss_row = state["loss_metrics"][-1]
-    if (
+    if state["summary"]["partial_rollout_samples"] > 0 and (
         int(final_loss_row["global_step"]) != cfg.total_timesteps
         or int(final_loss_row["partial_rollout_samples"]) != state["summary"]["partial_rollout_samples"]
     ):
         raise AssertionError("NN-kNN actor final partial rollout cases were not included in policy updates.")
+    partial_cfg = make_nnknn_rl_config(
+        "smoke",
+        seed=42,
+        total_timesteps=1,
+        eval_episodes=1,
+        policy_update_episodes=10,
+    )
+    partial_state = train_nnknn_rl("cartpole", partial_cfg, progress=False)
+    if partial_state["summary"]["partial_rollout_samples"] != 1:
+        raise AssertionError("NN-kNN actor one-step run should train exactly one final partial rollout sample.")
+    if int(partial_state["loss_metrics"][-1]["global_step"]) != partial_cfg.total_timesteps:
+        raise AssertionError("NN-kNN actor one-step partial rollout was not updated at the fixed step budget.")
     if "value_model" not in loaded:
         raise AssertionError("NN-kNN-RL checkpoint reload did not return the value critic.")
     legacy_checkpoint = dict(torch.load(state["checkpoint_path"], map_location="cpu", weights_only=False))
@@ -530,8 +576,8 @@ def run_nnknn_rl_smoke() -> None:
         "smoke",
         seed=4,
         critic_type="nnknn",
-        case_capacity=32,
-        total_timesteps=96,
+        case_capacity=64,
+        total_timesteps=128,
         policy_update_episodes=2,
     )
     shared_capacity_state = train_nnknn_rl("cartpole", shared_capacity_cfg, progress=False)
