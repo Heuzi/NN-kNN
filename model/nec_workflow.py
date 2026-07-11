@@ -16,12 +16,15 @@ import torch.optim as optim
 
 from datasets.rl_tasks import get_rl_task_spec
 from model.rl_workflow import (
+    _build_early_stopping_tracker,
+    _finalize_early_stopping_tracker,
     _build_training_efficiency,
     _first_threshold_step,
     _json_default,
     _make_env,
     _resolve_device_arg,
     _validate_env_spaces,
+    _validate_early_stopping_config,
     seed_everything,
 )
 
@@ -74,6 +77,11 @@ class NECConfig:
     eval_episodes: int = 20
     eval_seed: int = 10_000
     success_threshold: float | None = 475.0
+    early_stopping: bool = False
+    early_stopping_patience: int = 30
+    early_stopping_min_delta: float = 1.0
+    early_stopping_min_steps: int = 25_000
+    early_stopping_target_score: float | None = None
     embedding_dim: int = 32
     hidden_sizes: tuple[int, int] = (128, 128)
     max_grad_norm: float = 10.0
@@ -324,6 +332,7 @@ def make_nec_config(profile: str = "fast", **overrides: Any) -> NECConfig:
             "eval_episode_frequency": 10,
             "eval_episodes": 2,
             "success_threshold": None,
+            "early_stopping": False,
         },
         "debug": {
             "profile": "debug",
@@ -338,6 +347,7 @@ def make_nec_config(profile: str = "fast", **overrides: Any) -> NECConfig:
             "eval_episode_frequency": 100,
             "eval_episodes": 20,
             "success_threshold": 475.0,
+            "early_stopping": True,
         },
         "fast": {
             "profile": "fast",
@@ -352,6 +362,7 @@ def make_nec_config(profile: str = "fast", **overrides: Any) -> NECConfig:
             "eval_episode_frequency": 100,
             "eval_episodes": 20,
             "success_threshold": 475.0,
+            "early_stopping": True,
         },
         "gold": {
             "profile": "gold",
@@ -366,12 +377,14 @@ def make_nec_config(profile: str = "fast", **overrides: Any) -> NECConfig:
             "eval_episode_frequency": 100,
             "eval_episodes": 20,
             "success_threshold": 475.0,
+            "early_stopping": False,
         },
     }
     normalized = profile.strip().lower()
     if normalized not in profiles:
         raise ValueError(f"Unknown NEC profile '{profile}'. Choose one of: {', '.join(sorted(profiles))}")
     data = {**profiles[normalized], **overrides}
+    _validate_early_stopping_config(data)
     if "hidden_sizes" in data and not isinstance(data["hidden_sizes"], tuple):
         data["hidden_sizes"] = tuple(data["hidden_sizes"])
     return NECConfig(**data)
@@ -575,6 +588,8 @@ def train_nec(
     candidate_dnd_state: dict[str, Any] | None = None
     candidate_step: int | None = None
     candidate_episode: int | None = None
+    early_stopping = _build_early_stopping_tracker(cfg, spec)
+    actual_timesteps = 0
 
     obs, _ = env.reset(seed=cfg.seed)
     episode_observations: list[np.ndarray] = []
@@ -588,6 +603,8 @@ def train_nec(
 
     try:
         for global_step in range(cfg.total_timesteps):
+            completed_step = global_step + 1
+            stop_requested = False
             epsilon = _linear_schedule(
                 cfg.start_e,
                 cfg.end_e,
@@ -616,6 +633,7 @@ def train_nec(
             obs = next_obs
             episode_return += float(reward)
             episode_length += 1
+            actual_timesteps = completed_step
 
             if (
                 replay_buffer.size >= cfg.learning_starts
@@ -672,7 +690,6 @@ def train_nec(
                     )
 
                 episode_index += 1
-                completed_step = global_step + 1
                 if candidate_episode_return is None or episode_return >= candidate_episode_return:
                     candidate_episode_return = float(episode_return)
                     candidate_model_state = _copy_state_dict_to_cpu(model)
@@ -753,6 +770,7 @@ def train_nec(
                             f"max_return={eval_row['max_return']:.2f}",
                             flush=True,
                         )
+                    stop_requested = early_stopping.update(eval_metrics["mean_return"], completed_step)
                 obs, _ = env.reset(seed=cfg.seed + episode_index)
                 episode_observations = []
                 episode_embeddings = []
@@ -762,10 +780,17 @@ def train_nec(
                 episode_return = 0.0
                 episode_length = 0
 
+            if stop_requested:
+                if progress:
+                    print(
+                        f"[nec][early-stop] step={completed_step} reason={early_stopping.stopping_reason}",
+                        flush=True,
+                    )
+                break
+
             if (
                 cfg.eval_frequency > 0
-                and global_step > 0
-                and global_step % cfg.eval_frequency == 0
+                and completed_step % cfg.eval_frequency == 0
             ):
                 eval_metrics = evaluate_nec(
                     spec.name,
@@ -777,7 +802,7 @@ def train_nec(
                     device=run_device,
                 )
                 eval_row = {
-                    "global_step": global_step,
+                    "global_step": completed_step,
                     "episode": episode_index,
                     "eval_trigger": "step",
                     "mean_return": eval_metrics["mean_return"],
@@ -791,18 +816,48 @@ def train_nec(
                 eval_rows.append(eval_row)
                 if best_eval is None or eval_metrics["mean_return"] > best_eval["mean_return"]:
                     best_eval = eval_metrics
-                    best_eval_step = global_step
+                    best_eval_step = completed_step
                     best_model_state = _copy_state_dict_to_cpu(model)
                     best_dnd_state = dnd.to_state()
                 if progress:
                     print(
                         "[nec][eval] "
-                        f"step={global_step} mean_return={eval_row['mean_return']:.2f} "
+                        f"step={completed_step} mean_return={eval_row['mean_return']:.2f} "
                         f"max_return={eval_row['max_return']:.2f}",
                         flush=True,
                     )
+                if early_stopping.update(eval_metrics["mean_return"], completed_step):
+                    if progress:
+                        print(
+                            f"[nec][early-stop] step={completed_step} reason={early_stopping.stopping_reason}",
+                            flush=True,
+                        )
+                    break
+
+        if episode_observations:
+            partial_returns = _compute_n_step_returns(
+                episode_rewards,
+                episode_bootstrap_values,
+                cfg.gamma,
+                cfg.n_step,
+            )
+            for idx, return_value in enumerate(partial_returns):
+                replay_buffer.add(
+                    episode_observations[idx],
+                    episode_actions[idx],
+                    return_value,
+                    False,
+                )
+                dnd.add(
+                    episode_embeddings[idx],
+                    episode_actions[idx],
+                    return_value,
+                    episode_observations[idx],
+                )
     finally:
         env.close()
+
+    _finalize_early_stopping_tracker(early_stopping, actual_timesteps)
 
     last_eval = evaluate_nec(
         spec.name,
@@ -815,7 +870,7 @@ def train_nec(
     )
     if best_eval is None or last_eval["mean_return"] >= best_eval["mean_return"]:
         selected_eval = last_eval
-        selected_step = cfg.total_timesteps
+        selected_step = actual_timesteps
         selected_source = "final"
         selected_model_state = _copy_state_dict_to_cpu(model)
         selected_dnd_state = dnd.to_state()
@@ -839,13 +894,13 @@ def train_nec(
         and cfg.success_threshold is not None
         and last_eval["mean_return"] >= cfg.success_threshold
     ):
-        first_success_step = cfg.total_timesteps
+        first_success_step = actual_timesteps
     training_efficiency = _build_training_efficiency(
         selected_eval=selected_eval,
         last_eval=last_eval,
         selected_step=selected_step,
         selected_source=selected_source,
-        total_timesteps=cfg.total_timesteps,
+        total_timesteps=actual_timesteps,
         success_threshold=cfg.success_threshold,
         first_success_step=first_success_step,
     )
@@ -861,6 +916,9 @@ def train_nec(
         "selected_step": selected_step,
         "selected_source": selected_source,
         "training_efficiency": training_efficiency,
+        "configured_total_timesteps": cfg.total_timesteps,
+        "actual_timesteps": actual_timesteps,
+        "early_stopping": early_stopping.to_dict(),
         "passed": passed,
     }
     torch.save(checkpoint, checkpoint_path)
@@ -885,7 +943,9 @@ def train_nec(
         "env_id": spec.env_id,
         "profile": cfg.profile,
         "seed": cfg.seed,
-        "total_timesteps": cfg.total_timesteps,
+        "total_timesteps": actual_timesteps,
+        "configured_total_timesteps": cfg.total_timesteps,
+        "actual_timesteps": actual_timesteps,
         "eval_episodes": cfg.eval_episodes,
         "success_threshold": cfg.success_threshold,
         "passed": passed,
@@ -894,6 +954,7 @@ def train_nec(
         "selected_step": selected_step,
         "selected_source": selected_source,
         "training_efficiency": training_efficiency,
+        "early_stopping": early_stopping.to_dict(),
         "dictionary_entries": dnd.total_size(),
         "checkpoint_path": str(checkpoint_path),
         "run_dir": str(run_dir),

@@ -39,6 +39,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-episode-frequency", type=int, default=None)
     parser.add_argument("--eval-episodes", type=int, default=None)
     parser.add_argument("--eval-seed", type=int, default=None)
+    early_stopping_group = parser.add_mutually_exclusive_group()
+    early_stopping_group.add_argument(
+        "--early-stopping",
+        dest="early_stopping",
+        action="store_true",
+        help="Enable evaluation-based early stopping.",
+    )
+    early_stopping_group.add_argument(
+        "--no-early-stopping",
+        dest="early_stopping",
+        action="store_false",
+        help="Run through the full configured timestep budget.",
+    )
+    parser.set_defaults(early_stopping=None)
+    parser.add_argument("--early-stopping-patience", type=int, default=None)
+    parser.add_argument("--early-stopping-min-delta", type=float, default=None)
+    parser.add_argument("--early-stopping-min-steps", type=int, default=None)
+    parser.add_argument("--early-stopping-target-score", type=float, default=None)
     parser.add_argument("--gamma", type=float, default=None)
     parser.add_argument("--gae-lambda", type=float, default=None)
     parser.add_argument("--exploration-initial-epsilon", type=float, default=None)
@@ -50,10 +68,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--critic-type", choices=["mlp", "nnknn"], default=None)
     parser.add_argument("--critic-learning-rate", type=float, default=None)
     parser.add_argument("--critic-update-epochs", type=int, default=None)
+    parser.add_argument("--critic-holdout-episode-frequency", type=int, default=None)
+    parser.add_argument("--critic-holdout-episodes", type=int, default=None)
+    parser.add_argument("--critic-holdout-seed", type=int, default=None)
     parser.add_argument(
         "--critic-mutable-value-labels",
         action="store_true",
-        help="Smooth existing close/high-activation NN-kNN critic value labels toward new GAE targets.",
+        help="EMA-update NN-kNN critic labels whose raw bias-minus-distance activation reaches the threshold.",
     )
     parser.add_argument(
         "--critic-trainable-value-labels",
@@ -61,8 +82,12 @@ def parse_args() -> argparse.Namespace:
         help="Make NN-kNN critic value labels optimizer-trained parameters.",
     )
     parser.add_argument("--critic-value-label-update-alpha", type=float, default=None)
-    parser.add_argument("--critic-value-label-min-activation", type=_optional_float_arg, default=argparse.SUPPRESS)
-    parser.add_argument("--critic-value-label-distance-threshold", type=_optional_float_arg, default=argparse.SUPPRESS)
+    parser.add_argument(
+        "--critic-value-label-activation-threshold",
+        type=_optional_float_arg,
+        default=argparse.SUPPRESS,
+        help="Raw bias-minus-distance threshold for mutable critic-label updates; use none to disable matching.",
+    )
     parser.add_argument(
         "--case-learning-rate",
         type=float,
@@ -76,9 +101,16 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="With mutable standalone NN-kNN critic labels, do not append samples that match no existing case.",
     )
-    parser.add_argument("--shared-target-value-mode", choices=["none", "hard", "ema"], default=None)
-    parser.add_argument("--shared-target-sync-interval", type=int, default=None)
-    parser.add_argument("--shared-target-ema-tau", type=float, default=None)
+    parser.add_argument("--critic-target-value-mode", choices=["none", "hard", "ema"], default=None)
+    parser.add_argument("--critic-target-sync-interval", type=int, default=None)
+    parser.add_argument("--critic-target-ema-tau", type=float, default=None)
+    parser.add_argument(
+        "--no-share-nnknn-representation",
+        dest="share_nnknn_representation",
+        action="store_false",
+        default=True,
+        help="Keep NN-kNN actor and critic representation parameters separate when both are selected.",
+    )
     parser.add_argument("--eval-only", action="store_true", help="Evaluate a saved checkpoint without training.")
     parser.add_argument("--checkpoint", default=None, help="Checkpoint path for --eval-only.")
     parser.add_argument("--quiet", action="store_true", help="Disable progress logging during training.")
@@ -97,6 +129,16 @@ def _config_from_args(args: argparse.Namespace) -> NNKNNRLConfig:
         overrides["eval_episodes"] = args.eval_episodes
     if args.eval_seed is not None:
         overrides["eval_seed"] = args.eval_seed
+    if args.early_stopping is not None:
+        overrides["early_stopping"] = args.early_stopping
+    if args.early_stopping_patience is not None:
+        overrides["early_stopping_patience"] = args.early_stopping_patience
+    if args.early_stopping_min_delta is not None:
+        overrides["early_stopping_min_delta"] = args.early_stopping_min_delta
+    if args.early_stopping_min_steps is not None:
+        overrides["early_stopping_min_steps"] = args.early_stopping_min_steps
+    if args.early_stopping_target_score is not None:
+        overrides["early_stopping_target_score"] = args.early_stopping_target_score
     if args.gamma is not None:
         overrides["gamma"] = args.gamma
     if args.gae_lambda is not None:
@@ -119,26 +161,31 @@ def _config_from_args(args: argparse.Namespace) -> NNKNNRLConfig:
         overrides["critic_learning_rate"] = args.critic_learning_rate
     if args.critic_update_epochs is not None:
         overrides["critic_update_epochs"] = args.critic_update_epochs
+    if args.critic_holdout_episode_frequency is not None:
+        overrides["critic_holdout_episode_frequency"] = args.critic_holdout_episode_frequency
+    if args.critic_holdout_episodes is not None:
+        overrides["critic_holdout_episodes"] = args.critic_holdout_episodes
+    if args.critic_holdout_seed is not None:
+        overrides["critic_holdout_seed"] = args.critic_holdout_seed
     if args.critic_mutable_value_labels:
         overrides["critic_mutable_value_labels"] = True
     if args.critic_trainable_value_labels:
         overrides["critic_trainable_value_labels"] = True
     if args.critic_value_label_update_alpha is not None:
         overrides["critic_value_label_update_alpha"] = args.critic_value_label_update_alpha
-    if hasattr(args, "critic_value_label_min_activation"):
-        overrides["critic_value_label_min_activation"] = args.critic_value_label_min_activation
-    if hasattr(args, "critic_value_label_distance_threshold"):
-        overrides["critic_value_label_distance_threshold"] = args.critic_value_label_distance_threshold
+    if hasattr(args, "critic_value_label_activation_threshold"):
+        overrides["critic_value_label_activation_threshold"] = args.critic_value_label_activation_threshold
     if args.case_learning_rate is not None:
         overrides["case_learning_rate"] = args.case_learning_rate
     if args.critic_value_label_append_on_no_match is not None:
         overrides["critic_value_label_append_on_no_match"] = args.critic_value_label_append_on_no_match
-    if args.shared_target_value_mode is not None:
-        overrides["shared_target_value_mode"] = args.shared_target_value_mode
-    if args.shared_target_sync_interval is not None:
-        overrides["shared_target_sync_interval"] = args.shared_target_sync_interval
-    if args.shared_target_ema_tau is not None:
-        overrides["shared_target_ema_tau"] = args.shared_target_ema_tau
+    overrides["share_nnknn_representation"] = args.share_nnknn_representation
+    if args.critic_target_value_mode is not None:
+        overrides["critic_target_value_mode"] = args.critic_target_value_mode
+    if args.critic_target_sync_interval is not None:
+        overrides["critic_target_sync_interval"] = args.critic_target_sync_interval
+    if args.critic_target_ema_tau is not None:
+        overrides["critic_target_ema_tau"] = args.critic_target_ema_tau
     return make_nnknn_rl_config(args.profile, **overrides)
 
 

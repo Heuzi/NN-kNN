@@ -32,6 +32,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-episode-frequency", type=int, default=None)
     parser.add_argument("--eval-episodes", type=int, default=None)
     parser.add_argument("--eval-seed", type=int, default=None)
+    early_stopping_group = parser.add_mutually_exclusive_group()
+    early_stopping_group.add_argument(
+        "--early-stopping",
+        dest="early_stopping",
+        action="store_true",
+        help="Enable evaluation-based early stopping.",
+    )
+    early_stopping_group.add_argument(
+        "--no-early-stopping",
+        dest="early_stopping",
+        action="store_false",
+        help="Run through the full configured timestep budget.",
+    )
+    parser.set_defaults(early_stopping=None)
+    parser.add_argument("--early-stopping-patience", type=int, default=None)
+    parser.add_argument("--early-stopping-min-delta", type=float, default=None)
+    parser.add_argument("--early-stopping-min-steps", type=int, default=None)
+    parser.add_argument("--early-stopping-target-score", type=float, default=None)
     parser.add_argument("--eval-only", action="store_true", help="Evaluate a saved checkpoint without training.")
     parser.add_argument("--checkpoint", default=None, help="Checkpoint path for --eval-only.")
     parser.add_argument("--quiet", action="store_true", help="Disable progress logging during training.")
@@ -50,6 +68,16 @@ def _config_from_args(args: argparse.Namespace) -> NECConfig:
         overrides["eval_episodes"] = args.eval_episodes
     if args.eval_seed is not None:
         overrides["eval_seed"] = args.eval_seed
+    if args.early_stopping is not None:
+        overrides["early_stopping"] = args.early_stopping
+    if args.early_stopping_patience is not None:
+        overrides["early_stopping_patience"] = args.early_stopping_patience
+    if args.early_stopping_min_delta is not None:
+        overrides["early_stopping_min_delta"] = args.early_stopping_min_delta
+    if args.early_stopping_min_steps is not None:
+        overrides["early_stopping_min_steps"] = args.early_stopping_min_steps
+    if args.early_stopping_target_score is not None:
+        overrides["early_stopping_target_score"] = args.early_stopping_target_score
     return make_nec_config(args.profile, **overrides)
 
 

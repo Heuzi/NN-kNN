@@ -58,6 +58,11 @@ class DQNConfig:
     eval_episodes: int = 20
     eval_seed: int = 10_000
     success_threshold: float | None = 475.0
+    early_stopping: bool = False
+    early_stopping_patience: int = 30
+    early_stopping_min_delta: float = 1.0
+    early_stopping_min_steps: int = 25_000
+    early_stopping_target_score: float | None = None
     hidden_sizes: tuple[int, int] = (120, 84)
     source_reference: str = "CleanRL dqn.py"
 
@@ -65,6 +70,100 @@ class DQNConfig:
         data = asdict(self)
         data["hidden_sizes"] = list(self.hidden_sizes)
         return data
+
+
+@dataclass
+class EarlyStoppingTracker:
+    enabled: bool
+    patience: int
+    min_delta: float
+    min_steps: int
+    target_score: float
+    best_mean_return: float | None = None
+    evaluations: int = 0
+    evaluations_without_improvement: int = 0
+    stopped_early: bool = False
+    stopping_reason: str | None = None
+    stopping_step: int | None = None
+
+    def update(self, mean_return: float, global_step: int) -> bool:
+        self.evaluations += 1
+        score = float(mean_return)
+        step = int(global_step)
+        if self.best_mean_return is None or score >= self.best_mean_return + self.min_delta:
+            self.best_mean_return = score
+            self.evaluations_without_improvement = 0
+        elif step >= self.min_steps:
+            self.evaluations_without_improvement += 1
+
+        if not self.enabled:
+            return False
+        if score >= self.target_score:
+            self.stopped_early = True
+            self.stopping_reason = "target_score"
+            self.stopping_step = step
+            return True
+        if step >= self.min_steps and self.evaluations_without_improvement >= self.patience:
+            self.stopped_early = True
+            self.stopping_reason = "patience"
+            self.stopping_step = step
+            return True
+        return False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def _validate_early_stopping_config(data: dict[str, Any]) -> None:
+    enabled = data.get("early_stopping", False)
+    if isinstance(enabled, str):
+        normalized = enabled.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            enabled = True
+        elif normalized in {"0", "false", "no", "off"}:
+            enabled = False
+        else:
+            raise ValueError("early_stopping must be a boolean")
+    data["early_stopping"] = bool(enabled)
+    patience = int(data.get("early_stopping_patience", 30))
+    min_delta = float(data.get("early_stopping_min_delta", 1.0))
+    min_steps = int(data.get("early_stopping_min_steps", 25_000))
+    target_score = data.get("early_stopping_target_score", None)
+    if patience <= 0:
+        raise ValueError("early_stopping_patience must be positive")
+    if min_delta < 0.0:
+        raise ValueError("early_stopping_min_delta must be non-negative")
+    if min_steps < 0:
+        raise ValueError("early_stopping_min_steps must be non-negative")
+    if target_score is not None:
+        target_score = float(target_score)
+        if not np.isfinite(target_score):
+            raise ValueError("early_stopping_target_score must be None or finite")
+    data["early_stopping_patience"] = patience
+    data["early_stopping_min_delta"] = min_delta
+    data["early_stopping_min_steps"] = min_steps
+    data["early_stopping_target_score"] = target_score
+
+
+def _build_early_stopping_tracker(config: Any, spec: RLTaskSpec) -> EarlyStoppingTracker:
+    configured_target = getattr(config, "early_stopping_target_score", None)
+    target_score = float(spec.max_episode_steps if configured_target is None else configured_target)
+    return EarlyStoppingTracker(
+        enabled=bool(getattr(config, "early_stopping", False)),
+        patience=int(getattr(config, "early_stopping_patience", 30)),
+        min_delta=float(getattr(config, "early_stopping_min_delta", 1.0)),
+        min_steps=int(getattr(config, "early_stopping_min_steps", 25_000)),
+        target_score=target_score,
+    )
+
+
+def _finalize_early_stopping_tracker(
+    tracker: EarlyStoppingTracker,
+    actual_timesteps: int,
+) -> None:
+    if tracker.stopping_reason is None:
+        tracker.stopping_reason = "budget_exhausted"
+        tracker.stopping_step = int(actual_timesteps)
 
 
 @dataclass
@@ -127,6 +226,7 @@ def make_dqn_config(profile: str = "fast", **overrides: Any) -> DQNConfig:
             "eval_frequency": 128,
             "eval_episodes": 2,
             "success_threshold": None,
+            "early_stopping": False,
         },
         "fast": {
             "profile": "fast",
@@ -138,6 +238,7 @@ def make_dqn_config(profile: str = "fast", **overrides: Any) -> DQNConfig:
             "eval_frequency": 5_000,
             "eval_episodes": 20,
             "success_threshold": 475.0,
+            "early_stopping": True,
         },
         "gold": {
             "profile": "gold",
@@ -149,12 +250,14 @@ def make_dqn_config(profile: str = "fast", **overrides: Any) -> DQNConfig:
             "eval_frequency": 10_000,
             "eval_episodes": 20,
             "success_threshold": 475.0,
+            "early_stopping": False,
         },
     }
     normalized = profile.strip().lower()
     if normalized not in profiles:
         raise ValueError(f"Unknown DQN profile '{profile}'. Choose one of: {', '.join(sorted(profiles))}")
     data = {**profiles[normalized], **overrides}
+    _validate_early_stopping_config(data)
     if "hidden_sizes" in data and not isinstance(data["hidden_sizes"], tuple):
         data["hidden_sizes"] = tuple(data["hidden_sizes"])
     return DQNConfig(**data)
@@ -434,6 +537,8 @@ def train_dqn(
     best_eval_step: int | None = None
     best_model_state: dict[str, torch.Tensor] | None = None
     best_target_state: dict[str, torch.Tensor] | None = None
+    early_stopping = _build_early_stopping_tracker(cfg, spec)
+    actual_timesteps = 0
 
     obs, _ = env.reset(seed=cfg.seed)
     episode_return = 0.0
@@ -442,6 +547,7 @@ def train_dqn(
 
     try:
         for global_step in range(cfg.total_timesteps):
+            completed_step = global_step + 1
             epsilon = _linear_schedule(
                 cfg.start_e,
                 cfg.end_e,
@@ -469,6 +575,7 @@ def train_dqn(
             obs = next_obs
             episode_return += float(reward)
             episode_length += 1
+            actual_timesteps = completed_step
 
             if replay_buffer.size >= cfg.learning_starts and global_step % cfg.train_frequency == 0:
                 batch = replay_buffer.sample(cfg.batch_size, run_device)
@@ -523,8 +630,7 @@ def train_dqn(
 
             if (
                 cfg.eval_frequency > 0
-                and global_step > 0
-                and global_step % cfg.eval_frequency == 0
+                and completed_step % cfg.eval_frequency == 0
             ):
                 eval_metrics = evaluate_dqn(
                     spec.name,
@@ -534,7 +640,7 @@ def train_dqn(
                     device=run_device,
                 )
                 eval_row = {
-                    "global_step": global_step,
+                    "global_step": completed_step,
                     "mean_return": eval_metrics["mean_return"],
                     "std_return": eval_metrics["std_return"],
                     "min_return": eval_metrics["min_return"],
@@ -545,18 +651,27 @@ def train_dqn(
                 eval_rows.append(eval_row)
                 if best_eval is None or eval_metrics["mean_return"] > best_eval["mean_return"]:
                     best_eval = eval_metrics
-                    best_eval_step = global_step
+                    best_eval_step = completed_step
                     best_model_state = _copy_state_dict_to_cpu(q_network)
                     best_target_state = _copy_state_dict_to_cpu(target_network)
                 if progress:
                     print(
                         "[dqn][eval] "
-                        f"step={global_step} mean_return={eval_row['mean_return']:.2f} "
+                        f"step={completed_step} mean_return={eval_row['mean_return']:.2f} "
                         f"max_return={eval_row['max_return']:.2f}",
                         flush=True,
                     )
+                if early_stopping.update(eval_metrics["mean_return"], completed_step):
+                    if progress:
+                        print(
+                            f"[dqn][early-stop] step={completed_step} reason={early_stopping.stopping_reason}",
+                            flush=True,
+                        )
+                    break
     finally:
         env.close()
+
+    _finalize_early_stopping_tracker(early_stopping, actual_timesteps)
 
     last_eval = evaluate_dqn(
         spec.name,
@@ -567,7 +682,7 @@ def train_dqn(
     )
     if best_eval is None or last_eval["mean_return"] >= best_eval["mean_return"]:
         selected_eval = last_eval
-        selected_step = cfg.total_timesteps
+        selected_step = actual_timesteps
         selected_source = "final"
         selected_model_state = _copy_state_dict_to_cpu(q_network)
         selected_target_state = _copy_state_dict_to_cpu(target_network)
@@ -591,13 +706,13 @@ def train_dqn(
         and cfg.success_threshold is not None
         and last_eval["mean_return"] >= cfg.success_threshold
     ):
-        first_success_step = cfg.total_timesteps
+        first_success_step = actual_timesteps
     training_efficiency = _build_training_efficiency(
         selected_eval=selected_eval,
         last_eval=last_eval,
         selected_step=selected_step,
         selected_source=selected_source,
-        total_timesteps=cfg.total_timesteps,
+        total_timesteps=actual_timesteps,
         success_threshold=cfg.success_threshold,
         first_success_step=first_success_step,
     )
@@ -613,6 +728,9 @@ def train_dqn(
         "selected_step": selected_step,
         "selected_source": selected_source,
         "training_efficiency": training_efficiency,
+        "configured_total_timesteps": cfg.total_timesteps,
+        "actual_timesteps": actual_timesteps,
+        "early_stopping": early_stopping.to_dict(),
         "passed": passed,
     }
     torch.save(checkpoint, checkpoint_path)
@@ -637,7 +755,9 @@ def train_dqn(
         "env_id": spec.env_id,
         "profile": cfg.profile,
         "seed": cfg.seed,
-        "total_timesteps": cfg.total_timesteps,
+        "total_timesteps": actual_timesteps,
+        "configured_total_timesteps": cfg.total_timesteps,
+        "actual_timesteps": actual_timesteps,
         "eval_episodes": cfg.eval_episodes,
         "success_threshold": cfg.success_threshold,
         "passed": passed,
@@ -646,6 +766,7 @@ def train_dqn(
         "selected_step": selected_step,
         "selected_source": selected_source,
         "training_efficiency": training_efficiency,
+        "early_stopping": early_stopping.to_dict(),
         "checkpoint_path": str(checkpoint_path),
         "run_dir": str(run_dir),
     }
