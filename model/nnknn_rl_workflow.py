@@ -59,7 +59,7 @@ class NNKNNRLConfig:
     critic_value_label_update_alpha: float = 0.25
     critic_value_label_activation_threshold: float | None = 0.0
     critic_value_label_append_on_no_match: bool = True
-    case_capacity: int = 10_000
+    case_capacity: int = 500
     max_grad_norm: float = 10.0
     min_case_entries: int = 32
     eval_frequency: int = 0
@@ -1210,7 +1210,7 @@ def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConf
         "smoke": {
             "profile": "smoke",
             "total_timesteps": 256,
-            "case_capacity": 1_000,
+            "case_capacity": 500,
             "learning_rate": 1e-3,
             "policy_update_episodes": 1,
             "eval_frequency": 0,
@@ -1228,7 +1228,7 @@ def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConf
         "debug": {
             "profile": "debug",
             "total_timesteps": 25_000,
-            "case_capacity": 5_000,
+            "case_capacity": 500,
             "learning_rate": 5e-4,
             "policy_update_episodes": 4,
             "eval_frequency": 0,
@@ -1248,7 +1248,7 @@ def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConf
             "profile": "fast",
             "total_timesteps": 150_000,
             "learning_rate": 5e-4,
-            "case_capacity": 10_000,
+            "case_capacity": 500,
             "policy_update_episodes": 4,
             "eval_frequency": 0,
             "eval_episode_frequency": 100,
@@ -1267,7 +1267,7 @@ def make_nnknn_rl_config(profile: str = "fast", **overrides: Any) -> NNKNNRLConf
             "profile": "gold",
             "total_timesteps": 500_000,
             "learning_rate": 5e-4,
-            "case_capacity": 25_000,
+            "case_capacity": 500,
             "policy_update_episodes": 8,
             "eval_frequency": 0,
             "eval_episode_frequency": 100,

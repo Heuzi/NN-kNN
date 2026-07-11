@@ -48,6 +48,8 @@ MLP actors are standard stochastic baselines that sample directly from their
 softmax policy with entropy regularization and effective epsilon zero. NN-kNN
 actors alone use readiness-driven uniform sampling followed by scheduled
 epsilon mixing.
+All NN-kNN-RL profiles default to a 500-case capacity; larger memories are
+explicit runtime/performance ablations.
 NN-kNN critic value labels default to fixed GAE targets, with optional mutable
 relabeling, trainable label parameters, or both as a hybrid mode. NN-kNN-RL
 summaries also report partial-rollout training, critic label-update counts, and

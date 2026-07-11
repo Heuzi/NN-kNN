@@ -141,6 +141,9 @@
     sampling and scheduled epsilon mixing, while MLP samples its policy directly
   - actor and critic maintenance runs at batch boundaries, reports each store
     separately, and clears stale Adam state after per-case compaction
+  - every NN-kNN-RL profile defaults to `case_capacity=500`; larger capacities
+    are explicit ablations because exact retrieval becomes the dominant runtime
+    cost
   - critic reporting separates `critic_optimization_mse` from periodic
     post-update in-sample fields prefixed `critic_train_`; these diagnostics do
     not affect gradients, checkpoint selection, or early stopping and are not a

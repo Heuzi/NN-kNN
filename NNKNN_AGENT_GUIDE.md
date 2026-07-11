@@ -185,7 +185,8 @@ Training by actor/critic choice:
   from GAE/TD-style computation.
 - Actor and critic case maintenance runs at batch boundaries. Run artifacts
   report per-store actor/critic prune and replacement counts, and compaction
-  clears stale Adam state for per-case parameters.
+  clears stale Adam state for per-case parameters. All profiles default to
+  `case_capacity=500`; larger capacities should be explicit ablations.
 - `loss_metrics.csv` distinguishes the MSE used for the final critic optimizer
   step (`critic_optimization_mse`) from optional post-update in-sample training
   diagnostics (`critic_train_mse`, `critic_train_explained_variance`, and

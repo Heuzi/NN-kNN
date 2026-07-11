@@ -145,7 +145,9 @@ Training behavior by variant:
 - Actor and critic maintenance runs only at batch boundaries. Capacity pressure
   and scheduled maintenance use `case_prune_quantile` (default `0.05`), report
   actor/critic counts separately, and clear stale Adam state after per-case
-  parameter compaction.
+  parameter compaction. Every NN-kNN-RL profile defaults to a 500-case capacity;
+  larger memories are explicit experiment overrides because retrieval cost grows
+  substantially with active cases.
 - Critic reporting uses `critic_optimization_mse` for the final optimization
   loss and `critic_train_*` for optional post-update in-sample diagnostics.
   Periodic behavior-policy rollouts excluded from all training and case memory
